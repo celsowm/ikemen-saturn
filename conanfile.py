@@ -12,6 +12,10 @@ the installed config, exactly as it does for a `cmake --install` prefix.
 
 The game data (upstream Ikemen GO assets) is fetched at build time from the
 pins in scripts/external-pins.env; none of it is stored in the package sources.
+
+The sprite converters need Pillow in the Python that runs Conan:
+
+    python -m pip install -r requirements.txt
 """
 import os
 import subprocess
@@ -37,7 +41,7 @@ class IkemenSaturnConan(ConanFile):
     exports_sources = (
         "CMakeLists.txt", "VERSION", "LICENSE", "NOTICE.md",
         "cmake/*", "src/*", "tools/*", "scripts/external-pins.env",
-        "scripts/fetch_external.py", "tests/*",
+        "scripts/fetch_external.py", "tests/*", "requirements.txt",
     )
 
     def set_version(self):
@@ -69,7 +73,10 @@ class IkemenSaturnConan(ConanFile):
                  "--dest", external],
                 check=True)
         cmake = CMake(self)
-        cmake.configure(variables={"IKEMEN_EXTERNAL_DIR": external.replace("\\", "/")})
+        # Run the converters with the interpreter that runs Conan, so the
+        # Pillow requirement above is the one that gets checked.
+        cmake.configure(variables={"IKEMEN_EXTERNAL_DIR": external.replace("\\", "/"),
+                                   "Python3_EXECUTABLE": sys.executable.replace("\\", "/")})
         cmake.build()
 
     def package(self):

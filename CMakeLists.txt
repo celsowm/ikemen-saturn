@@ -32,6 +32,17 @@ option(IKEMEN_ENABLE_ORACLE_TESTS
 find_package(LibSaturn ${LIBSATURN_MIN_VERSION} CONFIG REQUIRED)
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
+# The sprite converters decode PNGs with Pillow; fail here, with the fix, rather
+# than deep inside the asset build.
+execute_process(COMMAND "${Python3_EXECUTABLE}" -c "import PIL"
+    RESULT_VARIABLE _pillow_rc OUTPUT_QUIET ERROR_QUIET)
+if(NOT _pillow_rc EQUAL 0)
+    message(FATAL_ERROR
+        "Pillow is not installed for ${Python3_EXECUTABLE} (needed by the sprite "
+        "converters). Run: \"${Python3_EXECUTABLE}\" -m pip install -r "
+        "${CMAKE_CURRENT_SOURCE_DIR}/requirements.txt")
+endif()
+
 include(cmake/IkemenSources.cmake)
 include(cmake/IkemenAssets.cmake)
 
