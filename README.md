@@ -18,6 +18,7 @@ header or build-tree path anywhere in this repository.
   package). Set `LIBSATURN_PREFIX` to it.
 - The `sh2eb-elf` GCC toolchain on `PATH`, CMake 3.24+, Ninja, Python 3.10+,
   and `mkisofs`/`genisoimage`/`xorrisofs` for the disc image.
+- `pip install -r requirements.txt` (Pillow, used by the sprite converters).
 - Network access once, to fetch the pinned upstream data (below).
 - Optional, for the oracle: Go, SDL2, libxmp and ffmpeg dev packages
   (MSYS2 ucrt64 or Linux). See `docs/IKEMEN_COMPAT.md`.
