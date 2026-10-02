@@ -1,4 +1,8 @@
-# Ikemen Saturn (training subset)
+# Ikemen Saturn: architecture and fidelity notes
+
+(Build and run instructions are in the top-level README.)
+
+## Training subset
 
 Kung Fu Man vs the ZSS Kung Fu Man variant, using the original Ikemen/MUGEN
 character data on Saturn hardware. P1 and P2 now own independent AIR/SFF
@@ -18,13 +22,9 @@ fightfx.sff/fightfx.air into FIGHTFX.BIN and occupy the third cart slot.
 Internal WRAM is reserved for hot simulation state plus bounded
 I/O/decode/prefetch scratch; VDP1 VRAM remains a 32-entry texture working set.
 
-Mednafen's normal LibSaturn launcher already defaults to the 4 MiB cart:
-
-    .\run-example.ps1 ikemen_saturn -BuildFirst -MednafenCart extram4
-
-The Ymir harness must be given the matching profile explicitly:
-
-    .\harness\run-harness.ps1 -Example ikemen_saturn -BuildFirst -RamCart 4m
+`scripts/run-emulator.ps1` boots the disc in the LibSaturn Ymir probe with the
+4 MiB cart plugged in. In Mednafen, select the 4 MiB expansion
+(`-MednafenCart extram4` in LibSaturn's launcher).
 
 ## Controls
 
@@ -46,15 +46,17 @@ trace directly from upstream Ikemen GO. The trace covers root fighters,
 Helpers, projectiles, state/animation/physics/contact data, targets and RNG.
 
 ```sh
-make ikemen-oracle-run
-make ikemen-oracle-saturn
-make ikemen-oracle-diff
+cmake --preset host && cmake --build --preset host   # builds ikemen_oracle_trace
+python tools/ikemen_oracle/run.py ...                # upstream trace
+python tools/ikemen_oracle/run_saturn.py ...         # Saturn-side trace
+python tools/ikemen_oracle/diff.py ...               # frame diff
 ```
 
-Or execute the full upstream-oracle -> host-Saturn -> frame-diff flow:
+Or execute the full upstream-oracle -> host-Saturn -> frame-diff flow for
+every scenario:
 
 ```sh
-make ikemen-oracle-check
+cmake --build build/host --target ikemen_oracle_suite
 ```
 
 The oracle is deliberately not linked into the Saturn runtime. See
@@ -65,6 +67,9 @@ The build consumes reference data from two ignored `.external/` checkouts:
 
 * `.external/Ikemen-GO-Screenpack`: KFM, KFM ZSS, Training Room, common/fight assets
 * `.external/Ikemen-GO`: `data/common1.cns.zss`
+
+Both are fetched at the commits pinned in `scripts/external-pins.env` by
+`python scripts/fetch_external.py`.
 
 Neither project is linked into the Saturn runtime. Their text/binary formats are
 compiled offline into bounded C tables.
@@ -81,7 +86,8 @@ The Saturn does not parse Ikemen formats at runtime:
 * `tools/ikemen_cns.py`: KFM CNS plus the supported `common1.cns.zss`
   subset lowered into compact state/controller tables
 
-Generated tables live under `build/generated/ikemen_saturn/`.
+Generated tables live under `<build>/generated/ikemen_saturn/` (the build
+rules are in `cmake/IkemenAssets.cmake`) and are never committed.
 
 ## Current fidelity
 
@@ -447,5 +453,5 @@ Sprites, palettes, sounds and Training Room content come from
 Common-state source data comes from
 [Ikemen-GO](https://github.com/ikemen-engine/Ikemen-GO).
 Kung Fu Man originates from Elecbyte; see the upstream repositories for their
-licensing and attribution details. Source checkouts remain under
-`.external/`; generated tables are rebuilt locally.
+licensing and attribution details (see also NOTICE.md). Source checkouts
+stay under `.external/`; generated tables are rebuilt locally.

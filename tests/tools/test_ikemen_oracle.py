@@ -236,15 +236,16 @@ def test_saturn_trace_shares_the_console_frame_step() -> None:
     trace = (
         ROOT / "tools" / "ikemen_oracle" / "saturn_trace.cpp"
     ).read_text(encoding="utf-8")
-    main_c = (
-        ROOT / "examples" / "ikemen_saturn" / "main.c"
-    ).read_text(encoding="utf-8")
-    runner = (
-        ROOT / "tools" / "ikemen_oracle" / "run_saturn.py"
-    ).read_text(encoding="utf-8")
-    # The oracle must measure the code the console runs, not a look-alike loop.
+    main_c = (ROOT / "src" / "main.c").read_text(encoding="utf-8")
+    sources = (ROOT / "cmake" / "IkemenSources.cmake").read_text(
+        encoding="utf-8")
+    cmake = (ROOT / "CMakeLists.txt").read_text(encoding="utf-8")
+    # The oracle must measure the code the console runs, not a look-alike loop:
+    # one logic source list feeds the firmware and the trace binary.
     assert "ik_frame_step(" in trace and "ik_frame_step(" in main_c
-    assert "ikemen_frame.c" in runner
+    assert "ikemen_frame.c" in sources
+    assert "IKEMEN_LOGIC_SOURCES" in cmake
+    assert "add_executable(ikemen_oracle_trace" in cmake
     assert "ik_command_update(" not in trace
 
 def test_hook_matches_upstream_symbols() -> None:
@@ -283,12 +284,11 @@ def test_per_field_tolerance_and_fight_split() -> None:
 
     # The fight runtime is split by responsibility; the oracle builds them all.
     root = Path(__file__).resolve().parents[2]
-    parts = sorted(
-        (root / "examples" / "ikemen_saturn").glob("ikemen_fight*.c"))
+    parts = sorted((root / "src").glob("ikemen_fight*.c"))
     assert len(parts) >= 15
-    runner = (root / "tools" / "ikemen_oracle" / "run_saturn.py").read_text(
+    sources = (root / "cmake" / "IkemenSources.cmake").read_text(
         encoding="utf-8")
-    assert 'glob("ikemen_fight*.c")' in runner
+    assert "ikemen_fight*.c" in sources
     for part in parts:
         lines = len(part.read_text(encoding="utf-8").splitlines())
         assert lines < 650, (part.name, lines)
@@ -304,11 +304,12 @@ def main() -> int:
     test_saturn_trace_shares_the_console_frame_step()
     test_hook_matches_upstream_symbols()
     test_per_field_tolerance_and_fight_split()
+    test_suite_flags_vacuous_scenarios()
+    test_timeline_side_keeps_other_players_script()
+    test_generated_scenarios_are_current()
     print("ikemen oracle tools: OK")
     return 0
 
-if __name__ == "__main__":
-    raise SystemExit(main())
 
 
 def test_suite_flags_vacuous_scenarios() -> None:
@@ -383,3 +384,7 @@ def test_generated_scenarios_are_current() -> None:
             f"{name}.json is stale: run gen_scenarios.py"
         # Every input range must fit the scenario.
         build_timeline(scenario)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

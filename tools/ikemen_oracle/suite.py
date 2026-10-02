@@ -65,6 +65,13 @@ def main() -> int:
         default=Path(".external/Ikemen-GO"),
     )
     parser.add_argument(
+        "--trace-bin",
+        type=Path,
+        default=None,
+        help="host-built ikemen_oracle_trace executable "
+             "(default: build/host/ikemen_oracle_trace)",
+    )
+    parser.add_argument(
         "--keep-going",
         action="store_true",
         help="continue after mismatches instead of stopping at the first one",
@@ -108,6 +115,8 @@ def main() -> int:
                 str(scenario),
                 "--trace",
                 str(saturn),
+                *(["--trace-bin", str(args.trace_bin.resolve())]
+                  if args.trace_bin else []),
             ],
             [
                 sys.executable,

@@ -1,0 +1,21 @@
+# Build trees and generated assets (all assets are produced at build time)
+/build/
+/build-*/
+/out/
+/.external/
+/CMakeUserPresets.json
+__pycache__/
+*.pyc
+*.o
+*.a
+*.elf
+*.map
+*.iso
+*.cue
+*.bin
+*.BIN
+*.log
+*.tmp
+# Oracle run output
+/tools/ikemen_oracle/out/
+/tools/ikemen_oracle/.cache/

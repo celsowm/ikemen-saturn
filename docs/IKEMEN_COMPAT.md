@@ -8,15 +8,16 @@ characters are out of scope for now (the "P2 ZSS" is only a sprite/AIR label).
 
 From the MSYS2 **ucrt64** shell (Windows Go on PATH, e.g. `/e/Program Files/Go/bin`):
 
-    make ikemen-oracle-suite            # all default scenarios, first divergence each
-    python tools/ikemen_oracle/suite.py --keep-going kfm_walk_120
+    cmake --preset host && cmake --build --preset host       # builds ikemen_oracle_trace
+    cmake --build build/host --target ikemen_oracle_suite    # all default scenarios, first divergence each
+    python tools/ikemen_oracle/suite.py --trace-bin build/host/ikemen_oracle_trace --keep-going kfm_walk_120
 
 Upstream needs SDL2, libxmp and ffmpeg dev packages from `pacman` (ucrt64) and
 the Screenpack checkout; `run.py` reports anything missing, sets
 `GOEXPERIMENT=arenas`, forces the host C compiler and merges the Screenpack
 into `.external/Ikemen-GO`. The Saturn side is the host build of the same code
 the console runs: `main.c` and `saturn_trace.cpp` both call `ik_frame_step()`
-(`examples/ikemen_saturn/ikemen_frame.c`).
+(`src/ikemen_frame.c`).
 
 ## Trace contract (what is compared)
 
@@ -237,6 +238,6 @@ Host tests: all `test_ikemen_*` pass with no tracked gaps. `tests/tools/test_ike
 
 ## Other measured gaps (not yet scheduled in the oracle)
 
-See `examples/ikemen_saturn/README.md` "Still deferred" and the plan: round flow
+See `docs/ARCHITECTURE.md` "Still deferred" and the plan: round flow
 (win poses never run), defence/fall-defence scaling, `[Statedef -3]` sounds,
 sound banks, explods/projectiles/helpers (entity runtime), HUD power bar.

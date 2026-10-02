@@ -1,8 +1,8 @@
 #include <cstdio>
 #include <cstdlib>
 
-#include "examples/ikemen_saturn/ikemen_fight.h"
-#include "examples/ikemen_saturn/ikemen_entity_runtime.h"
+#include "ikemen_fight.h"
+#include "ikemen_entity_runtime.h"
 
 #define EQ(a,b) do { if ((a)!=(b)) { std::fprintf(stderr,"FAIL %d: %s=%ld %s=%ld\n",__LINE__,#a,(long)(a),#b,(long)(b)); std::exit(1); } } while(0)
 #define OK(x) do { if (!(x)) { std::fprintf(stderr,"FAIL %d: %s\n",__LINE__,#x); std::exit(1); } } while(0)

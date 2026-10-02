@@ -1,7 +1,7 @@
 #include <cstdio>
 #include <cstdlib>
 
-#include "examples/ikemen_saturn/ikemen_entity_runtime.h"
+#include "ikemen_entity_runtime.h"
 
 #define OK(x) do { if (!(x)) { std::fprintf(stderr, "FAIL %s:%d: %s\n", __FILE__, __LINE__, #x); std::exit(1); } } while (0)
 #define EQ(a,b) OK((a)==(b))

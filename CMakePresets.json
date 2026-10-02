@@ -1,0 +1,41 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": { "major": 3, "minor": 24, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "saturn",
+      "displayName": "Saturn firmware (SH-2 cross build)",
+      "description": "Needs LIBSATURN_PREFIX: the prefix LibSaturn was installed to (cmake --install, or the Conan package folder).",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/saturn",
+      "toolchainFile": "$env{LIBSATURN_PREFIX}/share/libsaturn/toolchains/sh2eb-elf.cmake",
+      "cacheVariables": {
+        "CMAKE_PREFIX_PATH": "$env{LIBSATURN_PREFIX}",
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_C_FLAGS_RELEASE": "-O2"
+      }
+    },
+    {
+      "name": "host",
+      "displayName": "Host tests and oracle trace binary",
+      "description": "Native compiler. Only the installed LibSaturn headers are used.",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/host",
+      "cacheVariables": {
+        "CMAKE_PREFIX_PATH": "$env{LIBSATURN_PREFIX}",
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    }
+  ],
+  "buildPresets": [
+    { "name": "saturn", "configurePreset": "saturn" },
+    { "name": "host", "configurePreset": "host" }
+  ],
+  "testPresets": [
+    {
+      "name": "host",
+      "configurePreset": "host",
+      "output": { "outputOnFailure": true }
+    }
+  ]
+}

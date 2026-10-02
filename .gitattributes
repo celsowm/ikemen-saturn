@@ -1,0 +1,11 @@
+* text=auto
+*.sh text eol=lf
+*.pad text eol=lf
+*.json text eol=lf
+*.py text eol=lf
+*.c text eol=lf
+*.h text eol=lf
+*.cpp text eol=lf
+*.cmake text eol=lf
+CMakeLists.txt text eol=lf
+*.ps1 text eol=crlf

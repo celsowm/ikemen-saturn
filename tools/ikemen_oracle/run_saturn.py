@@ -3,7 +3,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
+import sys
 from pathlib import Path
 
 try:
@@ -13,7 +15,12 @@ except ImportError:
 
 ROOT = Path(__file__).resolve().parents[2]
 
-HOST_BIN = ROOT / "build" / "ikemen_oracle" / "saturn_trace"
+# The Saturn side of the oracle is the host build of the same sources the
+# console runs (CMake target ikemen_oracle_trace in the host configuration):
+# one source list, compiled by CMake with the generated KFM assets.
+DEFAULT_TRACE_BIN = ROOT / "build" / "host" / (
+    "ikemen_oracle_trace.exe" if sys.platform == "win32"
+    else "ikemen_oracle_trace")
 
 def load_scenario(path: Path) -> dict:
     data = json.loads(path.read_text(encoding="utf-8"))
@@ -30,9 +37,11 @@ def main() -> int:
         default=Path("build/ikemen_oracle/libsaturn.jsonl"),
     )
     parser.add_argument(
-        "--no-generate",
-        action="store_true",
-        help="reuse existing generated KFM assets",
+        "--trace-bin",
+        type=Path,
+        default=Path(os.environ.get("IKEMEN_TRACE_BIN", DEFAULT_TRACE_BIN)),
+        help="host-built ikemen_oracle_trace executable "
+             "(cmake --preset host && cmake --build --preset host)",
     )
     args = parser.parse_args()
 
@@ -41,60 +50,16 @@ def main() -> int:
     seed = int(scenario.get("seed", 1))
     trace = args.trace.resolve()
     trace.parent.mkdir(parents=True, exist_ok=True)
-    HOST_BIN.parent.mkdir(parents=True, exist_ok=True)
+    host_bin = args.trace_bin.resolve()
+    if not host_bin.is_file():
+        raise SystemExit(
+            f"{host_bin} not found: build the host configuration first "
+            "(cmake --preset host && cmake --build --preset host)")
     timeline = trace.parent / "inputs.txt"
     write_timeline(timeline, scenario)
 
-    if not args.no_generate:
-        subprocess.run(
-            [
-                "make",
-                "EXAMPLE=ikemen_saturn",
-                "build/generated/ikemen_saturn/kfm_frames.c",
-                "build/generated/ikemen_saturn/kfm_cns.c",
-                "build/generated/ikemen_saturn/kfm_commands.c",
-                "build/generated/ikemen_saturn/kfm_state_rules.c",
-            ],
-            cwd=ROOT,
-            check=True,
-        )
-
-    # ikemen_fight is split into ikemen_fight*.c, one responsibility each.
-    fight_sources = sorted(
-        p.relative_to(ROOT).as_posix()
-        for p in (ROOT / "examples" / "ikemen_saturn").glob("ikemen_fight*.c")
-    )
-    sources = [
-        "tools/ikemen_oracle/saturn_trace.cpp",
-        *fight_sources,
-        "examples/ikemen_saturn/ikemen_frame.c",
-        "examples/ikemen_saturn/ikemen_anim.c",
-        "examples/ikemen_saturn/ikemen_cns.c",
-        "examples/ikemen_saturn/ikemen_command.c",
-        "examples/ikemen_saturn/ikemen_expr.c",
-        "examples/ikemen_saturn/ikemen_entity.c",
-        "examples/ikemen_saturn/ikemen_entity_runtime.c",
-        "build/generated/ikemen_saturn/kfm_frames.c",
-        "build/generated/ikemen_saturn/kfm_cns.c",
-        "build/generated/ikemen_saturn/kfm_commands.c",
-        "build/generated/ikemen_saturn/kfm_state_rules.c",
-    ]
-    compile_cmd = [
-        "g++",
-        "-std=c++20",
-        "-Wall",
-        "-Wextra",
-        "-O1",
-        "-Iinclude",
-        "-I.",
-        "-Ibuild/generated",
-        *sources,
-        "-o",
-        str(HOST_BIN),
-    ]
-    subprocess.run(compile_cmd, cwd=ROOT, check=True)
     run_cmd = [
-        str(HOST_BIN), str(trace), str(frames), str(seed), str(timeline),
+        str(host_bin), str(trace), str(frames), str(seed), str(timeline),
         setup_string(scenario),
     ]
     subprocess.run(run_cmd, cwd=ROOT, check=True)
