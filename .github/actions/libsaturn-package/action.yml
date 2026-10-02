@@ -1,0 +1,71 @@
+name: Install LibSaturn package
+description: >
+  Provides the SH-2 toolchain on PATH and an installed LibSaturn package prefix
+  (outputs.prefix). The LibSaturn checkout is scratch space used only to
+  produce the package; this project's build never references it.
+inputs:
+  repository:
+    description: GitHub repository that produces the package
+    default: celsowm/libsaturn
+  ref:
+    description: Tag, branch or commit of that repository
+    default: main
+outputs:
+  prefix:
+    description: Install prefix of the LibSaturn package
+    value: ${{ steps.paths.outputs.prefix }}
+runs:
+  using: composite
+  steps:
+    - name: Check out LibSaturn (package source only)
+      uses: actions/checkout@v4
+      with:
+        repository: ${{ inputs.repository }}
+        ref: ${{ inputs.ref }}
+        path: libsaturn-src
+
+    - name: Paths
+      id: paths
+      shell: bash
+      run: |
+        echo "prefix=${RUNNER_TEMP}/libsaturn-prefix" >> "$GITHUB_OUTPUT"
+        echo "sha=$(git -C libsaturn-src rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+    - name: Install build dependencies
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential texinfo bison flex wget xz-utils ninja-build xorriso
+
+    - name: Restore the cached toolchain and package
+      id: cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          ${{ runner.temp }}/saturn-tools
+          ${{ runner.temp }}/libsaturn-prefix
+        key: libsaturn-package-${{ runner.os }}-${{ steps.paths.outputs.sha }}
+
+    - name: Build the SH-2 toolchain
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      env:
+        PREFIX: ${{ runner.temp }}/saturn-tools
+        ROOT: ${{ runner.temp }}/saturn-toolchain-src
+      run: JOBS="$(nproc)" bash libsaturn-src/scripts/build-toolchain.sh
+
+    - name: Build and install the package
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        export PATH="${RUNNER_TEMP}/saturn-tools/bin:${PATH}"
+        cmake -G Ninja -S libsaturn-src -B "${RUNNER_TEMP}/libsaturn-build" \
+          -DCMAKE_TOOLCHAIN_FILE="${GITHUB_WORKSPACE}/libsaturn-src/cmake/toolchains/sh2eb-elf.cmake" \
+          -DCMAKE_BUILD_TYPE=Release -DLIBSATURN_BUILD_TESTS=OFF \
+          -DCMAKE_INSTALL_PREFIX="${RUNNER_TEMP}/libsaturn-prefix"
+        cmake --build "${RUNNER_TEMP}/libsaturn-build"
+        cmake --install "${RUNNER_TEMP}/libsaturn-build"
+
+    - name: Put the toolchain on PATH
+      shell: bash
+      run: echo "${RUNNER_TEMP}/saturn-tools/bin" >> "$GITHUB_PATH"

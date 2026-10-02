@@ -1,0 +1,95 @@
+name: CI
+
+# Ikemen Saturn is an ordinary LibSaturn consumer. Each job first obtains an
+# *installed* LibSaturn package (a prefix produced by `cmake --install`; see
+# .github/actions/libsaturn-package) and then builds this project against that
+# prefix alone.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      oracle:
+        description: Also run the full upstream Ikemen GO oracle (long)
+        type: boolean
+        default: false
+
+env:
+  # LibSaturn release tag or commit whose installed package this project builds
+  # against. Bump together with LIBSATURN_MIN_VERSION in CMakeLists.txt.
+  LIBSATURN_REF: main
+
+jobs:
+  build:
+    name: Host tests and firmware disc
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: libsaturn
+        uses: ./.github/actions/libsaturn-package
+        with:
+          ref: ${{ env.LIBSATURN_REF }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Fetch pinned upstream data
+        run: python scripts/fetch_external.py
+
+      - name: Host tests
+        env:
+          LIBSATURN_PREFIX: ${{ steps.libsaturn.outputs.prefix }}
+        run: |
+          cmake --preset host
+          cmake --build --preset host
+          ctest --preset host
+
+      - name: Firmware and disc
+        env:
+          LIBSATURN_PREFIX: ${{ steps.libsaturn.outputs.prefix }}
+        run: |
+          cmake --preset saturn
+          cmake --build --preset saturn
+          test -f build/saturn/disc/ikemen_saturn.cue
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ikemen-saturn-disc
+          path: |
+            build/saturn/ikemen_saturn.app.bin
+            build/saturn/disc/ikemen_saturn.cue
+            build/saturn/disc/ikemen_saturn.bin
+
+  oracle:
+    name: Upstream oracle
+    if: github.event_name == 'workflow_dispatch' && inputs.oracle
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+      - id: libsaturn
+        uses: ./.github/actions/libsaturn-package
+        with:
+          ref: ${{ env.LIBSATURN_REF }}
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Upstream build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libsdl2-dev libxmp-dev libavcodec-dev libavformat-dev libswresample-dev libswscale-dev libgl1-mesa-dev xvfb
+      - run: python scripts/fetch_external.py
+      - name: Oracle suite
+        env:
+          LIBSATURN_PREFIX: ${{ steps.libsaturn.outputs.prefix }}
+          GOEXPERIMENT: arenas
+        run: |
+          cmake --preset host
+          xvfb-run -a cmake --build build/host --target ikemen_oracle_suite
