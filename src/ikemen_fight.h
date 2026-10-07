@@ -29,6 +29,11 @@ extern "C" {
  * upstream with the stock screenpack. */
 #define IK_ROUND_FIGHT_WAIT_TICKS 111u
 #define IK_KO_FREEZE_FRAMES 120
+/* Stock Ikemen-GO-Screenpack fight.def round flow. */
+#define IK_ROUND_SLOW_TIME 60u
+#define IK_ROUND_SLOW_FADE_TIME 45u
+#define IK_ROUND_OVER_WAIT_TIME 45u
+#define IK_ROUND_SLOW_SPEED_Q16 16384u /* 0.25 */
 #define IK_MAX_EFFECT_EVENTS 2
 #define IK_MAX_SOUND_EVENTS 4
 
@@ -275,6 +280,11 @@ typedef struct ik_fight {
     uint32_t hits_p1;
     uint32_t hits_p2;
     uint32_t ko_freeze;
+    /* KO/outro clock. ko_slow_ticks counts logical ticks, while
+     * ko_speed_accum_q16 schedules those ticks on rendered frames. */
+    uint16_t ko_slow_ticks;
+    uint16_t round_outro_ticks;
+    uint32_t ko_speed_accum_q16;
     uint16_t pause_time;
     uint16_t pause_move_time;
     uint16_t pause_end_cmd_buffer_time;
