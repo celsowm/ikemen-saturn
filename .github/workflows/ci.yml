@@ -148,6 +148,27 @@ jobs:
                 "build/ikemen_oracle/suite/$scenario/ikemen.jsonl" \
                 "build/ikemen_oracle/suite/$scenario/libsaturn.jsonl" \
                 --limit 20 --pos-eps 1.5 --vel-eps 0.35 || true
+              python - "$scenario" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+name = sys.argv[1]
+base = Path("build/ikemen_oracle/suite") / name
+oracle = [json.loads(x) for x in (base / "ikemen.jsonl").read_text().splitlines()]
+saturn = [json.loads(x) for x in (base / "libsaturn.jsonl").read_text().splitlines()]
+start = next((i for i, row in enumerate(oracle) if row.get("round_state") == 3), 0)
+for i in range(max(0, start - 3), min(len(oracle), start + 14)):
+    def pick(row):
+        return {
+            "rs": row.get("round_state"),
+            "p1": {k: row["chars"][0].get(k) for k in
+                   ("state_no","state_time","anim","anim_time","hit_pause","move_contact_time")},
+            "p2": {k: row["chars"][1].get(k) for k in
+                   ("state_no","state_time","anim","anim_time","hit_pause","hit_shake_time","life")},
+        }
+    print(f"FRAME {i} upstream={pick(oracle[i])} saturn={pick(saturn[i])}")
+PY
             fi
           done
           exit $status
