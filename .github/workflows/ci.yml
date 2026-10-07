@@ -123,6 +123,13 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libsdl2-dev libxmp-dev libavcodec-dev libavformat-dev libswresample-dev libswscale-dev libavfilter-dev libgtk-3-dev libgl1-mesa-dev xvfb
       - run: python scripts/fetch_external.py
+      - name: Patch Ikemen video dependency for Ubuntu FFmpeg 6
+        run: |
+          cd .external/Ikemen-GO
+          go mod download github.com/ikemen-engine/reisen
+          REISEN_VERSION="$(go list -m -f '{{.Version}}' github.com/ikemen-engine/reisen)"
+          REISEN_DIR="$(go env GOMODCACHE)/github.com/ikemen-engine/reisen@${REISEN_VERSION}"
+          sed -i '/params\.color_space =/d; /params\.color_range =/d' "${REISEN_DIR}/video.go"
       - name: Standing KO frame oracle
         env:
           LIBSATURN_PREFIX: ${{ steps.libsaturn.outputs.prefix }}
