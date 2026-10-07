@@ -154,16 +154,23 @@ static void update_paused(
     fight->frame++;
 }
 
-/* Returns 1 when the round clock ran out this tick. */
-static int tick_round_timer(ik_fight_t* fight) {
-    /* Upstream stops the round clock once the KO/timeout outro starts. */
-    if (fight->round_state != 2u || fight->timer_frames == 0u) return 0;
-    if (--fight->timer_frames != 0u) return 0;
-    fight->round_over = 1;
-    fight->winner =
-        (fight->fighters[0].hp >= fight->fighters[1].hp) ? 1u : 2u;
+/* Step the active-round clock. A timeout is a round-end decision, not an
+ * immediate freeze: upstream enters the same RoundState 3/4 outro machinery
+ * (without KO slow motion), keeps characters ticking, then dispatches
+ * win/lose/draw poses. */
+static void tick_round_timer(ik_fight_t* fight) {
+    if (fight->round_state != 2u || fight->timer_frames == 0u) return;
+    if (--fight->timer_frames != 0u) return;
+
+    const int p1 = fight->fighters[0].hp;
+    const int p2 = fight->fighters[1].hp;
+    fight->winner = p1 == p2 ? 0u : (uint8_t)(p1 > p2 ? 1u : 2u);
+    fight->round_state = 3u;
+    fight->round_outro_ticks = 0u;
+    fight->ko_slow_ticks = 0u;
+    fight->ko_speed_accum_q16 = 0u;
+    fight->ko_tick_frame_pending = 0u;
     fight->events |= IK_EVENT_ROUND_OVER;
-    return 1;
 }
 
 static void advance_round_state(ik_fight_t* fight) {
@@ -477,7 +484,7 @@ void ik_fight_update(ik_fight_t* fight,
         }
     }
 
-    if (tick_round_timer(fight)) return;
+    tick_round_timer(fight);
     fight->ko_split_clocks = (uint8_t)split_ko_clocks;
 
     /* Upstream runs attackers first, then idle players, then the rest (a
