@@ -150,4 +150,21 @@ jobs:
                 --limit 20 --pos-eps 1.5 --vel-eps 0.35 || true
             fi
           done
+          echo "== upper KO frames 96..108 =="
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path("build/ikemen_oracle/suite/kfm_ko_upper_y_240")
+          for name in ("ikemen", "libsaturn"):
+              print("--", name, "--")
+              rows = [json.loads(x) for x in (root / f"{name}.jsonl").read_text().splitlines()]
+              for i in range(96, 109):
+                  r = rows[i]
+                  c0, c1 = r["chars"][0], r["chars"][1]
+                  print(i, "rs", r.get("round_state"),
+                        "p1", c0["state_no"], c0["state_time"], c0["anim"], c0["anim_elem"], c0["anim_time"],
+                        "hp", c0["hit_pause"], "mc", c0["move_contact_time"], "ht", c0["hitdef_targets"],
+                        "p2", c1["state_no"], c1["state_time"], c1["anim"], c1["anim_elem"], c1["anim_time"],
+                        "life", c1["life"], "jug", c1["juggle"], "pos", c1["pos"][:2], "vel", c1["vel"][:2])
+          PY
           exit $status
