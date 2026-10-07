@@ -3966,7 +3966,8 @@ def compile_common_states(
                 ),
                 _common_ctrl(
                     5110, "IK_CNS_CTRL_CHANGE_STATE",
-                    "IK_CNS_TRIGGER_NOT_ALIVE", 0, 0, 5150, 0,
+                    "IK_CNS_TRIGGER_DEFEATED_LIEDOWN_READY",
+                    0, 0, 5150, 0,
                 ),
                 _common_ctrl(
                     5110, "IK_CNS_CTRL_CHANGE_STATE",
