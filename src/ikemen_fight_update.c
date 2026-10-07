@@ -298,10 +298,14 @@ void ik_fight_update(ik_fight_t* fight,
 
     /* Upstream exposes the lethal hit with RoundState still at 2 for the
      * deciding frame. The KO transition becomes visible on the next logical
-     * tick, after life has already reached zero. Checking here (rather than
-     * after contact resolution below) preserves that one-frame boundary. */
+     * tick, after life has already reached zero. That transition tick itself
+     * still executes normally; KO slow motion starts throttling subsequent
+     * ticks. This matters for hit-pause/state clocks on the first KO frame. */
+    const uint8_t round_state_before_ko = fight->round_state;
     check_knockout(fight, &in);
-    if (!ko_tick_ready(fight)) return;
+    const int ko_started_this_tick =
+        round_state_before_ko < 3u && fight->round_state >= 3u;
+    if (!ko_started_this_tick && !ko_tick_ready(fight)) return;
     if (tick_round_timer(fight)) return;
 
     /* Upstream runs attackers first, then idle players, then the rest (a
