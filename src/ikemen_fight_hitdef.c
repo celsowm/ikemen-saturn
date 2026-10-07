@@ -175,6 +175,27 @@ const ik_cns_hitoverride_t* ikf_active_hitoverride(
     return 0;
 }
 
+const ik_cns_hitdef_t* ikf_current_hitdef(
+    const ik_fight_t* fight,
+    const ik_fighter_t* fighter,
+    uint8_t* out_local_index
+) {
+    if (!fight || !fighter) return 0;
+    const ik_cns_asset_t* state_cns = cns_for_fighter(fight, fighter);
+    if (!state_cns || !state_cns->hitdefs ||
+        fighter->active_hitdef_global < 0 ||
+        fighter->active_hitdef_global >= (int16_t)state_cns->hitdef_count) {
+        return 0;
+    }
+    if (out_local_index) {
+        *out_local_index = (uint8_t)(
+            fighter->active_hitdef_local < 0
+                ? 0
+                : fighter->active_hitdef_local);
+    }
+    return &state_cns->hitdefs[(uint16_t)fighter->active_hitdef_global];
+}
+
 const ik_cns_hitdef_t* ikf_active_hitdef(ik_fight_t* fight,
                                             const ik_frame_table_t* frames,
                                             ik_fighter_t* fighter,
