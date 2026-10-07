@@ -3998,7 +3998,10 @@ def compile_common_states(
             deferred[n] = ["HitFallSet and post-get-up attribute windows"]
 
         elif n == 5150:
-            row = state_row(5150, 5140, 0, spr=-3)
+            # Upstream common1 does not declare an anim on StateDef 5150.
+            # Preserve the incoming liedown animation; its Time=0 controllers
+            # decide whether a 514x defeated variant actually exists.
+            row = state_row(5150, -1, 0, spr=-3)
             cs += [
                 _common_ctrl(
                     5150, "IK_CNS_CTRL_VEL_MUL",
