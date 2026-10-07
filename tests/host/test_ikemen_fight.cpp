@@ -1634,11 +1634,12 @@ int main() {
         OK(v->state!=IK_STATE_KO);
         OK((g.events&IK_EVENT_KO)!=0u);
 
-        for(int i=0;i<40 && !g.round_over;++i) {
+        for(int i=0;i<240 && v->state!=5150;++i) {
             tick2(&g,&p1,&p2);
         }
         EQ(v->state,5150);
-        EQ(g.round_over,1u);
+        EQ(g.round_over,0u);
+        OK(g.round_state==3u || g.round_state==4u);
         EQ(g.winner,1u);
     }
 
@@ -1657,7 +1658,8 @@ int main() {
         tick(&g,&p);
         EQ(v->state,5150);
         EQ(v->spr_priority,-3);
-        EQ(g.round_over,1u);
+        EQ(g.round_state,3u);
+        EQ(g.round_over,0u);
         EQ(g.winner,1u);
     }
 
