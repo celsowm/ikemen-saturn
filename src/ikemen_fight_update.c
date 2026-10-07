@@ -225,7 +225,8 @@ static void check_knockout(
      * instead of using 5150 as the KO trigger. */
     if (fight->round_state >= 3u) {
         for (int i = 0; i < 2; ++i) {
-            if (fight->fighters[i].hp <= 0 &&
+            if (fight->round_outro_ticks >= IK_ROUND_OVER_HIT_TIME &&
+                fight->fighters[i].hp <= 0 &&
                 fight->fighters[i].state == 5150) {
                 select_match_over_defeat_anim(
                     &fight->fighters[i], in->frames[i]);
