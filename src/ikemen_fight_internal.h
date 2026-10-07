@@ -321,6 +321,10 @@ const ik_cns_hitoverride_t* ikf_active_hitoverride(
     const ik_fight_t* fight,
     const ik_fighter_t* victim,
     const ik_cns_hitdef_t* incoming);
+const ik_cns_hitdef_t* ikf_current_hitdef(
+    const ik_fight_t* fight,
+    const ik_fighter_t* fighter,
+    uint8_t* out_local_index);
 const ik_cns_hitdef_t* ikf_active_hitdef(
     ik_fight_t* fight,
     const ik_frame_table_t* frames,
