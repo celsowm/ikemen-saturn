@@ -172,6 +172,28 @@ jobs:
                             "p1", c0["state_no"], c0["state_time"], c0["state_type"], c0["move_type"], "ctrl", c0.get("ctrl"),
                             "p2", c1["state_no"], c1["state_time"], c1["state_type"], c1["move_type"], "ctrl", c1.get("ctrl"))
           PY
+          echo "== KO landing windows =="
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          base = Path("build/ikemen_oracle/suite")
+          for scenario, lo, hi in (
+              ("kfm_ko_stand_x_200", 210, 231),
+              ("kfm_ko_upper_y_240", 252, 273),
+          ):
+              print("##", scenario)
+              for name in ("ikemen", "libsaturn"):
+                  print("--", name, "--")
+                  rows = [json.loads(x) for x in (base / scenario / f"{name}.jsonl").read_text().splitlines()]
+                  for i in range(lo, min(hi, len(rows))):
+                      r = rows[i]
+                      p1, p2 = r["chars"][0], r["chars"][1]
+                      print(i, "rs", r.get("round_state"),
+                            "p1", p1["state_no"], p1["state_time"], p1["anim"], p1["anim_time"],
+                            "ctrl", p1.get("ctrl"), "targets", p1.get("targets"), "ht", p1.get("hitdef_targets"),
+                            "p2", p2["state_no"], p2["state_time"], p2["anim"], p2["anim_time"],
+                            "life", p2["life"], "jug", p2["juggle"], "mt", p2["move_type"])
+          PY
           echo "== upper KO frames 96..108 =="
           python - <<'PY'
           import json
