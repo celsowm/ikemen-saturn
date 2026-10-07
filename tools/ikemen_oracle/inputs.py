@@ -56,7 +56,7 @@ def write_timeline(path: Path, scenario: dict) -> None:
         encoding="utf-8",
     )
 
-SETUP_KEYS = ("p1_life", "p1_power", "p2_life", "p2_power")
+SETUP_KEYS = ("p1_life", "p1_power", "p2_life", "p2_power", "timer_frames")
 
 def setup_string(scenario: dict) -> str:
     """Scenario `setup` as "p1_power=1000,p2_life=1" (empty when unset)."""
