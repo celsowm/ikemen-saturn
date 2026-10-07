@@ -212,7 +212,9 @@ static void check_knockout(
              * it selects turbo for the following rendered frame. */
             fight->ko_slow_ticks =
                 IK_ROUND_SLOW_TIME > 0u ? IK_ROUND_SLOW_TIME - 1u : 0u;
-            fight->round_outro_ticks = 1u; /* intro changed 0 -> -1 */
+            /* advance_outro_state() below accounts for the KO frame's
+             * intro transition from 0 to -1. */
+            fight->round_outro_ticks = 0u;
             fight->ko_speed_accum_q16 = 0u;
             fight->events |= IK_EVENT_KO;
         }
