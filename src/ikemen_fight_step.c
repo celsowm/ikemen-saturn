@@ -390,8 +390,13 @@ static void step_fighter_body(
     f->frozen_tick = f->hit_pause > 0u;
     if (f->hit_pause > 0u) {
         (void)ikf_process_cns_controllers(fight, f, controls, frames, 1);
-        f->hit_pause--;
-        if (f->hit_shake_time > 0u) --f->hit_shake_time;
+        /* At normal speed tickFrame and tickNextFrame coincide, which is the
+         * legacy path below. During KO slow motion they are separate: the
+         * state/controller pass must not consume HitPause here. */
+        if (!fight->ko_split_clocks) {
+            f->hit_pause--;
+            if (f->hit_shake_time > 0u) --f->hit_shake_time;
+        }
         step_palfx(f);
         return;
     }
@@ -436,6 +441,32 @@ void ikf_step_fighter(
  * (contacts see the frame the controllers evaluated with) and stamps a fresh
  * contact as MoveContactTime 1. Fighters that sat out the tick (hit pause)
  * keep their frame. */
+/* tickNextFrame half of a slowed Ikemen frame. State/controller work has
+ * already happened on the preceding tickFrame; this phase owns animation and
+ * HitPause clocks. */
+void ikf_finish_slow_tick(ik_fight_t* fight) {
+    if (!fight) return;
+    if (fight->entities) {
+        ik_entity_runtime_t runtime;
+        ik_entity_runtime_init(
+            &runtime, fight->entities, fight->cns,
+            fight->player_frames[0], fight->player_frames[1]);
+        ik_entity_runtime_finish_tick(&runtime);
+    }
+    for (int i = 0; i < 2; ++i) {
+        ik_fighter_t* f = &fight->fighters[i];
+        if (f->move_contact && f->move_contact_time == 0u) {
+            f->move_contact_time = 1u;
+        }
+        if (f->anim_clock_pending) {
+            /* Char.tick checks HitPause before stepping Animation.Action(). */
+            if (f->hit_pause == 0u) ++f->anim_time;
+            f->anim_clock_pending = 0u;
+        }
+        if (f->hit_pause > 0u) --f->hit_pause;
+    }
+}
+
 void ikf_finish_tick(ik_fight_t* fight) {
     if (fight->entities) {
         ik_entity_runtime_t runtime;
