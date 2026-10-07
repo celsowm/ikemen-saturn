@@ -320,13 +320,38 @@ static ik_ko_phase_t ko_phase_advance(ik_fight_t* fight) {
     return phase;
 }
 
+static int fighter_ready_for_round4(const ik_fighter_t* fighter) {
+    if (!fighter) return 1;
+
+    /* Ikemen's SCF_over_ko is set when the root reaches common state 5150.
+     * Such a defeated fighter no longer blocks the RoundState 4 gate. */
+    if (fighter->state == 5150) return 1;
+
+    /* Otherwise an actively fighting root is ready only after returning to
+     * controllable idle standing. This mirrors System.stepRoundState():
+     * ctrl && MoveType I && StateType S. */
+    return fighter->ctrl &&
+           fighter->cur_move_type == IK_CNS_MOVE_IDLE &&
+           fighter->cur_state_type == IK_CNS_STATE_STAND;
+}
+
 static void advance_outro_state(ik_fight_t* fight) {
     if (!fight || fight->round_state < 3u || fight->round_over) return;
     if (fight->round_outro_ticks < 0xffffu) ++fight->round_outro_ticks;
-    /* roundState 4 begins once intro < -over.waittime. The KO frame already
-     * accounted for intro == -1, hence strictly greater than 45. */
+
+    /* Ikemen decrements sys.intro past -over.waittime, then—while
+     * over.forcewintime is still active—pins it back to exactly
+     * -over.waittime if any active root is not ready. The stock screenpack
+     * uses forcewintime=900, so both oracle KO scenarios exercise this gate. */
     if (fight->round_state == 3u &&
         fight->round_outro_ticks > IK_ROUND_OVER_WAIT_TIME) {
+        const int ready =
+            fighter_ready_for_round4(&fight->fighters[0]) &&
+            fighter_ready_for_round4(&fight->fighters[1]);
+        if (!ready) {
+            fight->round_outro_ticks = IK_ROUND_OVER_WAIT_TIME;
+            return;
+        }
         fight->round_state = 4u;
     }
 }
