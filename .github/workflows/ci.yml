@@ -89,7 +89,7 @@ jobs:
       - name: Upstream build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libsdl2-dev libxmp-dev libavcodec-dev libavformat-dev libswresample-dev libswscale-dev libgl1-mesa-dev xvfb
+          sudo apt-get install -y libsdl2-dev libxmp-dev libavcodec-dev libavformat-dev libswresample-dev libswscale-dev libavfilter-dev libgtk-3-dev libgl1-mesa-dev xvfb
       - run: python scripts/fetch_external.py
       - name: Oracle suite
         env:
@@ -121,7 +121,7 @@ jobs:
       - name: Upstream build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libsdl2-dev libxmp-dev libavcodec-dev libavformat-dev libswresample-dev libswscale-dev libgl1-mesa-dev xvfb
+          sudo apt-get install -y libsdl2-dev libxmp-dev libavcodec-dev libavformat-dev libswresample-dev libswscale-dev libavfilter-dev libgtk-3-dev libgl1-mesa-dev xvfb
       - run: python scripts/fetch_external.py
       - name: Standing KO frame oracle
         env:
