@@ -103,6 +103,17 @@ func libsaturnOracleApplySetup(s *System) {
 		if err != nil {
 			panic(fmt.Sprintf("invalid oracle setup item %q: %v", item, err))
 		}
+		if kv[0] == "timer_frames" {
+			if v < 0 {
+				v = 0
+			}
+			s.curRoundTime = int32(v)
+			continue
+		}
+
+		if len(kv[0]) < 4 || kv[0][0] != 'p' {
+			panic(fmt.Sprintf("unknown oracle setup key %q", kv[0]))
+		}
 		side := int(kv[0][1] - '1')
 		if side < 0 || side > 1 || len(s.chars[side]) == 0 ||
 			s.chars[side][0] == nil {
