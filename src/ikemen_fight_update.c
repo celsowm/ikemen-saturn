@@ -192,6 +192,24 @@ static void resolve_contacts(
         in->frames[0], in->frames[1]);
 }
 
+/* HitDef controllers belong to tickFrame, while slowed KO collision is
+ * resolved at tickNextFrame. Refresh the root fighters' active HitDefs here
+ * so a freshly executed HitDef clears its target list on the controller tick
+ * without being allowed to collide until the next-frame phase. */
+static void refresh_root_hitdefs(
+    ik_fight_t* fight,
+    const ik_frame_inputs_t* in
+) {
+    for (int atk = 0; atk < 2; ++atk) {
+        ik_fighter_t* attacker = &fight->fighters[atk];
+        const ik_fighter_t* victim = &fight->fighters[atk ^ 1];
+        const ik_frame_table_t* frames = frames_for_fighter(fight, attacker);
+        if (!frames) frames = in->frames[atk];
+        uint8_t local = 0u;
+        (void)ikf_active_hitdef(fight, frames, attacker, victim, &local);
+    }
+}
+
 static void check_knockout(
     ik_fight_t* fight,
     const ik_frame_inputs_t* in
@@ -357,10 +375,15 @@ void ik_fight_update(ik_fight_t* fight,
         split_ko_clocks = 1;
 
         /* tickNextFrame can occur on a rendered frame with no tickFrame.
-         * Only the clocks that upstream owns in Char.tick advance here. */
+         * Animation/HitPause advance first; collision then observes the new
+         * animation frame. A hit created here must not have its fresh
+         * HitPause decremented by this same tickNextFrame. */
         if (!ko_phase.tick_frame) {
             if (ko_phase.tick_next_frame) {
                 ikf_finish_slow_tick(fight);
+                resolve_contacts(fight, &in);
+                exit_targets(fight);
+                ikf_update_guard_dist(fight);
             }
             return;
         }
@@ -382,14 +405,21 @@ void ik_fight_update(ik_fight_t* fight,
     ikf_push_fighters(fight, p1_frames, p2_frames);
     advance_round_state(fight);
     step_entities(fight, &in, 0);
-    resolve_contacts(fight, &in);
-    exit_targets(fight);
-    ikf_camera_step(fight);
     if (split_ko_clocks) {
+        /* State controllers execute on tickFrame, but KO-slow contacts are
+         * deferred to tickNextFrame. This makes a newly authored HitDef active
+         * (and clears HitDef targets) before it can actually connect. */
+        refresh_root_hitdefs(fight, &in);
+        ikf_camera_step(fight);
         if (ko_phase.tick_next_frame) {
             ikf_finish_slow_tick(fight);
+            resolve_contacts(fight, &in);
         }
+        exit_targets(fight);
     } else {
+        resolve_contacts(fight, &in);
+        exit_targets(fight);
+        ikf_camera_step(fight);
         ikf_finish_tick(fight);
     }
     fight->ko_split_clocks = 0u;
