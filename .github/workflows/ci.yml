@@ -99,6 +99,48 @@ jobs:
           cmake --preset host
           xvfb-run -a cmake --build build/host --target ikemen_oracle_suite
 
+
+  timeout_oracle:
+    name: Timeout oracle (temporary)
+    if: github.event_name == 'push' && contains(github.event.head_commit.message, '[timeout-oracle]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - id: libsaturn
+        uses: ./.github/actions/libsaturn-package
+        with:
+          ref: ${{ env.LIBSATURN_REF }}
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Python dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Upstream build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libsdl2-dev libxmp-dev libavcodec-dev libavformat-dev libswresample-dev libswscale-dev libavfilter-dev libgtk-3-dev libgl1-mesa-dev xvfb
+      - run: python scripts/fetch_external.py
+      - name: Patch Ikemen video dependency for Ubuntu FFmpeg 6
+        run: |
+          cd .external/Ikemen-GO
+          go mod download github.com/ikemen-engine/reisen
+          REISEN_VERSION="$(go list -m -f '{{.Version}}' github.com/ikemen-engine/reisen)"
+          REISEN_DIR="$(go env GOMODCACHE)/github.com/ikemen-engine/reisen@${REISEN_VERSION}"
+          chmod u+w "${REISEN_DIR}" "${REISEN_DIR}/video.go"
+          sed -i '/params\.color_space =/d; /params\.color_range =/d' "${REISEN_DIR}/video.go"
+      - name: Timeout frame oracle
+        env:
+          LIBSATURN_PREFIX: ${{ steps.libsaturn.outputs.prefix }}
+          GOEXPERIMENT: arenas
+        run: |
+          cmake --preset host
+          cmake --build --preset host
+          xvfb-run -a python tools/ikemen_oracle/suite.py --keep-going --trace-bin build/host/ikemen_oracle_trace kfm_timeout_180.json
+
   ko_oracle:
     # Temporary targeted parity gate while full KO landing flow is closed.
     name: KO oracle (temporary)
