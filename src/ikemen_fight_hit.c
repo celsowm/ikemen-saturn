@@ -93,7 +93,7 @@ void ikf_apply_guard(ik_fight_t* fight, int victim,
     }
 
     a->move_contact = 1u;
-    a->move_contact_time = 0u; /* a fresh contact restamps as 1 */
+    a->move_contact_time = fight->ko_split_clocks ? 1u : 0u;
     ikf_credit_hit_power(a, v, hitdef, 1);
     ikf_hit_snap(a, v, hitdef, 1);
     a->target_index = (int8_t)victim;
@@ -156,7 +156,7 @@ void ikf_apply_throw(ik_fight_t* fight, int attacker,
     v->bound_to = (int8_t)attacker;
     v->bound_entity = ik_entity_invalid_handle();
     a->move_contact = 1u;
-    a->move_contact_time = 0u; /* a fresh contact restamps as 1 */
+    a->move_contact_time = fight->ko_split_clocks ? 1u : 0u;
     ikf_credit_hit_power(a, v, hitdef, 0);
     ikf_hit_snap(a, v, hitdef, 0);
     a->move_hit = 1u;
@@ -387,8 +387,13 @@ void ikf_apply_damage(ik_fight_t* fight, int victim,
     if (launch) v->on_ground = 0;
 
     a->move_contact = 1u;
-    a->move_contact_time = 0u; /* a fresh contact restamps as 1 */
-    ikf_credit_hit_power(a, v, hitdef, 0);
+    a->move_contact_time = fight->ko_split_clocks ? 1u : 0u;
+    /* Ikemen still records the authored KO follow-up contact, but a target
+     * whose life was already zero does not award another get/give-power
+     * packet. The deciding hit already credited both sides. */
+    if (!victim_was_dead) {
+        ikf_credit_hit_power(a, v, hitdef, 0);
+    }
     ikf_hit_snap(a, v, hitdef, 0);
     a->move_hit = 1u;
 
