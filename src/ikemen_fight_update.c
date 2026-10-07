@@ -220,6 +220,7 @@ static void check_knockout(
              * next render. After that, round.slow.speed owns the fractional
              * clock and tickNextFrame trails tickFrame independently. */
             fight->ko_speed_accum_q16 = 0u;
+            fight->ko_current_speed_q16 = IK_ROUND_SLOW_SPEED_Q16;
             fight->ko_tick_frame_pending = 1u;
             fight->events |= IK_EVENT_KO;
         }
@@ -276,7 +277,7 @@ static ik_ko_phase_t ko_phase_advance(ik_fight_t* fight) {
         return phase;
     }
 
-    const uint32_t speed_q16 = ko_speed_q16(fight);
+    const uint32_t speed_q16 = fight->ko_current_speed_q16;
     phase.tick_frame = fight->ko_tick_frame_pending;
     phase.tick_next_frame =
         fight->ko_speed_accum_q16 + speed_q16 >= 65536u;
@@ -289,10 +290,13 @@ static ik_ko_phase_t ko_phase_advance(ik_fight_t* fight) {
     }
     fight->ko_speed_accum_q16 = accum;
 
-    /* Upstream decrements round.slow.time on tickNextFrame, not tickFrame.
-     * The speed selected from the old value applies to this rendered frame;
-     * the decremented value determines the following frame's speed. */
+    /* gameFrame() advances with the speed selected on the PREVIOUS
+     * tickNextFrame. Ikemen computes the next turbo only at the boundary,
+     * before decrementing slowtime, then holds that value for every rendered
+     * frame until the next boundary. Recomputing from slowtime every render
+     * makes the fade run early. */
     if (phase.tick_next_frame && fight->ko_slow_ticks > 0u) {
+        fight->ko_current_speed_q16 = ko_speed_q16(fight);
         --fight->ko_slow_ticks;
     }
     return phase;
