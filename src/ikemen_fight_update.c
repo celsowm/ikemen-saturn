@@ -349,24 +349,36 @@ static int fighter_ready_for_round4(const ik_fighter_t* fighter) {
            fighter->cur_state_type == IK_CNS_STATE_STAND;
 }
 
-static void advance_outro_state(ik_fight_t* fight) {
+static int round4_ready(const ik_fight_t* fight) {
+    return fight &&
+           fighter_ready_for_round4(&fight->fighters[0]) &&
+           fighter_ready_for_round4(&fight->fighters[1]);
+}
+
+static void advance_outro_state(
+    ik_fight_t* fight,
+    int ready_at_frame_start
+) {
     if (!fight || fight->round_state < 3u || fight->round_over) return;
     if (fight->round_outro_ticks < 0xffffu) ++fight->round_outro_ticks;
 
-    /* Ikemen decrements sys.intro past -over.waittime, then—while
-     * over.forcewintime is still active—pins it back to exactly
-     * -over.waittime if any active root is not ready. The stock screenpack
-     * uses forcewintime=900, so both oracle KO scenarios exercise this gate. */
+    /* Ikemen runs stepRoundState() before character states. Therefore the
+     * readiness test for RoundState 4 sees the roots as they were at the
+     * beginning of this frame, not a 5150/idle state they enter later during
+     * the same tick. */
     if (fight->round_state == 3u &&
         fight->round_outro_ticks > IK_ROUND_OVER_WAIT_TIME) {
-        const int ready =
-            fighter_ready_for_round4(&fight->fighters[0]) &&
-            fighter_ready_for_round4(&fight->fighters[1]);
-        if (!ready) {
+        if (!ready_at_frame_start) {
             fight->round_outro_ticks = IK_ROUND_OVER_WAIT_TIME;
             return;
         }
+
         fight->round_state = 4u;
+
+        /* The first RoundState-4 frame clears control before character code
+         * runs (System.stepRoundState in upstream). */
+        fight->fighters[0].ctrl = 0;
+        fight->fighters[1].ctrl = 0;
     }
 }
 
@@ -395,6 +407,11 @@ void ik_fight_update(ik_fight_t* fight,
     }
 
     fight->frame++;
+
+    /* stepRoundState() runs before character state execution upstream.
+     * Snapshot readiness now and use it only if this rendered frame advances
+     * the KO outro counter below. */
+    const int round4_ready_at_frame_start = round4_ready(fight);
 
     /* Upstream exposes the lethal hit with RoundState still at 2 for the
      * deciding frame. The KO transition becomes visible on the next logical
@@ -468,5 +485,7 @@ void ik_fight_update(ik_fight_t* fight,
     }
     fight->ko_split_clocks = 0u;
     ikf_update_guard_dist(fight);
-    if (fight->round_state >= 3u) advance_outro_state(fight);
+    if (fight->round_state >= 3u) {
+        advance_outro_state(fight, round4_ready_at_frame_start);
+    }
 }
