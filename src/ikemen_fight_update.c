@@ -215,13 +215,12 @@ static void check_knockout(
             /* advance_outro_state() below accounts for the KO frame's
              * intro transition from 0 to -1. */
             fight->round_outro_ticks = 0u;
-            /* Ikemen has already accumulated the pre-KO portion of the
-             * render/tick clock when turbo switches to round.slow.speed.
-             * Seed the fractional clock so the first slowed logical tick is
-             * the very next rendered frame; subsequent ticks then land every
-             * four renders at 0.25 speed. */
-            fight->ko_speed_accum_q16 =
-                65536u - IK_ROUND_SLOW_SPEED_Q16;
+            /* The KO transition frame still runs at the old 1.0 speed.
+             * That end-of-frame step schedules one final tickFrame for the
+             * next render. After that, round.slow.speed owns the fractional
+             * clock and tickNextFrame trails tickFrame independently. */
+            fight->ko_speed_accum_q16 = 0u;
+            fight->ko_tick_frame_pending = 1u;
             fight->events |= IK_EVENT_KO;
         }
     }
@@ -244,10 +243,13 @@ static void check_knockout(
 /* Return non-zero on rendered frames that advance one logical game tick.
  * This mirrors Ikemen's KO turbo: 0.25 for the first 15 slow ticks, then a
  * linear fade to 1.0 over the remaining 45. */
-static int ko_tick_ready(ik_fight_t* fight) {
-    if (!fight || fight->round_state < 3u || fight->ko_slow_ticks == 0u) {
-        return 1;
-    }
+typedef struct ik_ko_phase {
+    uint8_t tick_frame;
+    uint8_t tick_next_frame;
+} ik_ko_phase_t;
+
+static uint32_t ko_speed_q16(const ik_fight_t* fight) {
+    if (!fight || fight->ko_slow_ticks == 0u) return 65536u;
 
     uint32_t speed_q16 = IK_ROUND_SLOW_SPEED_Q16;
     if (fight->ko_slow_ticks < IK_ROUND_SLOW_FADE_TIME) {
@@ -257,12 +259,43 @@ static int ko_tick_ready(ik_fight_t* fight) {
         speed_q16 +=
             (range * elapsed) / IK_ROUND_SLOW_FADE_TIME;
     }
+    return speed_q16;
+}
 
-    fight->ko_speed_accum_q16 += speed_q16;
-    if (fight->ko_speed_accum_q16 < 65536u) return 0;
-    fight->ko_speed_accum_q16 -= 65536u;
-    --fight->ko_slow_ticks;
-    return 1;
+/* Ikemen has two related clocks while turbo < 1:
+ *   tickFrame     -> state/controllers/physics
+ *   tickNextFrame -> Animation.Action(), HitPause and end-of-frame clocks
+ *
+ * At 0.25x a KO therefore looks like:
+ *   tickFrame, --, --, tickNextFrame, tickFrame, --, --, tickNextFrame...
+ * The KO transition frame itself already consumed the first slow-time count
+ * and scheduled the first tickFrame for the following render. */
+static ik_ko_phase_t ko_phase_advance(ik_fight_t* fight) {
+    ik_ko_phase_t phase = {1u, 1u};
+    if (!fight || fight->round_state < 3u || fight->ko_slow_ticks == 0u) {
+        return phase;
+    }
+
+    const uint32_t speed_q16 = ko_speed_q16(fight);
+    phase.tick_frame = fight->ko_tick_frame_pending;
+    phase.tick_next_frame =
+        fight->ko_speed_accum_q16 + speed_q16 >= 65536u;
+
+    uint32_t accum = fight->ko_speed_accum_q16 + speed_q16;
+    fight->ko_tick_frame_pending = 0u;
+    if (accum >= 65536u) {
+        accum -= 65536u;
+        fight->ko_tick_frame_pending = 1u;
+    }
+    fight->ko_speed_accum_q16 = accum;
+
+    /* Upstream decrements round.slow.time on tickNextFrame, not tickFrame.
+     * The speed selected from the old value applies to this rendered frame;
+     * the decremented value determines the following frame's speed. */
+    if (phase.tick_next_frame && fight->ko_slow_ticks > 0u) {
+        --fight->ko_slow_ticks;
+    }
+    return phase;
 }
 
 static void advance_outro_state(ik_fight_t* fight) {
@@ -311,8 +344,26 @@ void ik_fight_update(ik_fight_t* fight,
     check_knockout(fight, &in);
     const int ko_started_this_tick =
         round_state_before_ko < 3u && fight->round_state >= 3u;
-    if (!ko_started_this_tick && !ko_tick_ready(fight)) return;
+
+    ik_ko_phase_t ko_phase = {1u, 1u};
+    int split_ko_clocks = 0;
+    if (!ko_started_this_tick &&
+        fight->round_state >= 3u && fight->ko_slow_ticks > 0u) {
+        ko_phase = ko_phase_advance(fight);
+        split_ko_clocks = 1;
+
+        /* tickNextFrame can occur on a rendered frame with no tickFrame.
+         * Only the clocks that upstream owns in Char.tick advance here. */
+        if (!ko_phase.tick_frame) {
+            if (ko_phase.tick_next_frame) {
+                ikf_finish_slow_tick(fight);
+            }
+            return;
+        }
+    }
+
     if (tick_round_timer(fight)) return;
+    fight->ko_split_clocks = (uint8_t)split_ko_clocks;
 
     /* Upstream runs attackers first, then idle players, then the rest (a
      * fighter in a get-hit state); equal priority runs P1 first. */
@@ -330,7 +381,14 @@ void ik_fight_update(ik_fight_t* fight,
     resolve_contacts(fight, &in);
     exit_targets(fight);
     ikf_camera_step(fight);
-    ikf_finish_tick(fight);
+    if (split_ko_clocks) {
+        if (ko_phase.tick_next_frame) {
+            ikf_finish_slow_tick(fight);
+        }
+    } else {
+        ikf_finish_tick(fight);
+    }
+    fight->ko_split_clocks = 0u;
     ikf_update_guard_dist(fight);
     if (fight->round_state >= 3u) advance_outro_state(fight);
 }
