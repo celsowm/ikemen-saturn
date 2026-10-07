@@ -129,7 +129,7 @@ jobs:
           go mod download github.com/ikemen-engine/reisen
           REISEN_VERSION="$(go list -m -f '{{.Version}}' github.com/ikemen-engine/reisen)"
           REISEN_DIR="$(go env GOMODCACHE)/github.com/ikemen-engine/reisen@${REISEN_VERSION}"
-          chmod u+w "${REISEN_DIR}/video.go"
+          chmod u+w "${REISEN_DIR}" "${REISEN_DIR}/video.go"
           sed -i '/params\.color_space =/d; /params\.color_range =/d' "${REISEN_DIR}/video.go"
       - name: Standing KO frame oracle
         env:
