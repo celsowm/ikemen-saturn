@@ -185,6 +185,7 @@ void ik_fight_init_players(
     fight->ko_freeze = 0;
     fight->ko_slow_ticks = 0u;
     fight->round_outro_ticks = 0u;
+    fight->win_pose_started_mask = 0u;
     fight->ko_speed_accum_q16 = 0u;
     fight->ko_current_speed_q16 = 65536u;
     fight->ko_tick_frame_pending = 0u;
