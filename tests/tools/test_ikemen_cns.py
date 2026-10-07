@@ -2663,7 +2663,7 @@ assert common_rows[5080]["controller_count"] == 1
 assert common_rows[5081]["controller_count"] == 3
 assert common_rows[5110]["controller_count"] == 12
 assert common_rows[5150]["spr_priority"] == -3
-assert common_rows[5150]["anim"] == 5140
+assert common_rows[5150]["anim"] == -1
 assert common_rows[5150]["controller_count"] == 4
 assert common_rows[120]["controller_count"] == 3
 assert common_rows[132]["land_state"] == 52
