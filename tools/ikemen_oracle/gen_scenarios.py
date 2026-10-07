@@ -281,10 +281,13 @@ def extra():
     yield raw("kfm_recovery_200", recover, 200,
               {"p2_states": [5210], "p2_life_drops": True})
     # P2 starts with 1 life: a single punch knocks it out.
+    # KO slow motion makes the full fall/landing graph much longer than the
+    # old 200/240-frame smoke windows. Keep the historical scenario names but
+    # run long enough for upstream itself to reach defeated state 5150.
     yield raw("kfm_ko_stand_x_200",
-              p1_events((MOVE, MOVE, ["x"])), 200,
+              p1_events((MOVE, MOVE, ["x"])), 360,
               {"p2_states": [5150]}, setup={"p2_life": 1})
-    yield raw("kfm_ko_upper_y_240", upper, 240,
+    yield raw("kfm_ko_upper_y_240", upper, 420,
               {"p2_states": [5150]}, setup={"p2_life": 1})
 
 def matrix():
