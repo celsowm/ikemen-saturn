@@ -285,8 +285,7 @@ def extra():
               p1_events((MOVE, MOVE, ["x"])), 200,
               {"p2_states": [5150]}, setup={"p2_life": 1})
     yield raw("kfm_ko_upper_y_240", upper, 240,
-              {"p2_states": [5150]}, setup={"p2_life": 1},
-              pending=ROUND_FLOW)
+              {"p2_states": [5150]}, setup={"p2_life": 1})
 
 def matrix():
     for key, (moves, states, p2_hit) in P2_SIDE.items():
