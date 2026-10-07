@@ -100,7 +100,7 @@ jobs:
           xvfb-run -a cmake --build build/host --target ikemen_oracle_suite
 
   ko_oracle:
-    name: Standing KO oracle (temporary)
+    name: KO oracle (temporary)
     if: github.event_name == 'push' && contains(github.event.head_commit.message, '[ko-oracle]')
     runs-on: ubuntu-latest
     timeout-minutes: 90
@@ -131,11 +131,11 @@ jobs:
           REISEN_DIR="$(go env GOMODCACHE)/github.com/ikemen-engine/reisen@${REISEN_VERSION}"
           chmod u+w "${REISEN_DIR}" "${REISEN_DIR}/video.go"
           sed -i '/params\.color_space =/d; /params\.color_range =/d' "${REISEN_DIR}/video.go"
-      - name: Standing KO frame oracle
+      - name: KO frame oracle
         env:
           LIBSATURN_PREFIX: ${{ steps.libsaturn.outputs.prefix }}
           GOEXPERIMENT: arenas
         run: |
           cmake --preset host
           cmake --build --preset host
-          xvfb-run -a python tools/ikemen_oracle/suite.py --trace-bin build/host/ikemen_oracle_trace kfm_ko_stand_x_200.json
+          xvfb-run -a python tools/ikemen_oracle/suite.py --trace-bin build/host/ikemen_oracle_trace kfm_ko_stand_x_200.json kfm_ko_upper_y_240.json
