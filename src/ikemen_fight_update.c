@@ -373,6 +373,10 @@ void ik_fight_update(ik_fight_t* fight,
         fight->round_state >= 3u && fight->ko_slow_ticks > 0u) {
         ko_phase = ko_phase_advance(fight);
         split_ko_clocks = 1;
+        /* Contact gathering must use the HitDef already activated by the last
+         * tickFrame. In particular, a tickNextFrame that merely advances into
+         * a trigger element must not execute that HitDef controller itself. */
+        fight->ko_split_clocks = 1u;
 
         /* tickNextFrame can occur on a rendered frame with no tickFrame.
          * Animation/HitPause advance first; collision then observes the new
@@ -385,6 +389,7 @@ void ik_fight_update(ik_fight_t* fight,
                 exit_targets(fight);
                 ikf_update_guard_dist(fight);
             }
+            fight->ko_split_clocks = 0u;
             return;
         }
     }
