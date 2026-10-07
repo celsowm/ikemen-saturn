@@ -81,7 +81,11 @@ typedef enum ik_cns_trigger_kind {
     IK_CNS_TRIGGER_NUM_TARGET_QUERY,
     IK_CNS_TRIGGER_PROJECTILE_QUERY,
     IK_CNS_TRIGGER_GUARD_RELEASE,  /* command != holdback || !inGuardDist */
-    IK_CNS_TRIGGER_TIME_GE         /* time >= trigger_value */
+    IK_CNS_TRIGGER_TIME_GE,        /* time >= trigger_value */
+    /* common1 state 5110: !alive && (animTime = 0 || anim = 5110..5119).
+     * sysVar(0) is deliberately omitted until the common-state sysvar path is
+     * generalized; the stock KFM KO oracle does not set it. */
+    IK_CNS_TRIGGER_DEFEATED_LIEDOWN_READY
 } ik_cns_trigger_kind_t;
 
 enum {
