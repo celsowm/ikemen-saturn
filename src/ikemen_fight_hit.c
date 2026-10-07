@@ -245,9 +245,6 @@ void ikf_apply_damage(ik_fight_t* fight, int victim,
     const int was_juggle_target = ikf_is_juggle_target(fight, v);
     const int attack_juggle = ikf_juggle_cost(fight, a, hitdef);
     const int downed_launch = downed && velocity_y != 0;
-    const int launch = airborne || downed_launch ||
-        (hitdef->flags & IK_CNS_HITDEF_FALL) != 0u ||
-        velocity_y != 0;
 
     int damage = hitdef->damage;
     if (hitdef->has_alt_damage &&
@@ -256,6 +253,10 @@ void ikf_apply_damage(ik_fight_t* fight, int victim,
     }
     v->pending_damage = (int16_t)(v->pending_damage + damage);
     const int hp_after = v->hp - v->pending_damage;
+    const int ko = hp_after <= 0;
+    const int launch = ko || airborne || downed_launch ||
+        (hitdef->flags & IK_CNS_HITDEF_FALL) != 0u ||
+        velocity_y != 0;
     /* Upstream's HitOver is hittime < 0, so it takes hit_time + 1 ticks. */
     v->hitstun = (uint16_t)(hit_time < 0 ? 0 : hit_time + 1);
     v->hit_shake_time = hitdef->pause_p2;
@@ -273,6 +274,7 @@ void ikf_apply_damage(ik_fight_t* fight, int victim,
      * controls whether state 5100 receives a non-zero fall Y velocity and
      * therefore proceeds through the single 5101 ground bounce. */
     v->gethit_fall = (uint8_t)(
+        ko ||
         ((hitdef->flags & IK_CNS_HITDEF_FALL) != 0u) ||
         (airborne &&
          (hitdef->flags & IK_CNS_HITDEF_AIR_FALL) != 0u) ||
@@ -300,7 +302,10 @@ void ikf_apply_damage(ik_fight_t* fight, int victim,
             v->juggle_points > attack_juggle
                 ? v->juggle_points - attack_juggle
                 : 0);
-    } else if ((hitdef->flags & IK_CNS_HITDEF_FALL) != 0u) {
+    } else if ((hitdef->flags & IK_CNS_HITDEF_FALL) != 0u || ko) {
+        /* A KO forces fallflag upstream even when the connecting ground
+         * HitDef is not itself a fall hit. That also starts the victim's
+         * air-juggle budget on the deciding contact. */
         const ik_cns_constants_t* c = constants_for_fighter(fight, v);
         const int initial = (c && c->air_juggle > 0) ? c->air_juggle : 15;
         v->juggle_points =
