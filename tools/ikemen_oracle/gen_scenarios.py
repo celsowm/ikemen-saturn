@@ -215,6 +215,9 @@ def both_throw(keys, throws_side="p1"):
 
 def extra():
     """Throw variants, blocking, recovery, KO, lying down and get-up."""
+    yield raw("kfm_taunt_120",
+              [{"from": 20, "to": 20, "p1": ["start"]}],
+              120, {"p1_states": [195], "p2_life_drops": False})
     yield raw("kfm_throw_back_160", both_throw([B, "y"]), 160,
               {"p1_states": [810], "p2_states": [820],
                "p2_life_drops": True})
