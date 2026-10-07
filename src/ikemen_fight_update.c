@@ -155,7 +155,8 @@ static void update_paused(
 
 /* Returns 1 when the round clock ran out this tick. */
 static int tick_round_timer(ik_fight_t* fight) {
-    if (fight->round_state < 2u || fight->timer_frames == 0u) return 0;
+    /* Upstream stops the round clock once the KO/timeout outro starts. */
+    if (fight->round_state != 2u || fight->timer_frames == 0u) return 0;
     if (--fight->timer_frames != 0u) return 0;
     fight->round_over = 1;
     fight->winner =
@@ -196,15 +197,73 @@ static void check_knockout(
     const ik_frame_inputs_t* in
 ) {
     if (fight->round_over) return;
-    for (int i = 0; i < 2; ++i) {
-        if (fight->fighters[i].hp > 0 || fight->fighters[i].state != 5150) {
-            continue;
+
+    /* Ikemen decides the KO as soon as life reaches zero. 5150 is only the
+     * later lying-defeated common state; waiting for it kept RoundState at 2
+     * for the whole fall and then froze simulation at exactly the wrong time. */
+    if (fight->round_state == 2u) {
+        const int p1_dead = fight->fighters[0].hp <= 0;
+        const int p2_dead = fight->fighters[1].hp <= 0;
+        if (p1_dead || p2_dead) {
+            fight->round_state = 3u;
+            fight->winner =
+                p1_dead == p2_dead ? 0u : (uint8_t)(p1_dead ? 2u : 1u);
+            /* Upstream consumes the first slow-time tick on the KO frame when
+             * it selects turbo for the following rendered frame. */
+            fight->ko_slow_ticks =
+                IK_ROUND_SLOW_TIME > 0u ? IK_ROUND_SLOW_TIME - 1u : 0u;
+            fight->round_outro_ticks = 1u; /* intro changed 0 -> -1 */
+            fight->ko_speed_accum_q16 = 0u;
+            fight->events |= IK_EVENT_KO;
         }
-        select_match_over_defeat_anim(&fight->fighters[i], in->frames[i]);
-        fight->round_over = 1;
-        fight->winner = (uint8_t)((i ^ 1) + 1);
-        fight->events |= IK_EVENT_ROUND_OVER;
-        return;
+    }
+
+    /* MatchOver may become true while the defeated fighter is already in
+     * 5150. Keep the existing authored 5140 -> 5150-family selection alive
+     * instead of using 5150 as the KO trigger. */
+    if (fight->round_state >= 3u) {
+        for (int i = 0; i < 2; ++i) {
+            if (fight->fighters[i].hp <= 0 &&
+                fight->fighters[i].state == 5150) {
+                select_match_over_defeat_anim(
+                    &fight->fighters[i], in->frames[i]);
+            }
+        }
+    }
+}
+
+/* Return non-zero on rendered frames that advance one logical game tick.
+ * This mirrors Ikemen's KO turbo: 0.25 for the first 15 slow ticks, then a
+ * linear fade to 1.0 over the remaining 45. */
+static int ko_tick_ready(ik_fight_t* fight) {
+    if (!fight || fight->round_state < 3u || fight->ko_slow_ticks == 0u) {
+        return 1;
+    }
+
+    uint32_t speed_q16 = IK_ROUND_SLOW_SPEED_Q16;
+    if (fight->ko_slow_ticks < IK_ROUND_SLOW_FADE_TIME) {
+        const uint32_t elapsed =
+            IK_ROUND_SLOW_FADE_TIME - fight->ko_slow_ticks;
+        const uint32_t range = 65536u - IK_ROUND_SLOW_SPEED_Q16;
+        speed_q16 +=
+            (range * elapsed) / IK_ROUND_SLOW_FADE_TIME;
+    }
+
+    fight->ko_speed_accum_q16 += speed_q16;
+    if (fight->ko_speed_accum_q16 < 65536u) return 0;
+    fight->ko_speed_accum_q16 -= 65536u;
+    --fight->ko_slow_ticks;
+    return 1;
+}
+
+static void advance_outro_state(ik_fight_t* fight) {
+    if (!fight || fight->round_state < 3u || fight->round_over) return;
+    if (fight->round_outro_ticks < 0xffffu) ++fight->round_outro_ticks;
+    /* roundState 4 begins once intro < -over.waittime. The KO frame already
+     * accounted for intro == -1, hence strictly greater than 45. */
+    if (fight->round_state == 3u &&
+        fight->round_outro_ticks > IK_ROUND_OVER_WAIT_TIME) {
+        fight->round_state = 4u;
     }
 }
 
@@ -233,6 +292,7 @@ void ik_fight_update(ik_fight_t* fight,
     }
 
     fight->frame++;
+    if (!ko_tick_ready(fight)) return;
     if (tick_round_timer(fight)) return;
 
     /* Upstream runs attackers first, then idle players, then the rest (a
@@ -254,4 +314,5 @@ void ik_fight_update(ik_fight_t* fight,
     ikf_finish_tick(fight);
     ikf_update_guard_dist(fight);
     check_knockout(fight, &in);
+    if (fight->round_state >= 3u) advance_outro_state(fight);
 }
