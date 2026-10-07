@@ -3130,7 +3130,7 @@ def compile_common_states(
 
     supported = {
         0, 10, 11, 12, 20, 40, 45, 50, 51, 52, 100, 105, 106,
-        120, 130, 131, 132, 140, 150, 151, 152, 153, 154, 155,
+        120, 130, 131, 132, 140, 150, 151, 152, 153, 154, 155, 175,
         5000, 5001, 5010, 5011, 5020, 5030, 5035, 5040, 5050,
         5070, 5071, 5080, 5081, 5100, 5101, 5110, 5120, 5150,
         5200, 5201, 5210,
@@ -3591,6 +3591,19 @@ def compile_common_states(
                 _common_ctrl(
                     155, "IK_CNS_CTRL_CTRL_SET",
                     "IK_CNS_TRIGGER_HIT_CTRL_TIME", 0, 0, 1, 0,
+                ),
+            ]
+
+        elif n == 175:
+            # common1.zss draw state. KFM has no Anim 175, so upstream
+            # immediately falls back to State 170 (lose/draw presentation),
+            # whose authored animation is 170.
+            row = state_row(175, -1, 0)
+            row["has_velset"] = 1
+            cs += [
+                _common_ctrl(
+                    175, "IK_CNS_CTRL_CHANGE_STATE",
+                    "IK_CNS_TRIGGER_TIME_EQ", 0, 0, 170, 0,
                 ),
             ]
 
