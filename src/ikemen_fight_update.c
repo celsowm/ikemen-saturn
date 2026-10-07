@@ -215,7 +215,13 @@ static void check_knockout(
             /* advance_outro_state() below accounts for the KO frame's
              * intro transition from 0 to -1. */
             fight->round_outro_ticks = 0u;
-            fight->ko_speed_accum_q16 = 0u;
+            /* Ikemen has already accumulated the pre-KO portion of the
+             * render/tick clock when turbo switches to round.slow.speed.
+             * Seed the fractional clock so the first slowed logical tick is
+             * the very next rendered frame; subsequent ticks then land every
+             * four renders at 0.25 speed. */
+            fight->ko_speed_accum_q16 =
+                65536u - IK_ROUND_SLOW_SPEED_Q16;
             fight->events |= IK_EVENT_KO;
         }
     }
