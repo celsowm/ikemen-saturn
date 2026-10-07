@@ -271,6 +271,7 @@ void ikf_apply_damage(ik_fight_t* fight, int victim,
     ikf_release_entity_bound_fighter(fight, v);
     ik_fighter_t* a = &fight->fighters[victim ^ 1];
 
+    const int victim_was_dead = v->hp <= 0;
     const uint8_t victim_type = ik_fight_state_type(fight, v);
     const int downed = victim_type == IK_CNS_STATE_LIEDOWN;
     const int airborne = !v->on_ground || victim_type == IK_CNS_STATE_AIR;
@@ -354,19 +355,24 @@ void ikf_apply_damage(ik_fight_t* fight, int victim,
     v->gethit_fall_envshake_freq = hitdef->fall_envshake_freq;
     v->fall_time = 0u;
 
-    if (was_juggle_target) {
-        v->juggle_points = (int16_t)(
-            v->juggle_points > attack_juggle
-                ? v->juggle_points - attack_juggle
-                : 0);
-    } else if ((hitdef->flags & IK_CNS_HITDEF_FALL) != 0u || ko) {
-        /* A KO forces fallflag upstream even when the connecting ground
-         * HitDef is not itself a fall hit. That also starts the victim's
-         * air-juggle budget on the deciding contact. */
-        const ik_cns_constants_t* c = constants_for_fighter(fight, v);
-        const int initial = (c && c->air_juggle > 0) ? c->air_juggle : 15;
-        v->juggle_points =
-            (int16_t)(initial > attack_juggle ? initial - attack_juggle : 0);
+    /* Once life is already zero, Ikemen can still accept authored follow-up
+     * hits during the KO sequence, but they do not consume a second slice of
+     * the air-juggle budget. The deciding hit above already established it. */
+    if (!victim_was_dead) {
+        if (was_juggle_target) {
+            v->juggle_points = (int16_t)(
+                v->juggle_points > attack_juggle
+                    ? v->juggle_points - attack_juggle
+                    : 0);
+        } else if ((hitdef->flags & IK_CNS_HITDEF_FALL) != 0u || ko) {
+            /* A KO forces fallflag upstream even when the connecting ground
+             * HitDef is not itself a fall hit. That also starts the victim's
+             * air-juggle budget on the deciding contact. */
+            const ik_cns_constants_t* c = constants_for_fighter(fight, v);
+            const int initial = (c && c->air_juggle > 0) ? c->air_juggle : 15;
+            v->juggle_points =
+                (int16_t)(initial > attack_juggle ? initial - attack_juggle : 0);
+        }
     }
 
     a->hit_pause = hitdef->pause_p1;
