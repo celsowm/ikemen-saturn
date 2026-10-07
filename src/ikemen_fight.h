@@ -286,6 +286,10 @@ typedef struct ik_fight {
     uint16_t ko_slow_ticks;
     uint16_t round_outro_ticks;
     uint32_t ko_speed_accum_q16;
+    /* Ikemen separates tickFrame (state/controller work) from tickNextFrame
+     * (animation/hit-pause clocks) when turbo is below 1.0. */
+    uint8_t ko_tick_frame_pending;
+    uint8_t ko_split_clocks;
     uint16_t pause_time;
     uint16_t pause_move_time;
     uint16_t pause_end_cmd_buffer_time;
