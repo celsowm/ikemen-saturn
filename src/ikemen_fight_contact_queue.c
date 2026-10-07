@@ -114,8 +114,10 @@ static uint8_t gather_root_contacts(
             victim_frames = atk == 0 ? p2_frames : p1_frames;
         }
         uint8_t local_hitdef = 0u;
-        const ik_cns_hitdef_t* hitdef =
-            ikf_active_hitdef(fight, attacker_frames, a, v, &local_hitdef);
+        const ik_cns_hitdef_t* hitdef = fight->ko_split_clocks
+            ? ikf_current_hitdef(fight, a, &local_hitdef)
+            : ikf_active_hitdef(
+                  fight, attacker_frames, a, v, &local_hitdef);
         if (!hitdef || local_hitdef >= 32u) continue;
         if (!ikf_hitdef_allows_target(fight, v, hitdef)) continue;
         if (!ikf_hitdef_chain_allows_target(v, (uint8_t)atk, hitdef)) continue;
