@@ -35,6 +35,5 @@
   },
   "setup": {
     "p2_life": 1
-  },
-  "pending": "needs the round flow after a KO: roundState 3, KO slow motion, win pose (docs/IKEMEN_COMPAT.md, stage F)"
+  }
 }
