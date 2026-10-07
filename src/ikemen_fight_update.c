@@ -90,6 +90,20 @@ static void update_round_over(
 static void exit_targets(ik_fight_t* fight) {
     for (int i = 0; i < 2; ++i) {
         ik_fighter_t* f = &fight->fighters[i];
+
+        /* Upstream drops the attacker's Target list when a defeated root
+         * reaches the landed 5110 phase, but it keeps the victim's get-hit
+         * bookkeeping/juggle budget alive until the later state transition.
+         * Do not call ikf_exit_target() here: that would erase juggle_owner
+         * and make the oracle report juggle=0 instead of the retained budget. */
+        if (f->hp <= 0 && f->state == 5110) {
+            ik_fighter_t* attacker = &fight->fighters[i ^ 1];
+            if (attacker->target_index == (int8_t)i) {
+                attacker->target_index = -1;
+                attacker->target_id = -1;
+            }
+        }
+
         if (!f->reversed &&
             (f->cur_move_type != IK_CNS_MOVE_HIT || f->state == 5150)) {
             ikf_exit_target(fight, f);
