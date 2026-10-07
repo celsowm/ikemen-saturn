@@ -98,3 +98,36 @@ jobs:
         run: |
           cmake --preset host
           xvfb-run -a cmake --build build/host --target ikemen_oracle_suite
+
+  ko_oracle:
+    name: Standing KO oracle (temporary)
+    if: github.event_name == 'push' && contains(github.event.head_commit.message, '[ko-oracle]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - id: libsaturn
+        uses: ./.github/actions/libsaturn-package
+        with:
+          ref: ${{ env.LIBSATURN_REF }}
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Python dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Upstream build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libsdl2-dev libxmp-dev libavcodec-dev libavformat-dev libswresample-dev libswscale-dev libgl1-mesa-dev xvfb
+      - run: python scripts/fetch_external.py
+      - name: Standing KO frame oracle
+        env:
+          LIBSATURN_PREFIX: ${{ steps.libsaturn.outputs.prefix }}
+          GOEXPERIMENT: arenas
+        run: |
+          cmake --preset host
+          cmake --build --preset host
+          xvfb-run -a python tools/ikemen_oracle/suite.py --trace-bin build/host/ikemen_oracle_trace kfm_ko_stand_x_200.json
