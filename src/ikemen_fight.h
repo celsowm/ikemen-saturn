@@ -34,6 +34,7 @@ extern "C" {
 #define IK_ROUND_SLOW_FADE_TIME 45u
 #define IK_ROUND_OVER_HIT_TIME 10u
 #define IK_ROUND_OVER_WAIT_TIME 45u
+#define IK_ROUND_OVER_WIN_TIME 45u
 #define IK_ROUND_SLOW_SPEED_Q16 16384u /* 0.25 */
 #define IK_MAX_EFFECT_EVENTS 2
 #define IK_MAX_SOUND_EVENTS 4
@@ -285,6 +286,8 @@ typedef struct ik_fight {
      * ko_speed_accum_q16 schedules those ticks on rendered frames. */
     uint16_t ko_slow_ticks;
     uint16_t round_outro_ticks;
+    /* Roots already forced into their post-round win/lose/draw state. */
+    uint8_t win_pose_started_mask;
     uint32_t ko_speed_accum_q16;
     uint32_t ko_current_speed_q16;
     /* Ikemen separates tickFrame (state/controller work) from tickNextFrame
