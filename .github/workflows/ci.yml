@@ -139,7 +139,7 @@ jobs:
         run: |
           cmake --preset host
           cmake --build --preset host
-          xvfb-run -a python tools/ikemen_oracle/suite.py --keep-going --trace-bin build/host/ikemen_oracle_trace kfm_timeout_180.json
+          xvfb-run -a python tools/ikemen_oracle/suite.py --keep-going --trace-bin build/host/ikemen_oracle_trace kfm_timeout_180.json kfm_timeout_win_180.json
 
   ko_oracle:
     # Temporary targeted parity gate while full KO landing flow is closed.
