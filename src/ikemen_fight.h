@@ -32,6 +32,7 @@ extern "C" {
 /* Stock Ikemen-GO-Screenpack fight.def round flow. */
 #define IK_ROUND_SLOW_TIME 60u
 #define IK_ROUND_SLOW_FADE_TIME 45u
+#define IK_ROUND_OVER_HIT_TIME 10u
 #define IK_ROUND_OVER_WAIT_TIME 45u
 #define IK_ROUND_SLOW_SPEED_Q16 16384u /* 0.25 */
 #define IK_MAX_EFFECT_EVENTS 2
