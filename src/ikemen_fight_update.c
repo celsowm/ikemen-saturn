@@ -159,8 +159,16 @@ static void update_paused(
  * (without KO slow motion), keeps characters ticking, then dispatches
  * win/lose/draw poses. */
 static void tick_round_timer(ik_fight_t* fight) {
-    if (fight->round_state != 2u || fight->timer_frames == 0u) return;
-    if (--fight->timer_frames != 0u) return;
+    if (fight->round_state != 2u) return;
+
+    /* Upstream decrements curRoundTime in stepRoundState(), but roundState()
+     * remains 2 on the rendered frame that reaches zero because sys.intro is
+     * still 0. The timeout decision becomes visible as RoundState 3 on the
+     * following tick, when the post-round path decrements intro below zero. */
+    if (fight->timer_frames > 0u) {
+        --fight->timer_frames;
+        return;
+    }
 
     const int p1 = fight->fighters[0].hp;
     const int p2 = fight->fighters[1].hp;
