@@ -157,6 +157,11 @@ int ik_cns_controller_trigger_context_now(
         case IK_CNS_TRIGGER_NOT_ALIVE:
             return context->alive == 0u;
 
+        case IK_CNS_TRIGGER_DEFEATED_LIEDOWN_READY:
+            return context->alive == 0u &&
+                   (context->anim_ended != 0u ||
+                    (context->anim >= 5110 && context->anim <= 5119));
+
         case IK_CNS_TRIGGER_ANIM_ELEM_BEFORE:
             return context->anim_element <
                    (uint16_t)(controller->trigger_value < 1
