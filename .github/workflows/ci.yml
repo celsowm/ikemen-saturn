@@ -100,7 +100,7 @@ jobs:
           xvfb-run -a cmake --build build/host --target ikemen_oracle_suite
 
   ko_oracle:
-    # Temporary targeted parity gate while the KO scenarios are being closed.
+    # Temporary targeted parity gate while split-clock KO semantics are closed.
     name: KO oracle (temporary)
     if: github.event_name == 'push' && contains(github.event.head_commit.message, '[ko-oracle]')
     runs-on: ubuntu-latest
