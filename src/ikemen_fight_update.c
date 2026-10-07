@@ -369,6 +369,42 @@ static void advance_outro_state(
     }
 }
 
+static void start_post_round_poses(ik_fight_t* fight) {
+    if (!fight || fight->round_state != 4u ||
+        fight->round_outro_ticks <
+            IK_ROUND_OVER_WAIT_TIME + IK_ROUND_OVER_WIN_TIME - 1u) {
+        return;
+    }
+
+    /* Upstream performs these SelfStates in stepRoundState(), before the
+     * character state pass. State 180 may immediately route to a character's
+     * authored win pose (KFM: 180 -> 181) during this same tick. Defeated
+     * roots are already SCF_over_ko there, so only living roots are forced. */
+    for (int i = 0; i < 2; ++i) {
+        const uint8_t bit = (uint8_t)(1u << i);
+        if ((fight->win_pose_started_mask & bit) != 0u) continue;
+
+        ik_fighter_t* f = &fight->fighters[i];
+        if (f->hp <= 0) {
+            fight->win_pose_started_mask |= bit;
+            continue;
+        }
+
+        int16_t target = 175; /* draw */
+        if (fight->winner != 0u) {
+            target = fight->winner == (uint8_t)(i + 1) ? 180 : 170;
+        }
+
+        const ik_cns_asset_t* native_cns =
+            cns_for_owner(fight, f->owner_player);
+        if (ik_cns_find_state(native_cns, target)) {
+            f->state_owner = f->owner_player;
+            ikf_enter_state(fight, f, target);
+        }
+        fight->win_pose_started_mask |= bit;
+    }
+}
+
 static int run_priority(const ik_fighter_t* f) {
     if (f->cur_move_type == IK_CNS_MOVE_ATTACK) return 5;
     return f->cur_move_type == IK_CNS_MOVE_IDLE ? 4 : 3;
@@ -394,6 +430,10 @@ void ik_fight_update(ik_fight_t* fight,
     }
 
     fight->frame++;
+
+    /* Win/lose/draw SelfStates are also part of upstream stepRoundState(), so
+     * they must be installed before the fighters execute this frame. */
+    start_post_round_poses(fight);
 
     /* stepRoundState() runs before character state execution upstream.
      * Snapshot readiness now and use it only if this rendered frame advances
