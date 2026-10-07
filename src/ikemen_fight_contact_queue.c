@@ -103,12 +103,6 @@ static uint8_t gather_root_contacts(
         ik_fighter_t* a = &fight->fighters[atk];
         ik_fighter_t* v = &fight->fighters[atk ^ 1];
 
-        /* Upstream stops accepting fresh contacts once the victim is dead.
-         * The deciding hit is already queued/applied before life reaches zero;
-         * subsequent overlap from the same long-lived HitDef must not re-arm
-         * hit pause, reset MoveContactTime or consume another juggle slice. */
-        if (v->hp <= 0) continue;
-
         const ik_frame_table_t* attacker_frames =
             frames_for_fighter(fight, a);
         const ik_frame_table_t* victim_frames =
@@ -194,8 +188,6 @@ static uint8_t gather_entity_contacts(
 
         const int victim = (int)(attacker->owner_player ^ 1u);
         ik_fighter_t* v = &fight->fighters[victim];
-        if (v->hp <= 0) continue;
-
         const ik_frame_table_t* attacker_frames =
             frames_for_entity(fight, attacker);
         const ik_frame_table_t* victim_frames =
