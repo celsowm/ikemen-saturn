@@ -138,4 +138,16 @@ jobs:
         run: |
           cmake --preset host
           cmake --build --preset host
-          xvfb-run -a python tools/ikemen_oracle/suite.py --trace-bin build/host/ikemen_oracle_trace kfm_ko_stand_x_200.json kfm_ko_upper_y_240.json
+          set +e
+          xvfb-run -a python tools/ikemen_oracle/suite.py --keep-going --trace-bin build/host/ikemen_oracle_trace kfm_ko_stand_x_200.json kfm_ko_upper_y_240.json
+          status=$?
+          for scenario in kfm_ko_stand_x_200 kfm_ko_upper_y_240; do
+            if test -f "build/ikemen_oracle/suite/$scenario/ikemen.jsonl" && test -f "build/ikemen_oracle/suite/$scenario/libsaturn.jsonl"; then
+              echo "== detailed diff: $scenario =="
+              python tools/ikemen_oracle/diff.py \
+                "build/ikemen_oracle/suite/$scenario/ikemen.jsonl" \
+                "build/ikemen_oracle/suite/$scenario/libsaturn.jsonl" \
+                --limit 20 --pos-eps 1.5 --vel-eps 0.35 || true
+            fi
+          done
+          exit $status
