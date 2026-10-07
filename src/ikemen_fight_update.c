@@ -295,6 +295,12 @@ void ik_fight_update(ik_fight_t* fight,
     }
 
     fight->frame++;
+
+    /* Upstream exposes the lethal hit with RoundState still at 2 for the
+     * deciding frame. The KO transition becomes visible on the next logical
+     * tick, after life has already reached zero. Checking here (rather than
+     * after contact resolution below) preserves that one-frame boundary. */
+    check_knockout(fight, &in);
     if (!ko_tick_ready(fight)) return;
     if (tick_round_timer(fight)) return;
 
@@ -316,6 +322,5 @@ void ik_fight_update(ik_fight_t* fight,
     ikf_camera_step(fight);
     ikf_finish_tick(fight);
     ikf_update_guard_dist(fight);
-    check_knockout(fight, &in);
     if (fight->round_state >= 3u) advance_outro_state(fight);
 }
