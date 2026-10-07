@@ -330,6 +330,17 @@ typedef struct ik_cns_constants {
     int32_t yaccel_q16;
     int32_t stand_friction_q16;
     int32_t crouch_friction_q16;
+
+    /* Ikemen [Velocity] KO modifiers. These are applied to the HitDef
+     * velocity on a lethal contact before the common get-hit graph runs. */
+    int16_t air_gethit_ko_add_x_q8;
+    int16_t air_gethit_ko_add_y_q8;
+    int16_t air_gethit_ko_ymin_q8;
+    int32_t ground_gethit_ko_xmul_q16;
+    int16_t ground_gethit_ko_add_x_q8;
+    int16_t ground_gethit_ko_add_y_q8;
+    int16_t ground_gethit_ko_ymin_q8;
+    uint8_t ko_velocity_defined;
 } ik_cns_constants_t;
 
 enum {
