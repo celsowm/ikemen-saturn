@@ -1114,6 +1114,8 @@ def constants(globals_: dict[str, Section]) -> dict[str, int]:
     ground_recover = pair(vel.get("air.gethit.groundrecover"), -.15, -3.5)
     air_recover_mul = pair(vel.get("air.gethit.airrecover.mul"), .5, .2)
     air_recover_add = pair(vel.get("air.gethit.airrecover.add"), 0, -4.5)
+    air_ko_add = pair(vel.get("air.gethit.ko.add"), -2.5, -2.0)
+    ground_ko_add = pair(vel.get("ground.gethit.ko.add"), -2.5, -2.0)
 
     return {
         "life": integer(data.get("life"), 1000),
@@ -1216,6 +1218,19 @@ def constants(globals_: dict[str, Section]) -> dict[str, int]:
         ),
         "air_gethit_airrecover_yaccel_q8": q8(
             number(movement.get("air.gethit.airrecover.yaccel"), .35)
+        ),
+        "air_gethit_ko_add_x_q8": q8(air_ko_add[0]),
+        "air_gethit_ko_add_y_q8": q8(air_ko_add[1]),
+        "air_gethit_ko_ymin_q8": q8(
+            number(vel.get("air.gethit.ko.ymin"), -3.0)
+        ),
+        "ground_gethit_ko_xmul_q16": q16(
+            number(vel.get("ground.gethit.ko.xmul"), .66)
+        ),
+        "ground_gethit_ko_add_x_q8": q8(ground_ko_add[0]),
+        "ground_gethit_ko_add_y_q8": q8(ground_ko_add[1]),
+        "ground_gethit_ko_ymin_q8": q8(
+            number(vel.get("ground.gethit.ko.ymin"), -6.0)
         ),
     }
 
@@ -4500,7 +4515,15 @@ const ik_cns_asset_t {ident}_cns = {{
         {const['air_gethit_airrecover_yaccel_q8']},
         {const['air_juggle']},
         {const['yaccel_q16']}, {const['stand_friction_q16']},
-        {const['crouch_friction_q16']}
+        {const['crouch_friction_q16']},
+        {const['air_gethit_ko_add_x_q8']},
+        {const['air_gethit_ko_add_y_q8']},
+        {const['air_gethit_ko_ymin_q8']},
+        {const['ground_gethit_ko_xmul_q16']},
+        {const['ground_gethit_ko_add_x_q8']},
+        {const['ground_gethit_ko_add_y_q8']},
+        {const['ground_gethit_ko_ymin_q8']},
+        1u
     }},
     {ident}_states, {len(state_rows)}u,
     {ident}_hitdefs, {len(hitdefs)}u,
