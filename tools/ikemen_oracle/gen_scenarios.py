@@ -289,6 +289,11 @@ def extra():
               {"p2_states": [5150]}, setup={"p2_life": 1})
     yield raw("kfm_ko_upper_y_240", upper, 420,
               {"p2_states": [5150]}, setup={"p2_life": 1})
+    # Short timer exposes timeout round flow without waiting 99 seconds.
+    # Equal life should produce the upstream draw path and post-round states.
+    yield raw("kfm_timeout_180", [], 180,
+              {"p1_states": [175], "p2_states": [175]},
+              setup={"timer_frames": 5})
 
 def matrix():
     for key, (moves, states, p2_hit) in P2_SIDE.items():
