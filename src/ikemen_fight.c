@@ -186,6 +186,8 @@ void ik_fight_init_players(
     fight->ko_slow_ticks = 0u;
     fight->round_outro_ticks = 0u;
     fight->ko_speed_accum_q16 = 0u;
+    fight->ko_tick_frame_pending = 0u;
+    fight->ko_split_clocks = 0u;
     fight->pause_time = 0u;
     fight->pause_move_time = 0u;
     fight->pause_end_cmd_buffer_time = 0u;
