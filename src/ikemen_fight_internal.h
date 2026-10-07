@@ -525,6 +525,7 @@ void ikf_configure_fight_entity_runtime(
 void ikf_push_fighters(ik_fight_t* fight, const ik_frame_table_t* p1_frames,
                        const ik_frame_table_t* p2_frames);
 void ikf_finish_tick(ik_fight_t* fight);
+void ikf_finish_slow_tick(ik_fight_t* fight);
 void ikf_apply_ground_velocity(
     ik_fighter_t* f,
     const ik_cns_constants_t* c,
