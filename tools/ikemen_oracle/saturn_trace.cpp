@@ -293,15 +293,31 @@ static sat_pad_state_t pad_from_mask(
 static void apply_setup(ik_fight_t* fight, const char* setup) {
     const char* p = setup;
     while (*p) {
-        const int side = p[1] - '1';
-        const char* key = p + 3;
-        const char* eq = std::strchr(key, '=');
-        if (p[0] != 'p' || side < 0 || side > 1 || !eq) {
+        const char* eq = std::strchr(p, '=');
+        if (!eq) {
             std::fprintf(stderr, "bad setup near '%s'\n", p);
             std::exit(2);
         }
         char* end = nullptr;
         const long value = std::strtol(eq + 1, &end, 0);
+        const size_t full_len = static_cast<size_t>(eq - p);
+
+        if (full_len == 12 && std::strncmp(p, "timer_frames", 12) == 0) {
+            fight->timer_frames = value < 0 ? 0u : static_cast<uint32_t>(value);
+            p = *end == ',' ? end + 1 : end;
+            continue;
+        }
+
+        if (full_len < 4 || p[0] != 'p') {
+            std::fprintf(stderr, "bad setup near '%s'\n", p);
+            std::exit(2);
+        }
+        const int side = p[1] - '1';
+        const char* key = p + 3;
+        if (side < 0 || side > 1) {
+            std::fprintf(stderr, "bad setup side near '%s'\n", p);
+            std::exit(2);
+        }
         const size_t len = static_cast<size_t>(eq - key);
         if (len == 4 && std::strncmp(key, "life", 4) == 0) {
             fight->fighters[side].hp = static_cast<int16_t>(value);
