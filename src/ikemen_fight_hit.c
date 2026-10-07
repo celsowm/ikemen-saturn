@@ -207,6 +207,55 @@ void ikf_apply_throw(ik_fight_t* fight, int attacker,
     else ++fight->hits_p2;
 }
 
+static void apply_ko_velocity(
+    const ik_cns_constants_t* constants,
+    uint8_t state_type,
+    int32_t* vx_q8,
+    int32_t* vy_q8
+) {
+    if (!vx_q8 || !vy_q8 || state_type == IK_CNS_STATE_LIEDOWN) return;
+
+    /* Hand-built host fixtures predate these fields. Generated character
+     * assets set ko_velocity_defined and therefore preserve authored zeroes. */
+    const int defined = constants && constants->ko_velocity_defined;
+    const int16_t air_add_x = defined
+        ? constants->air_gethit_ko_add_x_q8 : -640;   /* -2.5 */
+    const int16_t air_add_y = defined
+        ? constants->air_gethit_ko_add_y_q8 : -512;   /* -2.0 */
+    const int16_t air_ymin = defined
+        ? constants->air_gethit_ko_ymin_q8 : -768;    /* -3.0 */
+    const int32_t ground_xmul = defined
+        ? constants->ground_gethit_ko_xmul_q16 : 43254; /* 0.66 */
+    const int16_t ground_add_x = defined
+        ? constants->ground_gethit_ko_add_x_q8 : -640;
+    const int16_t ground_add_y = defined
+        ? constants->ground_gethit_ko_add_y_q8 : -512;
+    const int16_t ground_ymin = defined
+        ? constants->ground_gethit_ko_ymin_q8 : -1536; /* -6.0 */
+
+    if (state_type == IK_CNS_STATE_AIR) {
+        if (*vx_q8 != 0) {
+            *vx_q8 += *vx_q8 > 0 ? -air_add_x : air_add_x;
+        }
+        if (*vy_q8 <= 0) {
+            *vy_q8 += air_add_y;
+            if (*vy_q8 > air_ymin) *vy_q8 = air_ymin;
+        }
+        return;
+    }
+
+    if (*vy_q8 == 0) {
+        *vx_q8 = (int32_t)(((int64_t)*vx_q8 * ground_xmul) / 65536);
+    }
+    if (*vx_q8 != 0) {
+        *vx_q8 += *vx_q8 > 0 ? -ground_add_x : ground_add_x;
+    }
+    if (*vy_q8 <= 0) {
+        *vy_q8 += ground_add_y;
+        if (*vy_q8 > ground_ymin) *vy_q8 = ground_ymin;
+    }
+}
+
 void ikf_apply_damage(ik_fight_t* fight, int victim,
                          const ik_cns_hitdef_t* hitdef) {
     ik_fighter_t* v = &fight->fighters[victim];
@@ -225,12 +274,12 @@ void ikf_apply_damage(ik_fight_t* fight, int victim,
     const uint8_t victim_type = ik_fight_state_type(fight, v);
     const int downed = victim_type == IK_CNS_STATE_LIEDOWN;
     const int airborne = !v->on_ground || victim_type == IK_CNS_STATE_AIR;
-    const int16_t velocity_x = downed
+    int32_t velocity_x = downed
         ? hitdef->down_velocity_x_q8
         : airborne
             ? hitdef->air_velocity_x_q8
             : hitdef->ground_velocity_x_q8;
-    const int16_t velocity_y = downed
+    int32_t velocity_y = downed
         ? hitdef->down_velocity_y_q8
         : airborne
             ? hitdef->air_velocity_y_q8
@@ -254,6 +303,14 @@ void ikf_apply_damage(ik_fight_t* fight, int victim,
     v->pending_damage = (int16_t)(v->pending_damage + damage);
     const int hp_after = v->hp - v->pending_damage;
     const int ko = hp_after <= 0;
+    if (ko) {
+        /* Ikemen modifies the stored get-hit velocity immediately on a
+         * lethal contact. The branch is based on the victim's pre-hit
+         * StateType (A vs S/C; L is intentionally untouched). */
+        apply_ko_velocity(
+            constants_for_fighter(fight, v), victim_type,
+            &velocity_x, &velocity_y);
+    }
     const int launch = ko || airborne || downed_launch ||
         (hitdef->flags & IK_CNS_HITDEF_FALL) != 0u ||
         velocity_y != 0;
@@ -264,8 +321,8 @@ void ikf_apply_damage(ik_fight_t* fight, int victim,
         ? hitdef->down_hit_time
         : hitdef->ground_slide_time;
     v->hit_ctrl_time = (uint16_t)(hit_time < 0 ? 0 : hit_time);
-    v->gethit_vx_q8 = velocity_x;
-    v->gethit_vy_q8 = velocity_y;
+    v->gethit_vx_q8 = (int16_t)velocity_x;
+    v->gethit_vy_q8 = (int16_t)velocity_y;
     v->gethit_yaccel_q8 = hitdef->yaccel_q8;
     v->gethit_yaccel_q16 = hitdef->yaccel_q16;
     v->gethit_ground_type = hitdef->ground_type;
