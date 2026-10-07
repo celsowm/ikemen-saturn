@@ -151,6 +151,27 @@ jobs:
                 --limit 20 --pos-eps 1.5 --vel-eps 0.35 || true
             fi
           done
+          echo "== round-state gate windows =="
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          base = Path("build/ikemen_oracle/suite")
+          for scenario, lo, hi in (
+              ("kfm_ko_stand_x_200", 180, 200),
+              ("kfm_ko_upper_y_240", 188, 220),
+          ):
+              print("##", scenario)
+              for name in ("ikemen", "libsaturn"):
+                  rows = [json.loads(x) for x in (base / scenario / f"{name}.jsonl").read_text().splitlines()]
+                  trans = next((i for i,r in enumerate(rows) if r.get("round_state") == 4), None)
+                  print("--", name, "first-rs4", trans)
+                  for i in range(lo, min(hi, len(rows))):
+                      r = rows[i]
+                      c0, c1 = r["chars"][0], r["chars"][1]
+                      print(i, "rs", r.get("round_state"),
+                            "p1", c0["state_no"], c0["state_time"], c0["state_type"], c0["move_type"], "ctrl", c0.get("ctrl"),
+                            "p2", c1["state_no"], c1["state_time"], c1["state_type"], c1["move_type"], "ctrl", c1.get("ctrl"))
+          PY
           echo "== upper KO frames 96..108 =="
           python - <<'PY'
           import json
