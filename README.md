@@ -2,9 +2,12 @@
 
 Kung Fu Man vs ZSS Kung Fu Man on a Sega Saturn, running the original
 Ikemen GO / MUGEN character data and measured against upstream Ikemen GO
-**frame by frame**: 63 oracle scenarios (61 passing, 2 marked `pending` for
-the unfinished KO flow) compare positions, velocities, states, animations,
-contacts and RNG against an instrumented build of the real engine.
+**frame by frame**: 66 KFM gameplay oracle scenarios compare positions,
+velocities, states, animations, contacts and RNG against an instrumented build
+of the real engine. The gameplay matrix is 1:1 for the covered KFM scope:
+movement, normals, specials, supers, combos, throws, guard/reversal, recovery,
+get-up, KO, timeout/draw/win flow and taunt. HUD/motif presentation and broader
+generic Ikemen compatibility remain separate work.
 
 It is an independent consumer of [LibSaturn](https://github.com/celsowm/libsaturn):
 it reaches the library only through the installed CMake/Conan package contract
