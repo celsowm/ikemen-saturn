@@ -233,13 +233,14 @@ Host tests: all `test_ikemen_*` pass with no tracked gaps. `tests/tools/test_ike
   winner/loser states. Both are covered frame by frame by the oracle. Full
   motif presentation and multi-round/match UI remain outside the gameplay
   parity claim.
-- Compiler gaps still open (`--strict` will list them): `Explod` 1027
-  (`floor(screenpos y)`), `command="holdback"/"blocking"` ChangeState rows of
-  1310/1330/1350/1351 (the oracle scenarios pass because the hit reversal path
-  does not need them), 1400-1420 `VelMul x=0.5`, AfterImage 1420,
-  `[Statedef -2/-3]`, common states 110/115/175/190/5500/5900.
-  `SelfAnimExist(n)` is resolved while compiling against the character's
-  `.air` (`--air`). `tests/tools/*ikemen*` pass.
+- Compiler gaps still open outside the closed KFM gameplay matrix include
+  `Explod` 1027 expression details (`floor(screenpos y)`), broader
+  `[Statedef -2/-3]` semantics and common states not exercised by KFM
+  gameplay such as 110/115/190/5500/5900. KFM states 1310/1330/1350/1351 and
+  1400-1420 are exercised by the oracle through their gameplay paths. State
+  175 is now lowered and covered by timeout draw. `SelfAnimExist(n)` is
+  resolved while compiling against the character's `.air` (`--air`).
+  `tests/tools/*ikemen*` pass.
 
 ## Other measured gaps (not yet scheduled in the oracle)
 
