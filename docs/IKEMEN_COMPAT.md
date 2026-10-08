@@ -85,7 +85,14 @@ per file (`ikemen_fight_internal.h` holds the shared inline lookups and the
 The split was verified byte-identical on all six scenario traces before any
 behavior change.
 
-## Status (2026-10-02)
+## Status (2026-10-07)
+
+**KFM gameplay parity is closed for the current oracle scope.** All 66 scenarios
+produce frame-matching upstream traces. The matrix covers movement, normals,
+specials, supers, combos, throws, guard/reversal, recovery, get-up, KO,
+timeout draw/win flow and taunt. This statement intentionally excludes
+HUD/motif presentation, broad stage compatibility, full sound-system parity
+and arbitrary third-party Ikemen characters.
 
 | Scenario | Result |
 |---|---|
@@ -110,7 +117,9 @@ behavior change.
 | kfm_blocking_high_120, blocking_low_120, blocking_hit_160, blocking_low_hit_160, blocking_air_hit_160, blocking_air_air_200 | PASS (the `F,x` blocking command, ReversalDef of 1300/1320/1340, reversed attacker bookkeeping) |
 | kfm_upper_getup_320 | PASS (lie down 5110 and get up 5120) |
 | kfm_recovery_200 | PASS (air recovery 5210 with `x+y` taps, landing in 52) |
-| kfm_ko_stand_x_200, kfm_ko_upper_y_240 | PENDING (a KO starts roundState 3, KO slow motion and the win pose; see below) |
+| kfm_ko_stand_x_200, kfm_ko_upper_y_240 | PASS (KO RoundState 3, split slow-motion clocks, fall/landing, defeated state and post-round pose flow) |
+| kfm_timeout_180, kfm_timeout_win_180 | PASS (timeout draw and winner paths, including RoundState 2→3→4 and visible 170/181 result states) |
+| kfm_taunt_120 | PASS (START → KFM state 195) |
 
 `tools/ikemen_oracle/gen_scenarios.py` writes the generated rows; every
 scenario may carry an `expect` block (`p1_states`, `p2_states`,
@@ -126,7 +135,7 @@ values on both sides (the hook applies it before the first scripted tick).
 A scenario with `pending` documents a feature the port does not have yet:
 `suite.py` reports `PENDING <reason>` instead of failing, and fails once the
 scenario matches, so the entry is dropped. With no arguments `suite.py` runs
-every file in `scenarios/` (63 now: 61 pass, 2 pending).
+every file in `scenarios/` (66 now: all 66 pass for the KFM gameplay matrix).
 
 ### What the matrix taught the engine (all measured against upstream)
 
@@ -217,17 +226,13 @@ Host tests: all `test_ikemen_*` pass with no tracked gaps. `tests/tools/test_ike
   `Time` values from `common1.cns.zss` but are audited only for the states the
   scenarios visit; the rest should be checked against the zss when new scenarios
   reach them.
-- **KO and the round flow (pending scenarios).** When a character's life
-  reaches 0 upstream enters roundState 3 on that tick: the engine slows down
-  (`fight.def` `round.slow.time/speed`, `tick` advances about every 4th frame,
-  so the trace has runs of frames with unchanged state), the KO'd fighter is
-  forced into the fall (`ghv.fallflag`, extra KO velocity from the
-  `[Velocity]` `*.gethit.ko.*` constants) and the others go to the win pose.
-  Saturn freezes at `round_over` and has none of that, so
-  `kfm_ko_*` stay `pending` until stage F implements the round states, KO slow
-  motion, win poses, timeout and the next round. A round-complete scenario and
-  a timeout scenario need that same work (plus a way to shorten the round
-  timer in the hook).
+- **KO/timeout gameplay round flow (done for KFM).** KO uses upstream-style
+  RoundState 3 with split slow-motion clocks, defeated fall/landing and
+  post-round result poses. Timeout uses the same post-round machinery without
+  KO slow motion; equal life follows the draw path and unequal life follows
+  winner/loser states. Both are covered frame by frame by the oracle. Full
+  motif presentation and multi-round/match UI remain outside the gameplay
+  parity claim.
 - Compiler gaps still open (`--strict` will list them): `Explod` 1027
   (`floor(screenpos y)`), `command="holdback"/"blocking"` ChangeState rows of
   1310/1330/1350/1351 (the oracle scenarios pass because the hit reversal path
