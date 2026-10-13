@@ -130,6 +130,7 @@ static uint8_t g_frame_decode_scratch[IK_MAX_SPRITE_BYTES]
 static uint16_t g_map_scratch[SAT_VDP2_NBG0_MAP_CELLS];
 static sat_ascii_font_t g_font;
 static sat_hud_t g_hud;
+static sat_loading_screen_t g_loading_screen;
 static ik_frame_ctx_t g_frame;
 
 static const ik_frame_table_t g_kfm_table = {
@@ -1220,9 +1221,14 @@ int main(void) {
         1u));
     sat_example_must(sat_hud_init(&g_hud, &g_font, 1u, 8));
     sat_example_must(sat_vdp2_sprite_color_calc_configure_alpha(6u));
+    /* Boot panel: title, stage, percent bar. sat_video_width/height is
+     * live after sat_init, so the panel fills the real frame, not a
+     * baked 320x224. The bar math itself (track + filled) is now the
+     * library's; we just position the panel around it. */
+    sat_loading_screen_default(&g_loading_screen);
 
     sat_example_loading_frame(
-        &g_font, "IKEMEN SATURN", "LOADING 4 MB RAM CART", 5u, 320u, 224u);
+        &g_font, &g_loading_screen, "IKEMEN SATURN", "LOADING 4 MB RAM CART", 5u);
     {
         sat_result_t st = ik_asset_store_init(&g_asset_store);
         if (st == SAT_OK) {
@@ -1234,7 +1240,7 @@ int main(void) {
         if (st != SAT_OK) asset_store_stop(st);
     }
     sat_example_loading_frame(
-        &g_font, "IKEMEN SATURN", "P1 RESIDENT IN CART", 45u, 320u, 224u);
+        &g_font, &g_loading_screen, "IKEMEN SATURN", "P1 RESIDENT IN CART", 45u);
     {
         const sat_result_t st = ik_asset_store_load_blob(
             &g_asset_store, IK_ASSET_SLOT_P2,
@@ -1243,7 +1249,7 @@ int main(void) {
         if (st != SAT_OK) asset_store_stop(st);
     }
     sat_example_loading_frame(
-        &g_font, "IKEMEN SATURN", "P1 + P2 RESIDENT IN CART", 75u, 320u, 224u);
+        &g_font, &g_loading_screen, "IKEMEN SATURN", "P1 + P2 RESIDENT IN CART", 75u);
     {
         const sat_result_t st = ik_asset_store_load_blob(
             &g_asset_store, IK_ASSET_SLOT_FIGHTFX,
@@ -1252,7 +1258,7 @@ int main(void) {
         if (st != SAT_OK) asset_store_stop(st);
     }
     sat_example_loading_frame(
-        &g_font, "IKEMEN SATURN", "FIGHTFX RESIDENT IN CART", 90u, 320u, 224u);
+        &g_font, &g_loading_screen, "IKEMEN SATURN", "FIGHTFX RESIDENT IN CART", 90u);
 
     stage_init();
     fighters_init();
