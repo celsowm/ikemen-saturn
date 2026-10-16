@@ -16,11 +16,13 @@ folder = ROOT / ".external" / "Ikemen-GO-Screenpack" / "chars" / "kfm_zss"
 character = folder / "kfm.zss"
 hits = folder / "hits.zss"
 overrides = compile_zss_overrides(character, hits)
-assert set(overrides) == {170, 180, 820, 821, 1025, 1026, 1027, 1028}
+assert set(overrides) == {170, 180, 1061, 820, 821, 1025, 1026, 1027, 1028}
 
 expected = {
     170: ("IK_CNS_CTRL_NOT_HIT_BY",),
     180: ("IK_CNS_CTRL_CHANGE_STATE",),
+    1061: ("IK_CNS_CTRL_VEL_ADD", "IK_CNS_CTRL_CHANGE_STATE",
+           "IK_CNS_CTRL_CHANGE_STATE"),
     820: ("IK_CNS_CTRL_CHANGE_ANIM2", "IK_CNS_CTRL_SELF_STATE"),
     1025: ("IK_CNS_CTRL_CHANGE_ANIM2", "IK_CNS_CTRL_CHANGE_STATE"),
     821: ("IK_CNS_CTRL_VEL_ADD", "IK_CNS_CTRL_CHANGE_STATE",
@@ -48,6 +50,17 @@ for number, (state, controllers) in overrides.items():
 
 assert overrides[170][0].statedef.get("anim") == "170"
 assert overrides[180][0].statedef.get("anim") == "-2"
+assert overrides[1061][0].statedef.get("hitdefpersist") == "1"
+assert overrides[1061][0].statedef.get("velset") == "2, -7.5"
+knee = overrides[1061][1]
+assert knee[0]["value5"] == q16(0.45)
+assert knee[1]["trigger_kind"] == "IK_CNS_TRIGGER_COMMAND_ANY_VY_LT_Q8"
+assert knee[1]["trigger_value"] == (1 << 5) | (1 << 6)
+assert knee[1]["trigger_value2"] == -256
+assert knee[1]["value0"] == 1055
+assert knee[2]["trigger_kind"] == "IK_CNS_TRIGGER_VY_GT_Q8_AT_LEVEL"
+assert knee[2]["trigger_value"] == -10 * 256
+assert knee[2]["value0"] == 1052
 assert overrides[820][1][1]["trigger_kind"] == "IK_CNS_TRIGGER_NOT_BOUND"
 assert overrides[1025][1][1]["trigger_kind"] == "IK_CNS_TRIGGER_HIT_SHAKE_OVER"
 assert overrides[821][1][1]["trigger_kind"] == "IK_CNS_TRIGGER_THROW_GROUND_RECOVERY"
@@ -94,6 +107,21 @@ with tempfile.TemporaryDirectory() as temp:
     else:
         raise AssertionError("changed ZSS controller accepted")
 
+# Reject changed airborne knee cancel logic, wall detection or throw recovery.
+with tempfile.TemporaryDirectory() as temp:
+    original = character.read_text(encoding="utf-8-sig")
+    old = 'if (command = "a" || command = "b") && !aiLevelF && vel y < -1'
+    assert old in original
+    modified = Path(temp) / "kfm.zss"
+    modified.write_text(original.replace(old, old.replace("-1", "-2"), 1),
+                        encoding="utf-8")
+    try:
+        compile_zss_overrides(modified, hits)
+    except ValueError as exc:
+        assert "state 1061 body changed" in str(exc)
+    else:
+        raise AssertionError("changed ZSS knee state 1061 accepted")
+
 # Reject changed wall detection or airborne throw-recovery behavior.
 with tempfile.TemporaryDirectory() as temp:
     original = hits.read_text(encoding="utf-8-sig")
@@ -113,4 +141,4 @@ with tempfile.TemporaryDirectory() as temp:
         else:
             raise AssertionError(f"changed ZSS state {number} accepted")
 
-print("ZSS state compiler: native 170/180/820/821/1025/1026/1027/1028 OK")
+print("ZSS state compiler: native 170/180/1061/820/821/1025/1026/1027/1028 OK")
