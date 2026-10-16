@@ -4260,6 +4260,11 @@ def emit(
             row["source"] = "zss"
         else:
             row["source"] = "classic_cns"
+            if character_zss is not None and number_ == 600:
+                from tools.ikemen_zss_character_states import (
+                    patch_air_punch_ctrl_timing,
+                )
+                cs = patch_air_punch_ctrl_timing(character_zss, cs)
         row["reversal_ofs"] = len(reversals)
         row["hitoverride_ofs"] = len(hitoverrides)
         state_rows.append(row)

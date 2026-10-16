@@ -10,7 +10,9 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 from tools.ikemen_cns import parse_state, q16  # noqa: E402
-from tools.ikemen_zss_character_states import compile_zss_overrides  # noqa: E402
+from tools.ikemen_zss_character_states import (
+    compile_zss_overrides, patch_air_punch_ctrl_timing,
+)  # noqa: E402
 
 folder = ROOT / ".external" / "Ikemen-GO-Screenpack" / "chars" / "kfm_zss"
 character = folder / "kfm.zss"
@@ -89,6 +91,36 @@ assert wall[4]["value0"] == 1027
 assert wall[5]["flags"] == "IK_CNS_CTRL_AXIS_X | IK_CNS_CTRL_AXIS_Y"
 assert wall[7]["trigger_kind"] == "IK_CNS_TRIGGER_ANIM_END"
 assert wall[7]["value0"] == 1028
+
+# State 600 remains classic CNS for sound/HitDef, but its ZSS CtrlSet
+# has different timing. Only the verified CtrlSet may change.
+classic_600 = [
+    {"type": "IK_CNS_CTRL_CTRL_SET", "trigger_kind": "IK_CNS_TRIGGER_TIME_EQ",
+     "trigger_value": 17, "trigger_value2": 0, "value0": 1},
+]
+patched_600 = patch_air_punch_ctrl_timing(character, classic_600)
+assert classic_600[0]["trigger_kind"] == "IK_CNS_TRIGGER_TIME_EQ"
+assert patched_600[0]["trigger_kind"] == "IK_CNS_TRIGGER_ANIM_ELEM_TIME_EQ_PACKED"
+assert patched_600[0]["trigger_value"] == (3 << 8) | 2
+assert patched_600[0]["value0"] == 1
+assert patched_600[0] is not classic_600[0]
+
+with tempfile.TemporaryDirectory() as temp:
+    original = character.read_text(encoding="utf-8-sig")
+    before, state = original.split("[StateDef 600;", 1)
+    assert "if animElemTime(3) = 2" in state
+    modified = Path(temp) / "kfm.zss"
+    modified.write_text(
+        before + "[StateDef 600;" +
+        state.replace("if animElemTime(3) = 2",
+                      "if animElemTime(3) = 3", 1),
+        encoding="utf-8")
+    try:
+        patch_air_punch_ctrl_timing(modified, classic_600)
+    except ValueError as exc:
+        assert "state 600 CtrlSet clause changed" in str(exc)
+    else:
+        raise AssertionError("changed state 600 ZSS CtrlSet accepted")
 
 # A new ZSS controller or missing semantic branch must break generation;
 # never let a partially compiled move masquerade as source parity.

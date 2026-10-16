@@ -199,6 +199,13 @@ claimed**. The 821 AI-random recovery branch is still deferred because the
 native driver has no mirrored Ikemen GO AI/RNG execution path. All other
 unported ZSS states continue to use the documented classic CNS fallback.
 
+State 600's original ZSS `AnimElemTime(3)=2` CtrlSet occurs one frame before
+the classic CNS `Time=17` equivalent in both measured aerial traces.
+A source-checked **CtrlSet-only** timing shim now preserves the classic
+HitDef/sound compatibility controllers and changes only that trigger in
+KFM ZSS. This is not a full translation of ZSS StateDef 600; the upstream
+oracle is the regression gate for the two identified differences.
+
 ## Known shims and gaps
 
 - **Round flow (partial).** The `--align-to` shim is gone: fighters spawn at

@@ -89,6 +89,51 @@ def normalize_body(source: str) -> str:
     return re.sub(r"\s+", "", "".join(lines)).lower()
 
 
+def patch_air_punch_ctrl_timing(
+    character_zss: Path, classic: list[dict],
+) -> list[dict]:
+    """Source-checked narrow shim for ZSS state 600's early CtrlSet.
+
+    Keep the rest of the legacy CNS compatibility row (sound and HitDef).
+    ZSS says AnimElemTime(3)=2, while classic CNS uses Time=17; for the
+    pinned AIR frames this produces a visible one-tick CtrlSet difference.
+    Fail closed if that source clause or the classic baseline changes.
+    """
+    source = parse_zss_states(character_zss).get(600)
+    expected = "ifanimelemtime(3)=2{ctrlset{value:1}}"
+    if source is None or normalize_body(source.body).count(expected) != 1:
+        raise ValueError(
+            f"{character_zss}: state 600 CtrlSet clause changed; "
+            "refusing ZSS timing shim"
+        )
+    for key, value in {
+        "type": "A", "movetype": "A", "physics": "A",
+        "anim": "600", "ctrl": "0",
+    }.items():
+        actual = re.sub(r"\s+", "", source.metadata.get(key, "")).upper()
+        if actual != value:
+            raise ValueError(
+                f"{character_zss}: state 600 {key} changed: {actual!r}"
+            )
+    matches = [
+        i for i, row in enumerate(classic)
+        if row["type"] == "IK_CNS_CTRL_CTRL_SET"
+    ]
+    if len(matches) != 1:
+        raise ValueError("state 600 classic CNS CtrlSet count changed")
+    i = matches[0]
+    original = classic[i]
+    if not (original["trigger_kind"] == "IK_CNS_TRIGGER_TIME_EQ"
+            and original["trigger_value"] == 17
+            and original["value0"] == 1):
+        raise ValueError("state 600 classic CNS CtrlSet baseline changed")
+    patched = [dict(row) for row in classic]
+    patched[i]["trigger_kind"] = "IK_CNS_TRIGGER_ANIM_ELEM_TIME_EQ_PACKED"
+    patched[i]["trigger_value"] = (3 << 8) | 2
+    patched[i]["trigger_value2"] = 0
+    return patched
+
+
 def _controllers(state: int) -> list[dict]:
     if state == 170:
         # Invulnerable to S/C/A attackers for one tick (refreshed each tick).
