@@ -86,6 +86,43 @@ int main() {
         /* No front-edge turn: back distance is 320-12-.5=307.5px. */
         OK(f->x_q8 == 320 * 256 + (15 * 256 - (307 * 256 + 128)));
     }
+    /* Strong Knee's air continuation belongs to ZSS 1061, not the classic
+     * CNS fallback. Test all three branches against generated real assets. */
+    {
+        const ik_cns_state_t* knee = ik_cns_find_state(&kfm_zss_cns, 1061);
+        OK(knee && knee->controller_count == 3u);
+        OK(knee->hitdef_persist == 1u);
+        OK(knee->has_velset == 1u);
+        auto check_knee = [&](int vy_q8, int rel_y_q8,
+                              bool a, bool b, int expected_state) {
+            static ik_fight_t fight;
+            initialize(&fight, 320, 1);
+            ik_fighter_t* f = &fight.fighters[0];
+            f->state = 1061;
+            f->anim = 1051;
+            f->anim_time = 0u;
+            f->state_time = 0u;
+            f->cur_state_type = IK_CNS_STATE_AIR;
+            f->cur_move_type = IK_CNS_MOVE_ATTACK;
+            f->on_ground = 0u;
+            f->vy_q8 = vy_q8;
+            f->y_q8 = IK_FLOOR_Y * 256 + rel_y_q8;
+            ik_fight_controls_t input{};
+            input.a = static_cast<uint8_t>(a);
+            input.b = static_cast<uint8_t>(b);
+            const int changed = ikf_process_cns_controllers(
+                &fight, f, &input, &zss_frames, 0);
+            OK(f->state == expected_state);
+            OK((changed != 0) == (expected_state != 1061));
+        };
+        check_knee(-3 * 256, -100 * 256, true, false, 1055);
+        check_knee(-3 * 256, -100 * 256, false, true, 1055);
+        check_knee(-3 * 256, -100 * 256, false, false, 1061);
+        check_knee(-128, -100 * 256, true, false, 1061);
+        check_knee(256, -11 * 256, false, false, 1061);
+        check_knee(256, -9 * 256, false, false, 1052);
+    }
+    std::puts("[test] native ZSS 1061 knee cancel and landing OK");
     std::puts("[test] native ZSS 1027 screen edge F72 / SysSnd OK");
     return 0;
 }
