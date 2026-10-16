@@ -159,6 +159,14 @@ ikemen_host_target(ikemen_oracle_trace ${IKEMEN_LOGIC_SOURCES}
 add_dependencies(ikemen_oracle_trace ikemen_assets)
 set_target_properties(ikemen_oracle_trace PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
 
+# Every ordinary CI push checks that the real mixed classic/ZSS character
+# bundles can be replayed frame-by-frame (without Go/SDL dependencies).
+add_test(NAME zss_trace_smoke
+    COMMAND "${Python3_EXECUTABLE}" tools/ikemen_oracle/smoke_zss.py
+            --trace-bin "$<TARGET_FILE:ikemen_oracle_trace>"
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
+set_tests_properties(zss_trace_smoke PROPERTIES LABELS "zss;oracle-host")
+
 # Python tool tests: scripts that exit non-zero on failure.
 file(GLOB IKEMEN_TOOL_TESTS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/tests/tools/test_*.py")
 foreach(_test_src IN LISTS IKEMEN_TOOL_TESTS)

@@ -183,6 +183,42 @@ comparable.
 The comparator is strict for integer/boolean/string/state fields and uses a
 small absolute tolerance for floating-point coordinates and velocities.
 
+## Mixed classic KFM / KFM ZSS oracle
+
+The native trace runner accepts either original character definition
+independently per player: `chars/kfm/kfm.def` or
+`chars/kfm_zss/kfm_zss.def`. It loads each player's actual CNS, AIR, CMD
+and State -1 tables, exactly as the Saturn demo does. Unsupported character
+paths are rejected rather than running the classic KFM accidentally.
+
+Four reproducible ZSS-specific scenarios live in `scenarios/zss_*.json`,
+covering idle, P1 punches, P2 punches and the P2 Fast Palm victim sequence.
+The classic matrix remains `kfm_*.json`, so adding ZSS scenarios does not
+silently redefine the previously established classic parity baseline.
+
+Run the Saturn-only smoke test (also in every ordinary CI build):
+
+```sh
+cmake --preset host
+cmake --build --preset host
+ctest --test-dir build/host -R zss_trace_smoke --output-on-failure
+```
+
+To run the full upstream-vs-Saturn ZSS comparison (requires the Ikemen GO
+dependencies and screenpack as described above):
+
+```sh
+xvfb-run -a python tools/ikemen_oracle/suite.py --zss-only --keep-going \
+    --trace-bin build/host/ikemen_oracle_trace
+```
+
+Each scenario compares its *own* original upstream character selection
+against the corresponding Saturn port; classic-vs-ZSS outputs are **not**
+supposed to be identical. Current ZSS states still use classic fallback in
+many places; these cases carry an explicit `pending` reason and the first
+parity difference must be investigated. The suite checks non-vacuity against
+upstream before allowing pending differences.
+
 ## Important scope
 
 This is a behavioral oracle, not a source-code dependency. Ikemen GO remains in

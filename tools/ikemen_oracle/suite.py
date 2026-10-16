@@ -76,12 +76,19 @@ def main() -> int:
         action="store_true",
         help="continue after mismatches instead of stopping at the first one",
     )
+    parser.add_argument(
+        "--zss-only", action="store_true",
+        help="run just the mixed classic KFM / KFM ZSS parity matrix",
+    )
     args = parser.parse_args()
 
     tool = ROOT / "tools" / "ikemen_oracle"
     scenario_dir = tool / "scenarios"
     requested = args.scenarios or sorted(
-        p.name for p in scenario_dir.glob("*.json"))
+        p.name for p in scenario_dir.glob(
+            "zss_*.json" if args.zss_only else "kfm_*.json"))
+    if args.zss_only and args.scenarios:
+        parser.error("--zss-only cannot be combined with explicit scenario names")
 
     failures = 0
     pending = 0
@@ -136,7 +143,7 @@ def main() -> int:
             scenario.read_text(encoding="utf-8")).get("pending")
 
         scenario_failed = False
-        for step in steps:
+        for step_index, step in enumerate(steps):
             result = run(step)
             if result.stdout:
                 print(result.stdout.rstrip())
@@ -149,20 +156,25 @@ def main() -> int:
                     failures += 1
                     print(f"FAIL {name}: exit {result.returncode}")
                 break
+            # Verify the upstream move really occurred *before* diffing.
+            # A pending ZSS scenario must never hide a wrong or vacuous input.
+            if step_index == 0:
+                problems = check_expect(scenario, oracle)
+                for problem in problems:
+                    print(f"VACUOUS {name}: {problem}")
+                if problems:
+                    scenario_failed = True
+                    failures += 1
+                    print(f"FAIL {name}: upstream expectation not met")
+                    break
 
         if not scenario_failed:
-            for problem in check_expect(scenario, oracle):
-                scenario_failed = True
-                print(f"VACUOUS {name}: {problem}")
-            if scenario_failed:
-                failures += 1
-                print(f"FAIL {name}: expectation not met")
-            elif reason:
+            if reason:
                 scenario_failed = True
                 failures += 1
                 print(f"FAIL {name}: matches now; drop its \"pending\" entry")
-        if not scenario_failed:
-            print(f"PASS {name}")
+            else:
+                print(f"PASS {name}")
 
         if scenario_failed and not reason and not args.keep_going:
             print("stopping at first divergent scenario")
