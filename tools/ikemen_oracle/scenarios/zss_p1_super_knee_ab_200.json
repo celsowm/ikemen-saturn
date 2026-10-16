@@ -55,6 +55,5 @@
   "setup": {
     "p1_power": 1000
   },
-  "exploratory": true,
   "origin": "kfm_super_knee_ab_200.json"
 }

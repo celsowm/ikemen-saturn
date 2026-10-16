@@ -63,9 +63,6 @@ assert set(strict) == {
     "zss_p2_recovery_200", "zss_p2_throw_victim_160",
     "zss_p2_upper_y_200", "zss_p2_upper_y_attacker_200",
     "zss_p2_timeout_win_180",
-}
-assert set(exploratory) == {
-    "zss_p1_air_x_200",
     "zss_p1_combo_cancel_x_qcf_y_200",
     "zss_p1_combo_cancel_x_upper_x_200",
     "zss_p1_combo_cancel_y_blow_y_200",
@@ -73,12 +70,15 @@ assert set(exploratory) == {
     "zss_p1_combo_chain_x_y_200",
     "zss_p1_combo_rapid_x_200",
     "zss_p1_ff_a_200",
-    "zss_p1_strong_knee_ff_b_220",
     "zss_p1_super_knee_ab_200",
-    "zss_p2_blocking_air_air_200",
+    "zss_p1_strong_knee_ff_b_220",
     "zss_p2_guard_air_160",
     "zss_p2_guard_crouch_x_160",
     "zss_p2_qcf_y_attacker_200",
+}
+assert set(exploratory) == {
+    "zss_p1_air_x_200",
+    "zss_p2_blocking_air_air_200",
 }
 # Require each observed state in the full hit-reaction sequence, preventing
 # vacuous PASSes that only execute 1025 without reaching the wall.
@@ -89,4 +89,10 @@ assert thrown["expect"]["p2_states"] == [820, 821, 5100]
 timeout = json.loads((OUT / "zss_p2_timeout_win_180.json").read_text())
 assert timeout["expect"]["p1_states"] == [181]
 assert timeout["expect"]["p2_states"] == [170]
-print("ZSS oracle corpus: 13 proven strict + 14 exploratory combo/air/knee cases OK")
+# Strong Knee must remain a non-vacuous ZSS-specific FF+B test after promotion.
+knee = json.loads((OUT / "zss_p1_strong_knee_ff_b_220.json").read_text())
+origin = json.loads((OUT / "kfm_ff_a_200.json").read_text())
+assert knee["expect"] == {"p1_states": [1060, 1061], "p2_life_drops": True}
+assert knee["inputs"][:-1] == origin["inputs"][:-1]
+assert knee["inputs"][-1]["p1"] == ["forward", "b"]
+print("ZSS oracle corpus: 25 upstream-matched strict + 2 exploratory air cases OK")

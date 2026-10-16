@@ -210,7 +210,17 @@ The recorded upstream timeout immediately transitions to visible winner
 state 181 and loser state 170 (state 180 is transitory, not visible in the
 per-frame trace). This final case is now also a strict parity gate.
 The current 13-case corpus totals **2,600 compared frames**.
-A second exploratory matrix adds **14 scenarios** (27 total) covering
+In the upstream run
+[38981362465](https://github.com/celsowm/ikemen-saturn/actions/runs/38981362465),
+12 of the 14 added cases matched exactly, including Strong Knee 1060->1061.
+Those 12 are now strict gates: **25 strict cases** of the 27 total.
+Two remain exploratory: `zss_p1_air_x_200` (P1 ctrl at frame 103)
+and `zss_p2_blocking_air_air_200` (P2 ctrl at frame 92).
+Both differed for exactly one frame from the source ZSS's AnimElemTime(3)=2
+compared with the original CNS's Time=17, now guarded by the generated
+State 600 CtrlSet timing shim; the full upstream rerun must confirm the fix.
+
+The extended matrix covers
 chained punches, command cancels, supers, jumping attacks, air/crouch
 reversals, and native ZSS Strong Knee. The Strong Knee FF+B scenario uses
 an explicit altered input timeline and requires states 1060 and 1061.
