@@ -22,7 +22,29 @@
 extern "C" {
 #endif
 
+/* Bind canonical input controls by name instead of a character-specific ID. */
+typedef enum ik_frame_control {
+    IK_FRAME_CONTROL_HOLDFWD = 0, IK_FRAME_CONTROL_HOLDBACK,
+    IK_FRAME_CONTROL_HOLDUP, IK_FRAME_CONTROL_HOLDDOWN,
+    IK_FRAME_CONTROL_A, IK_FRAME_CONTROL_B, IK_FRAME_CONTROL_C,
+    IK_FRAME_CONTROL_X, IK_FRAME_CONTROL_Y, IK_FRAME_CONTROL_Z,
+    IK_FRAME_CONTROL_START, IK_FRAME_CONTROL_RECOVERY,
+    IK_FRAME_CONTROL_COUNT
+} ik_frame_control_t;
+
+typedef struct ik_frame_character_assets {
+    const ik_command_asset_t* commands;
+    const ik_state_rule_asset_t* state_rules;
+} ik_frame_character_assets_t;
+
+typedef struct ik_frame_character {
+    const ik_command_asset_t* commands;
+    const ik_state_rule_asset_t* state_rules;
+    uint16_t control_ids[IK_FRAME_CONTROL_COUNT];
+} ik_frame_character_t;
+
 typedef struct ik_frame_ctx {
+    ik_frame_character_t characters[2];
     ik_command_state_t command_states[2];
     ik_entity_pool_t pool;
     ik_entity_handle_t players[2];
@@ -30,8 +52,11 @@ typedef struct ik_frame_ctx {
 
 /* Spawns the two root players in the entity pool, binds them to the fight
  * and mirrors the initial fighter state into the pool. Returns 0 on pool
- * exhaustion. */
-int ik_frame_ctx_init(ik_frame_ctx_t* ctx, ik_fight_t* fight);
+ * exhaustion or a missing CMD table. The caller retains ownership of the
+ * character tables for the duration of the fight. */
+int ik_frame_ctx_init(
+    ik_frame_ctx_t* ctx, ik_fight_t* fight,
+    const ik_frame_character_assets_t characters[2]);
 
 /* Mirrors fighter state into the entity pool (what State -1 rules and
  * redirections read). Exposed because presentation code needs it before the

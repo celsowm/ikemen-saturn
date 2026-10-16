@@ -15,6 +15,9 @@ it reaches the library only through the installed CMake/Conan package contract
 There is no sibling checkout, no `add_subdirectory`, and no LibSaturn private
 header or build-tree path anywhere in this repository.
 
+The shared frame driver accepts separate CMD and State -1 tables for each
+fighter. The playable demo still binds KFM to both slots.
+
 ## Requirements
 
 - An installed LibSaturn package (a `cmake --install` prefix, or the Conan

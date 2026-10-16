@@ -98,6 +98,7 @@ set(IKEMEN_FIGHT_TEST_SOURCES
     "${_ik}/ikemen_entity.c" "${_ik}/ikemen_entity_runtime.c")
 set(IKEMEN_TEST_SOURCES_test_ikemen_fight ${IKEMEN_FIGHT_TEST_SOURCES})
 set(IKEMEN_TEST_SOURCES_test_ikemen_command "${_ik}/ikemen_command.c" "${_ik}/ikemen_expr.c")
+set(IKEMEN_TEST_SOURCES_test_ikemen_frame ${IKEMEN_LOGIC_SOURCES})
 set(IKEMEN_TEST_SOURCES_test_ikemen_expr "${_ik}/ikemen_expr.c")
 set(IKEMEN_TEST_SOURCES_test_ikemen_entity "${_ik}/ikemen_entity.c" "${_ik}/ikemen_expr.c")
 set(IKEMEN_TEST_SOURCES_test_ikemen_entity_runtime

@@ -5,8 +5,10 @@
 ## Training subset
 
 Kung Fu Man vs the ZSS Kung Fu Man variant, using the original Ikemen/MUGEN
-character data on Saturn hardware. P1 and P2 now own independent AIR/SFF
-runtime data; CNS/CMD simulation is still intentionally shared at this stage.
+character data on Saturn hardware. P1 and P2 own independent AIR/SFF runtime data. The frame driver also accepts
+distinct compiled CMD and State -1 assets for each player, with command names
+resolved per character. The current demo still binds KFM's CMD/State -1 tables
+to both players, while the fight can select CNS assets per player.
 
 ## Hardware profile
 

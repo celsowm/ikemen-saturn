@@ -1,11 +1,16 @@
 #include "ikemen_frame.h"
 
-#include "ikemen_saturn/kfm_commands.h"
-#include "ikemen_saturn/kfm_state_rules.h"
+/* Resolve each player's commands once. Generated KFM IDs are not part of
+ * the engine ABI; another character may number its CMD names differently. */
+static const char* const k_control_names[IK_FRAME_CONTROL_COUNT] = {
+    "holdfwd", "holdback", "holdup", "holddown",
+    "a", "b", "c", "x", "y", "z", "start", "recovery"
+};
 
 typedef struct ik_rule_expr_user {
     ik_entity_expr_binding_t entity;
     const ik_command_state_t* command_state;
+    const ik_command_asset_t* commands;
 } ik_rule_expr_user_t;
 
 static int rule_expr_read_field(
@@ -33,7 +38,7 @@ static int rule_expr_read_command(
     const ik_rule_expr_user_t* rule =
         (const ik_rule_expr_user_t*)user;
     *out_value = ik_command_active(
-        rule->command_state, &kfm_commands, command_id);
+        rule->command_state, rule->commands, command_id);
     return 1;
 }
 
@@ -87,8 +92,12 @@ void ik_frame_sync_players(ik_frame_ctx_t* ctx, const ik_fight_t* fight) {
     }
 }
 
-int ik_frame_ctx_init(ik_frame_ctx_t* ctx, ik_fight_t* fight) {
-    if (!ctx || !fight) return 0;
+int ik_frame_ctx_init(
+    ik_frame_ctx_t* ctx, ik_fight_t* fight,
+    const ik_frame_character_assets_t characters[2]
+) {
+    if (!ctx || !fight || !characters ||
+        !characters[0].commands || !characters[1].commands) return 0;
     ik_entity_pool_init(&ctx->pool);
     if (!ik_entity_spawn(
             &ctx->pool, IK_ENTITY_PLAYER, 1, 0u,
@@ -101,8 +110,16 @@ int ik_frame_ctx_init(ik_frame_ctx_t* ctx, ik_fight_t* fight) {
     ik_fight_bind_entities(
         fight, &ctx->pool, ctx->players[0], ctx->players[1]);
     ik_frame_sync_players(ctx, fight);
-    ik_command_state_init(&ctx->command_states[0]);
-    ik_command_state_init(&ctx->command_states[1]);
+    for (uint32_t player = 0u; player < 2u; ++player) {
+        ik_frame_character_t* character = &ctx->characters[player];
+        character->commands = characters[player].commands;
+        character->state_rules = characters[player].state_rules;
+        for (uint32_t control = 0u; control < IK_FRAME_CONTROL_COUNT; ++control) {
+            character->control_ids[control] = ik_command_find(
+                character->commands, k_control_names[control]);
+        }
+        ik_command_state_init(&ctx->command_states[player]);
+    }
     return 1;
 }
 
@@ -122,54 +139,47 @@ static int command_pause_end_buffer(
     return !can_act;
 }
 
+static uint8_t control_active(
+    const ik_frame_ctx_t* ctx, uint32_t player, ik_frame_control_t control
+) {
+    const ik_frame_character_t* character = &ctx->characters[player];
+    return (uint8_t)ik_command_active(
+        &ctx->command_states[player], character->commands,
+        character->control_ids[control]);
+}
+
 static void controls_from_commands(
-    const ik_frame_ctx_t* ctx,
-    uint32_t player,
+    const ik_frame_ctx_t* ctx, uint32_t player,
     ik_fight_controls_t* controls
 ) {
     if (!ctx || !controls || player >= 2u) return;
     const ik_fight_controls_t none = {0};
     *controls = none;
+    const ik_frame_character_t* character = &ctx->characters[player];
     const ik_command_state_t* state = &ctx->command_states[player];
 
-    controls->forward = (uint8_t)ik_command_active(
-        state, &kfm_commands, KFM_CMD_HOLDFWD);
-    controls->back = (uint8_t)ik_command_active(
-        state, &kfm_commands, KFM_CMD_HOLDBACK);
-    controls->up = (uint8_t)ik_command_active(
-        state, &kfm_commands, KFM_CMD_HOLDUP);
-    controls->down = (uint8_t)ik_command_active(
-        state, &kfm_commands, KFM_CMD_HOLDDOWN);
-
-    controls->a = (uint8_t)ik_command_active(
-        state, &kfm_commands, KFM_CMD_A);
-    controls->b = (uint8_t)ik_command_active(
-        state, &kfm_commands, KFM_CMD_B);
-    controls->c = (uint8_t)ik_command_active(
-        state, &kfm_commands, KFM_CMD_C);
-    controls->x = (uint8_t)ik_command_active(
-        state, &kfm_commands, KFM_CMD_X);
-    controls->y = (uint8_t)ik_command_active(
-        state, &kfm_commands, KFM_CMD_Y);
-    controls->z = (uint8_t)ik_command_active(
-        state, &kfm_commands, KFM_CMD_Z);
-    controls->start = (uint8_t)ik_command_active(
-        state, &kfm_commands, KFM_CMD_START);
-    controls->recovery = (uint8_t)ik_command_active(
-        state, &kfm_commands, KFM_CMD_RECOVERY);
+    controls->forward = control_active(ctx, player, IK_FRAME_CONTROL_HOLDFWD);
+    controls->back = control_active(ctx, player, IK_FRAME_CONTROL_HOLDBACK);
+    controls->up = control_active(ctx, player, IK_FRAME_CONTROL_HOLDUP);
+    controls->down = control_active(ctx, player, IK_FRAME_CONTROL_HOLDDOWN);
+    controls->a = control_active(ctx, player, IK_FRAME_CONTROL_A);
+    controls->b = control_active(ctx, player, IK_FRAME_CONTROL_B);
+    controls->c = control_active(ctx, player, IK_FRAME_CONTROL_C);
+    controls->x = control_active(ctx, player, IK_FRAME_CONTROL_X);
+    controls->y = control_active(ctx, player, IK_FRAME_CONTROL_Y);
+    controls->z = control_active(ctx, player, IK_FRAME_CONTROL_Z);
+    controls->start = control_active(ctx, player, IK_FRAME_CONTROL_START);
+    controls->recovery = control_active(ctx, player, IK_FRAME_CONTROL_RECOVERY);
 
     ik_rule_expr_user_t user = {
-        {&ctx->pool, ctx->players[player]},
-        state
+        {&ctx->pool, ctx->players[player]}, state, character->commands
     };
     const ik_expr_context_t expression = {
-        &user,
-        rule_expr_read_field,
-        rule_expr_read_command
+        &user, rule_expr_read_field, rule_expr_read_command
     };
     int16_t requested = 0;
-    if (ik_command_eval_state_change_expr(
-            &kfm_state_rules, &expression, &requested)) {
+    if (character->state_rules && ik_command_eval_state_change_expr(
+            character->state_rules, &expression, &requested)) {
         controls->requested_state = requested;
         controls->has_state_request = 1u;
     }
@@ -190,7 +200,7 @@ void ik_frame_step(
 
     ik_frame_sync_players(ctx, fight);
     ik_command_update(
-        &ctx->command_states[0], &kfm_commands, pad1,
+        &ctx->command_states[0], ctx->characters[0].commands, pad1,
         fight->fighters[0].facing,
         fight->fighters[0].hit_pause != 0u,
         command_pause_end_buffer(fight, 0u));
@@ -198,7 +208,7 @@ void ik_frame_step(
 
     if (pad2) {
         ik_command_update(
-            &ctx->command_states[1], &kfm_commands, pad2,
+            &ctx->command_states[1], ctx->characters[1].commands, pad2,
             fight->fighters[1].facing,
             fight->fighters[1].hit_pause != 0u,
             command_pause_end_buffer(fight, 1u));

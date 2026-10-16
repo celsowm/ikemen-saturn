@@ -1270,8 +1270,14 @@ int main(void) {
     sat_example_must(ik_audio_init(&audio));
 
     ik_fight_init(&fight, &kfm_cns);
-    sat_example_must(ik_frame_ctx_init(&g_frame, &fight)
-        ? SAT_OK : SAT_ERR_CAPACITY);
+    /* This demo still uses KFM on both sides. The driver can bind other
+     * characters' CMD/State -1 assets without changing its own code. */
+    const ik_frame_character_assets_t character_assets[2] = {
+        {&kfm_commands, &kfm_state_rules},
+        {&kfm_commands, &kfm_state_rules}
+    };
+    sat_example_must(ik_frame_ctx_init(
+        &g_frame, &fight, character_assets) ? SAT_OK : SAT_ERR_CAPACITY);
 
     for (;;) {
         sat_pad_state_t pad1 = {0};

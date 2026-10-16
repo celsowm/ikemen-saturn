@@ -360,7 +360,11 @@ int main(int argc, char** argv) {
     ik_fight_controls_t idle{};
 
     ik_fight_init(&fight, &kfm_cns);
-    if (!ik_frame_ctx_init(&ctx, &fight)) {
+    const ik_frame_character_assets_t character_assets[2] = {
+        {&kfm_commands, &kfm_state_rules},
+        {&kfm_commands, &kfm_state_rules}
+    };
+    if (!ik_frame_ctx_init(&ctx, &fight, character_assets)) {
         std::fclose(out);
         return 3;
     }
