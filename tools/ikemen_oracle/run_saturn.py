@@ -22,6 +22,25 @@ DEFAULT_TRACE_BIN = ROOT / "build" / "host" / (
     "ikemen_oracle_trace.exe" if sys.platform == "win32"
     else "ikemen_oracle_trace")
 
+# Accept only exact supported original character definitions. The oracle
+# must never run classic CNS accidentally when asked for ZSS.
+CHARACTER_FILES = {
+    ("chars", "kfm", "kfm.def"): "kfm",
+    ("chars", "kfm_zss", "kfm_zss.def"): "kfm_zss",
+}
+
+
+def character_asset(path: str) -> str:
+    parts = Path(path.replace("\\", "/")).parts
+    suffix = tuple(parts[-3:])
+    if suffix not in CHARACTER_FILES:
+        raise ValueError(
+            f"unsupported character {path!r} for the Saturn trace: "
+            "only chars/kfm/kfm.def and chars/kfm_zss/kfm_zss.def "
+            "are compiled"
+        )
+    return CHARACTER_FILES[suffix]
+
 def load_scenario(path: Path) -> dict:
     data = json.loads(path.read_text(encoding="utf-8"))
     if int(data.get("frames", 0)) <= 0:
@@ -61,6 +80,8 @@ def main() -> int:
     run_cmd = [
         str(host_bin), str(trace), str(frames), str(seed), str(timeline),
         setup_string(scenario),
+        character_asset(str(scenario["p1"])),
+        character_asset(str(scenario["p2"])),
     ]
     subprocess.run(run_cmd, cwd=ROOT, check=True)
 

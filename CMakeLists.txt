@@ -146,10 +146,16 @@ add_executable(ikemen_oracle_trace
     tools/ikemen_oracle/saturn_trace.cpp
     ${IKEMEN_LOGIC_SOURCES}
     "${IKEMEN_GEN_DIR}/kfm_frames.c" "${IKEMEN_GEN_DIR}/kfm_cns.c"
-    "${IKEMEN_GEN_DIR}/kfm_commands.c" "${IKEMEN_GEN_DIR}/kfm_state_rules.c")
+    "${IKEMEN_GEN_DIR}/kfm_commands.c" "${IKEMEN_GEN_DIR}/kfm_state_rules.c"
+    "${IKEMEN_GEN_DIR}/kfm_zss_frames.c" "${IKEMEN_GEN_DIR}/kfm_zss_cns.c"
+    "${IKEMEN_GEN_DIR}/kfm_zss_commands.c"
+    "${IKEMEN_GEN_DIR}/kfm_zss_state_rules.c")
 ikemen_host_target(ikemen_oracle_trace ${IKEMEN_LOGIC_SOURCES}
     "${IKEMEN_GEN_DIR}/kfm_frames.c" "${IKEMEN_GEN_DIR}/kfm_cns.c"
-    "${IKEMEN_GEN_DIR}/kfm_commands.c" "${IKEMEN_GEN_DIR}/kfm_state_rules.c")
+    "${IKEMEN_GEN_DIR}/kfm_commands.c" "${IKEMEN_GEN_DIR}/kfm_state_rules.c"
+    "${IKEMEN_GEN_DIR}/kfm_zss_frames.c" "${IKEMEN_GEN_DIR}/kfm_zss_cns.c"
+    "${IKEMEN_GEN_DIR}/kfm_zss_commands.c"
+    "${IKEMEN_GEN_DIR}/kfm_zss_state_rules.c")
 add_dependencies(ikemen_oracle_trace ikemen_assets)
 set_target_properties(ikemen_oracle_trace PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
 
