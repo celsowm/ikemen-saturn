@@ -107,7 +107,7 @@ int main() {
                 fx_scratch, sizeof(fx_scratch));
 
     /* Check the actual compiled CNS table linked into the Saturn firmware,
-     * not only the Python importer report. Six state bodies now come
+     * not only the Python importer report. Seven state bodies now come
      * from verified ZSS sources; unported states keep the fallback. */
     struct ExpectedZss {
         int16_t state;
@@ -122,6 +122,7 @@ int main() {
         {1025, 2u, IK_CNS_CTRL_CHANGE_ANIM2, IK_CNS_CTRL_CHANGE_STATE},
         {821, 4u, IK_CNS_CTRL_VEL_ADD, IK_CNS_CTRL_SELF_STATE},
         {1026, 5u, IK_CNS_CTRL_HIT_VEL_SET, IK_CNS_CTRL_SELF_STATE},
+        {1028, 7u, IK_CNS_CTRL_NOT_HIT_BY, IK_CNS_CTRL_SELF_STATE},
     };
     for (const ExpectedZss& expected : expected_zss) {
         const ik_cns_state_t* state = ik_cns_find_state(
@@ -182,6 +183,16 @@ int main() {
     OK(wall[3].trigger_value2 == 20);
     OK(wall[3].value0 == 1027);
     OK(wall[4].value0 == 5100);
+    const ik_cns_state_t* zss1028 = ik_cns_find_state(&kfm_zss_cns, 1028);
+    const ik_cns_controller_t* bounce =
+        kfm_zss_cns.controllers + zss1028->controller_ofs;
+    OK(bounce[1].type == IK_CNS_CTRL_VEL_SET);
+    OK(bounce[2].trigger_kind == IK_CNS_TRIGGER_STATE_ENTRY_BACK_EDGE_LT);
+    OK(bounce[3].type == IK_CNS_CTRL_CHANGE_ANIM_IF_EXISTS);
+    OK(bounce[3].value0 == 5052 && bounce[3].value1 == 5050);
+    OK(bounce[5].type == IK_CNS_CTRL_CHANGE_ANIM_DESCENT_IF_EXISTS);
+    OK(bounce[5].value2 == 10 && bounce[5].value3 == 1);
+    OK(bounce[6].value0 == 5100);
 
     /* Exercise the *runtime predicate evaluator*, not only generated rows.
      * On recovery, near-ground wins over air recovery; negative vertical

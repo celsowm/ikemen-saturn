@@ -550,7 +550,9 @@ typedef struct ik_cns_playsnd {
  *   CaptureCommandAxis: remembers holdback/holdfwd in the current state
  *   JumpLaunch/AirJumpLaunch: use compiled Velocity constants and remembered axis
  *   ChangeAnimIfExists: preferred action / fallback action
- *   ChangeAnimDescentIfExists: Y threshold / first ascending action
+ *   ChangeAnimDescentIfExists: Y threshold / first ascending action;
+ *       value2 = target animation offset (default +3); value3 = 1 to
+ *       restrict source actions to first and first+2 (ZSS bounce).
  *   GuardAnimByType: base stand action; crouch=base+1, air=base+2
  *   GuardStateByType: base stand state; crouch=base+1, air=base+2
  *   GuardEnd: return to stand/crouch/air locomotion after guard end

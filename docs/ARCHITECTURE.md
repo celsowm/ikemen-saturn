@@ -19,14 +19,17 @@ cancel predicates. Any unsupported branch fails the build rather than silently
 dropping a move. Human-controlled P2 now runs those ZSS State -1 input rules,
 using the original ZSS CMD and separate constants and AIR. ZSS's own
 `kfm.zss`, `hits.zss` and `AI.zss` state bodies are still unported:
-Six P2 state bodies are now compiled directly from `kfm.zss`/`hits.zss`
+Seven P2 state bodies are now compiled directly from `kfm.zss`/`hits.zss`
 into existing CNS controller instructions: 170 (time-over loss), 180 (win
 transition), 820 (throw victim animation + unbound recovery), and 1025
 (Fast Palm hit-shake transition), 821 (airborne throw recovery), and 1026
 (Fast Palm launch, wall detection and landing). The 821 human-input
 recovery path is translated, while the random AI recovery path is deferred.
-States 1027 and 1028 still use the classic CNS fallback, which handles the
-wall spark, sound and persistent animation transitions.
+State 1028 now runs its native source-checked wall-bounce velocity, turn,
+animation selection and 5050/5052->5060/5062 descent transitions with a
+configurable generic animation offset. State 1027 still uses the classic CNS
+fallback: the original ZSS impact spark and SysSnd script have dynamic
+presentation semantics not yet translated.
 The importer verifies the **complete**
 source body of each state and fails the build on unhandled source changes.
 Other ZSS states still fall back to classic CNS state bodies; they are not

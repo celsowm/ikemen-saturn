@@ -2,7 +2,7 @@
 """Strict source-checked character-state lowering for KFM ZSS.
 
 Only controllers already implemented by Ikemen Saturn are accepted.
-Six state bodies are translated, not merely their StateDef metadata.
+Seven state bodies are translated, not merely their StateDef metadata.
 Human throw recovery is supported; AI-random recovery is not yet modeled.
 Other ZSS states keep the classic CNS fallback at runtime.
 
@@ -14,7 +14,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from tools.ikemen_cns import Section, State, _common_ctrl, parse_zss_states, q8, q16
+from tools.ikemen_cns import (Section, State, _common_ctrl, parse_zss_states,
+                              no_hit_by_attr_mask, no_hit_by_state_mask, q8, q16)
 
 # Supported source bodies with every controller lowered in the exact order.
 # Normalization discards insignificant spacing and ZSS '#' comments, but no
@@ -38,10 +39,20 @@ BODIES = {
            'ifbackedgebodydist<=20||frontedgebodydist<=20{'
            'changestate{value:1027}}}'
            'ifvely>0&&posy>=0{selfstate{value:5100}}'),
+    1028: ('nothitby{value:,na,np}iftime=0{'
+           'velset{y:-6;x:1.6}ifbackedgedist<30{turn{}}'
+           'if!selfanimexist(5052){changeanim{value:5050}}'
+           'ifselfanimexist(5052){changeanim{value:5052}}}'
+           'veladd{y:.35}ifvely>-2{'
+           'persistent(0)ifanim=5050&&selfanimexist(5060){'
+           'changeanim{value:5060}}'
+           'persistent(0)ifanim=5052&&selfanimexist(5062){'
+           'changeanim{value:5062}}}'
+           'ifvely>0&&posy>=0{selfstate{value:5100}}'),
 }
 
 CHARACTER_STATES = (170, 180)
-HIT_STATES = (820, 821, 1025, 1026)
+HIT_STATES = (820, 821, 1025, 1026, 1028)
 
 # These guards protect against silently compiling outdated states with an
 # incompatible move class, physics type or action.
@@ -53,6 +64,7 @@ METADATA = {
     821: {"type": "A", "movetype": "H", "physics": "N",
           "velset": "2.8,-7", "poweradd": "40"},
     1026: {"type": "A", "movetype": "H", "physics": "N"},
+    1028: {"type": "A", "movetype": "H", "physics": "N"},
 }
 
 
@@ -130,6 +142,41 @@ def _controllers(state: int) -> list[dict]:
                 20, 1027),
             _common_ctrl(
                 1026, "IK_CNS_CTRL_SELF_STATE",
+                "IK_CNS_TRIGGER_VY_GT_Q8_AT_FLOOR", 0, 0, 5100),
+        ]
+    if state == 1028:
+        # NA/NP immunity, 1.6/-6 bounce, back-edge turn, native AIR
+        # selection and persistent-once descending animations 5050->5060
+        # / 5052->5062. No new game-specific controller type required.
+        raw = ", NA, NP"
+        mask = (f"({no_hit_by_state_mask(raw)}) | "
+                f"(({no_hit_by_attr_mask(raw)}) << 8)")
+        return [
+            _common_ctrl(
+                1028, "IK_CNS_CTRL_NOT_HIT_BY",
+                "IK_CNS_TRIGGER_ALWAYS", 0, 0, mask, 1),
+            _common_ctrl(
+                1028, "IK_CNS_CTRL_VEL_SET",
+                "IK_CNS_TRIGGER_TIME_EQ", 0, 0,
+                q8(1.6), q8(-6),
+                "IK_CNS_CTRL_AXIS_X | IK_CNS_CTRL_AXIS_Y | IK_CNS_CTRL_LOCAL_X",
+                value4=q16(1.6), value5=q16(-6)),
+            _common_ctrl(
+                1028, "IK_CNS_CTRL_TURN",
+                "IK_CNS_TRIGGER_STATE_ENTRY_BACK_EDGE_LT", 30),
+            _common_ctrl(
+                1028, "IK_CNS_CTRL_CHANGE_ANIM_IF_EXISTS",
+                "IK_CNS_TRIGGER_TIME_EQ", 0, 0, 5052, 5050),
+            _common_ctrl(
+                1028, "IK_CNS_CTRL_VEL_ADD",
+                "IK_CNS_TRIGGER_ALWAYS", 0, 0, 0, q8(0.35),
+                "IK_CNS_CTRL_AXIS_Y", value5=q16(0.35)),
+            _common_ctrl(
+                1028, "IK_CNS_CTRL_CHANGE_ANIM_DESCENT_IF_EXISTS",
+                "IK_CNS_TRIGGER_ALWAYS", 0, 0, q8(-2), 5050,
+                value2=10, value3=1),
+            _common_ctrl(
+                1028, "IK_CNS_CTRL_SELF_STATE",
                 "IK_CNS_TRIGGER_VY_GT_Q8_AT_FLOOR", 0, 0, 5100),
         ]
     raise ValueError(f"no native ZSS lowering for state {state}")

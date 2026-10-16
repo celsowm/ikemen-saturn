@@ -24,11 +24,11 @@ not yet implemented or covered by the 66 classic-KFM oracle scenarios.
 The build compiles all 36 directly guarded `command.zss` State -1
 ChangeState branches (including AnimElemTime cancel tests) and activates them
 for human-controlled P2. The importer rejects incomplete coverage.
-Six ZSS state bodies now have native lowering:
-170, 180 (from kfm.zss), and 820, 821, 1025, 1026 (from hits.zss).
+Seven ZSS state bodies now have native lowering:
+170, 180 (from kfm.zss), and 820, 821, 1025, 1026, 1028 (from hits.zss).
 The 821 human recovery path is ported; AI random recovery remains deferred.
-1027 and 1028 still use the classic CNS fallback for their wall-impact
-effects and persistent animation controllers.
+1028 now uses native wall-bounce and descending animation logic; 1027
+still uses classic CNS compatibility for dynamic wall spark and SysSnd effects.
 Unported states keep classic-CNS fallback. Autonomous AI and full ZSS
 per-state gameplay still need porting; KFM-vs-ZSS oracle parity is not
 established.

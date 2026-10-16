@@ -16,7 +16,7 @@ folder = ROOT / ".external" / "Ikemen-GO-Screenpack" / "chars" / "kfm_zss"
 character = folder / "kfm.zss"
 hits = folder / "hits.zss"
 overrides = compile_zss_overrides(character, hits)
-assert set(overrides) == {170, 180, 820, 821, 1025, 1026}
+assert set(overrides) == {170, 180, 820, 821, 1025, 1026, 1028}
 
 expected = {
     170: ("IK_CNS_CTRL_NOT_HIT_BY",),
@@ -27,6 +27,10 @@ expected = {
           "IK_CNS_CTRL_SELF_STATE", "IK_CNS_CTRL_SELF_STATE"),
     1026: ("IK_CNS_CTRL_HIT_VEL_SET", "IK_CNS_CTRL_VEL_ADD",
            "IK_CNS_CTRL_SCREEN_BOUND", "IK_CNS_CTRL_CHANGE_STATE",
+           "IK_CNS_CTRL_SELF_STATE"),
+    1028: ("IK_CNS_CTRL_NOT_HIT_BY", "IK_CNS_CTRL_VEL_SET",
+           "IK_CNS_CTRL_TURN", "IK_CNS_CTRL_CHANGE_ANIM_IF_EXISTS",
+           "IK_CNS_CTRL_VEL_ADD", "IK_CNS_CTRL_CHANGE_ANIM_DESCENT_IF_EXISTS",
            "IK_CNS_CTRL_SELF_STATE"),
 }
 for number, (state, controllers) in overrides.items():
@@ -52,6 +56,13 @@ assert overrides[1026][1][1]["value5"] == q16(0.45)
 assert overrides[1026][1][2]["trigger_kind"] == "IK_CNS_TRIGGER_AIR_NEAR_BODY_EDGE_LT"
 assert overrides[1026][1][3]["trigger_kind"] == "IK_CNS_TRIGGER_AIR_NEAR_BODY_EDGE"
 assert overrides[1026][1][3]["value0"] == 1027
+assert overrides[1028][1][0]["type"] == "IK_CNS_CTRL_NOT_HIT_BY"
+assert "IK_CNS_ATTR_NORMAL" in overrides[1028][1][0]["value0"]
+assert overrides[1028][1][3]["value0"] == 5052
+assert overrides[1028][1][3]["value1"] == 5050
+assert overrides[1028][1][5]["value2"] == 10
+assert overrides[1028][1][5]["value3"] == 1
+assert overrides[1028][1][5]["value0"] == -2 * 256
 
 # A new ZSS controller or missing semantic branch must break generation;
 # never let a partially compiled move masquerade as source parity.
@@ -76,6 +87,7 @@ with tempfile.TemporaryDirectory() as temp:
     for old, new, number in (
         ("backEdgeBodyDist < 65", "backEdgeBodyDist < 66", 1026),
         ("pos y >= -20", "pos y >= -15", 821),
+        ("velAdd{y: .35}", "velAdd{y: .5}", 1028),
     ):
         changed = Path(temp) / "hits.zss"
         assert old in original
@@ -87,4 +99,4 @@ with tempfile.TemporaryDirectory() as temp:
         else:
             raise AssertionError(f"changed ZSS state {number} accepted")
 
-print("ZSS state compiler: native 170/180/820/821/1025/1026 OK")
+print("ZSS state compiler: native 170/180/820/821/1025/1026/1028 OK")

@@ -158,10 +158,17 @@ int ikf_ctrl_apply_anim(const ik_ctrl_exec_t* x) {
             const int16_t first_action = ctrl->value1;
             if (f->vy_q8 > ctrl->value0 &&
                 f->anim >= first_action &&
-                f->anim <= (int16_t)(first_action + 2)) {
+                f->anim <= (int16_t)(first_action + 2) &&
+                (ctrl->value3 == 0 ||
+                 f->anim == first_action ||
+                 f->anim == (int16_t)(first_action + 2))) {
                 uint32_t first = 0u;
                 uint32_t count = 0u;
-                const int16_t action = (int16_t)(f->anim + 3);
+                /* Legacy common-state controller uses +3. ZSS 1028 uses
+                 * +10 for descending 5050/5052 -> 5060/5062. */
+                const int16_t offset =
+                    ctrl->value2 != 0 ? ctrl->value2 : 3;
+                const int16_t action = (int16_t)(f->anim + offset);
                 const ik_frame_table_t* native_frames =
                     frames_for_owner(fight, f->owner_player);
                 if (native_frames && ik_frames_bounds(
