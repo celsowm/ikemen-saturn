@@ -184,8 +184,9 @@ Host tests: all `test_ikemen_*` pass with no tracked gaps. `tests/tools/test_ike
 
 ## ZSS status (2026-10-16)
 
-The 13 mixed KFM/ZSS oracle scenarios cover a bounded set of human gameplay
-and hit-reaction paths. They must not be confused with coverage of arbitrary
+The 27 mixed KFM/ZSS oracle scenarios now match upstream across 5,340
+compared frames (GitHub Actions 38982178719). They cover a bounded set
+of scripted human gameplay and hit-reaction paths. They must not be confused with coverage of arbitrary
 ZSS characters or autonomous AI. The current source-checked ZSS lowering
 contains nine state bodies:
 
@@ -204,7 +205,8 @@ the classic CNS `Time=17` equivalent in both measured aerial traces.
 A source-checked **CtrlSet-only** timing shim now preserves the classic
 HitDef/sound compatibility controllers and changes only that trigger in
 KFM ZSS. This is not a full translation of ZSS StateDef 600; the upstream
-oracle is the regression gate for the two identified differences.
+oracle has now confirmed both fixes, along with the other 25
+scripted scenarios.
 
 ## Known shims and gaps
 

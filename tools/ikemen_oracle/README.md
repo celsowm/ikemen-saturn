@@ -210,15 +210,17 @@ The recorded upstream timeout immediately transitions to visible winner
 state 181 and loser state 170 (state 180 is transitory, not visible in the
 per-frame trace). This final case is now also a strict parity gate.
 The current 13-case corpus totals **2,600 compared frames**.
-In the upstream run
-[38981362465](https://github.com/celsowm/ikemen-saturn/actions/runs/38981362465),
-12 of the 14 added cases matched exactly, including Strong Knee 1060->1061.
-Those 12 are now strict gates: **25 strict cases** of the 27 total.
-Two remain exploratory: `zss_p1_air_x_200` (P1 ctrl at frame 103)
-and `zss_p2_blocking_air_air_200` (P2 ctrl at frame 92).
-Both differed for exactly one frame from the source ZSS's AnimElemTime(3)=2
-compared with the original CNS's Time=17, now guarded by the generated
-State 600 CtrlSet timing shim; the full upstream rerun must confirm the fix.
+Upstream run
+[38981362465](https://github.com/celsowm/ikemen-saturn/actions/runs/38981362465)
+matched 25/27 cases. Two aerial cases differed by one CtrlSet frame:
+the original ZSS State 600 uses AnimElemTime(3)=2, while classic CNS
+uses Time=17. A source-checked ZSS-only timing shim fixed the mismatch
+without affecting classic KFM. Upstream run
+[38982178719](https://github.com/celsowm/ikemen-saturn/actions/runs/38982178719)
+then matched **all 27 scenarios / 5,340 compared frames**, including
+the Strong Knee 1060->1061 continuation. Every case is now a strict
+regression gate under documented Q8.8 tolerances.
+This proves bounded scripted gameplay behavior, not autonomous AI parity.
 
 The extended matrix covers
 chained punches, command cancels, supers, jumping attacks, air/crouch

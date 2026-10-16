@@ -63,6 +63,7 @@ assert set(strict) == {
     "zss_p2_recovery_200", "zss_p2_throw_victim_160",
     "zss_p2_upper_y_200", "zss_p2_upper_y_attacker_200",
     "zss_p2_timeout_win_180",
+    "zss_p1_air_x_200", "zss_p2_blocking_air_air_200",
     "zss_p1_combo_cancel_x_qcf_y_200",
     "zss_p1_combo_cancel_x_upper_x_200",
     "zss_p1_combo_cancel_y_blow_y_200",
@@ -76,10 +77,7 @@ assert set(strict) == {
     "zss_p2_guard_crouch_x_160",
     "zss_p2_qcf_y_attacker_200",
 }
-assert set(exploratory) == {
-    "zss_p1_air_x_200",
-    "zss_p2_blocking_air_air_200",
-}
+assert exploratory == []
 # Require each observed state in the full hit-reaction sequence, preventing
 # vacuous PASSes that only execute 1025 without reaching the wall.
 palm = json.loads((OUT / "zss_p2_fast_palm_240.json").read_text())
@@ -95,4 +93,4 @@ origin = json.loads((OUT / "kfm_ff_a_200.json").read_text())
 assert knee["expect"] == {"p1_states": [1060, 1061], "p2_life_drops": True}
 assert knee["inputs"][:-1] == origin["inputs"][:-1]
 assert knee["inputs"][-1]["p1"] == ["forward", "b"]
-print("ZSS oracle corpus: 25 upstream-matched strict + 2 exploratory air cases OK")
+print("ZSS oracle corpus: 27 upstream-proven strict scenarios OK")
