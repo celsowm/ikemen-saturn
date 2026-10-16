@@ -197,7 +197,10 @@ Eight further scenarios (throws, recovery, guard, KO, uppercut and special
 moves) also matched. CI run
 [38927411982](https://github.com/celsowm/ikemen-saturn/actions/runs/38927411982)
 produced 12 matching ZSS traces totalling **2,420 compared frames**.
-These are now strict parity regression gates.
+These are now strict parity regression gates. The Fast Palm test asserts the
+complete original victim chain 1025->1026->1027->1028 (including wall
+impact and bounce), and the throw test asserts 820->821->5100;
+both sequences were observed in the original engine's exported trace.
 
 The remaining `zss_p2_timeout_win_180` case is exploratory, pending a
 candidate trace. The upstream match enters state 181 (winner) directly on

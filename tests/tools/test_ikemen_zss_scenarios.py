@@ -50,4 +50,10 @@ assert set(strict) == {
     "zss_p2_upper_y_200", "zss_p2_upper_y_attacker_200",
 }
 assert exploratory == ["zss_p2_timeout_win_180"]
+# Require each observed state in the full hit-reaction sequence, preventing
+# vacuous PASSes that only execute 1025 without reaching the wall.
+palm = json.loads((OUT / "zss_p2_fast_palm_240.json").read_text())
+assert palm["expect"]["p2_states"] == [1025, 1026, 1027, 1028]
+thrown = json.loads((OUT / "zss_p2_throw_victim_160.json").read_text())
+assert thrown["expect"]["p2_states"] == [820, 821, 5100]
 print("ZSS oracle corpus: 12 upstream-proven strict + 1 exploratory case OK")
