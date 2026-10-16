@@ -2,8 +2,9 @@
 """Strict source-checked character-state lowering for KFM ZSS.
 
 Only controllers already implemented by Ikemen Saturn are accepted.
-Four *complete* state bodies are translated, not merely their StateDef
-metadata. All other ZSS states keep the classic CNS fallback at runtime.
+Six state bodies are translated, not merely their StateDef metadata.
+Human throw recovery is supported; AI-random recovery is not yet modeled.
+Other ZSS states keep the classic CNS fallback at runtime.
 
 A source change invalidates the conversion until it has been reviewed
 rather than silently introducing a behavior mismatch.
@@ -13,7 +14,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from tools.ikemen_cns import Section, State, _common_ctrl, parse_zss_states
+from tools.ikemen_cns import Section, State, _common_ctrl, parse_zss_states, q8, q16
 
 # Supported source bodies with every controller lowered in the exact order.
 # Normalization discards insignificant spacing and ZSS '#' comments, but no
@@ -25,10 +26,22 @@ BODIES = {
           "if!gethitvar(isbound){selfstate{value:5050}}"),
     1025: ("changeanim2{value:1025}"
            "ifhitshakeover=1{changestate{value:1026}}"),
+    821: ('veladd{y:.4}'
+          'ifvely>0&&alive&&canrecover&&(command="recovery"||random%5=0&&ailevelf){'
+          'ifposy>=-20{changestate{value:5200}}'
+          'else{selfstate{value:5210}}}'
+          'ifposy>=0&&vely>0{selfstate{value:5100}}'),
+    1026: ('iftime=0{hitvelset{x:1;y:1}}veladd{y:.45}'
+           'ifposy<-15{'
+           'ifbackedgebodydist<65||frontedgebodydist<65{'
+           'screenbound{value:1;movecamera:0,1}}'
+           'ifbackedgebodydist<=20||frontedgebodydist<=20{'
+           'changestate{value:1027}}}'
+           'ifvely>0&&posy>=0{selfstate{value:5100}}'),
 }
 
 CHARACTER_STATES = (170, 180)
-HIT_STATES = (820, 1025)
+HIT_STATES = (820, 821, 1025, 1026)
 
 # These guards protect against silently compiling outdated states with an
 # incompatible move class, physics type or action.
@@ -37,6 +50,9 @@ METADATA = {
     180: {"type": "S", "movetype": "I", "physics": "S", "anim": "-2", "ctrl": "0"},
     820: {"type": "A", "movetype": "H", "physics": "N", "velset": "0,0"},
     1025: {"type": "A", "movetype": "H", "physics": "N", "velset": "0,0"},
+    821: {"type": "A", "movetype": "H", "physics": "N",
+          "velset": "2.8,-7", "poweradd": "40"},
+    1026: {"type": "A", "movetype": "H", "physics": "N"},
 }
 
 
@@ -74,6 +90,47 @@ def _controllers(state: int) -> list[dict]:
             _common_ctrl(
                 1025, "IK_CNS_CTRL_CHANGE_STATE",
                 "IK_CNS_TRIGGER_HIT_SHAKE_OVER", 0, 0, 1026),
+        ]
+    if state == 821:
+        # Source chooses ground recovery first (Pos Y >= -20), then airborne
+        # recovery, then ground collision. Random AI recovery remains deferred.
+        return [
+            _common_ctrl(
+                821, "IK_CNS_CTRL_VEL_ADD",
+                "IK_CNS_TRIGGER_ALWAYS", 0, 0, 0, q8(0.4),
+                "IK_CNS_CTRL_AXIS_Y", value5=q16(0.4)),
+            _common_ctrl(
+                821, "IK_CNS_CTRL_CHANGE_STATE",
+                "IK_CNS_TRIGGER_THROW_GROUND_RECOVERY", q8(-20),
+                0, 5200),
+            _common_ctrl(
+                821, "IK_CNS_CTRL_SELF_STATE",
+                "IK_CNS_TRIGGER_THROW_AIR_RECOVERY", 0, 0, 5210),
+            _common_ctrl(
+                821, "IK_CNS_CTRL_SELF_STATE",
+                "IK_CNS_TRIGGER_VY_GT_Q8_AT_FLOOR", 0, 0, 5100),
+        ]
+    if state == 1026:
+        return [
+            _common_ctrl(
+                1026, "IK_CNS_CTRL_HIT_VEL_SET",
+                "IK_CNS_TRIGGER_TIME_EQ", 0, 0, 0, 0,
+                "IK_CNS_CTRL_AXIS_X | IK_CNS_CTRL_AXIS_Y"),
+            _common_ctrl(
+                1026, "IK_CNS_CTRL_VEL_ADD",
+                "IK_CNS_TRIGGER_ALWAYS", 0, 0, 0, q8(0.45),
+                "IK_CNS_CTRL_AXIS_Y", value5=q16(0.45)),
+            _common_ctrl(
+                1026, "IK_CNS_CTRL_SCREEN_BOUND",
+                "IK_CNS_TRIGGER_AIR_NEAR_BODY_EDGE_LT", q8(-15),
+                65, 1, 0, value2=1, value3=3),
+            _common_ctrl(
+                1026, "IK_CNS_CTRL_CHANGE_STATE",
+                "IK_CNS_TRIGGER_AIR_NEAR_BODY_EDGE", q8(-15),
+                20, 1027),
+            _common_ctrl(
+                1026, "IK_CNS_CTRL_SELF_STATE",
+                "IK_CNS_TRIGGER_VY_GT_Q8_AT_FLOOR", 0, 0, 5100),
         ]
     raise ValueError(f"no native ZSS lowering for state {state}")
 
