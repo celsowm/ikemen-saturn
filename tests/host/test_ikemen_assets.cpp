@@ -140,6 +140,36 @@ int main() {
             ik_cns_find_state(&kfm_cns, expected.state);
         OK(classic != nullptr);
     }
+    /* State 600 is still a classic CNS HitDef/sound fallback, but its
+     * original ZSS CtrlSet must use AnimElemTime(3)=2, not Time=17.
+     * Assert both generated character bundles stay independent. */
+    const ik_cns_state_t* classic600 = ik_cns_find_state(&kfm_cns, 600);
+    const ik_cns_state_t* zss600 = ik_cns_find_state(&kfm_zss_cns, 600);
+    OK(classic600 != nullptr && zss600 != nullptr);
+    const ik_cns_controller_t* classic600_ctrl = nullptr;
+    const ik_cns_controller_t* zss600_ctrl = nullptr;
+    for (unsigned i = 0u; i < classic600->controller_count; ++i) {
+        const ik_cns_controller_t* ctrl =
+            &kfm_cns.controllers[classic600->controller_ofs + i];
+        if (ctrl->type == IK_CNS_CTRL_CTRL_SET) classic600_ctrl = ctrl;
+    }
+    for (unsigned i = 0u; i < zss600->controller_count; ++i) {
+        const ik_cns_controller_t* ctrl =
+            &kfm_zss_cns.controllers[zss600->controller_ofs + i];
+        if (ctrl->type == IK_CNS_CTRL_CTRL_SET) zss600_ctrl = ctrl;
+    }
+    OK(classic600_ctrl != nullptr && zss600_ctrl != nullptr);
+    OK(classic600_ctrl->trigger_kind == IK_CNS_TRIGGER_TIME_EQ);
+    OK(classic600_ctrl->trigger_value == 17);
+    OK(zss600_ctrl->trigger_kind == IK_CNS_TRIGGER_ANIM_ELEM_TIME_EQ_PACKED);
+    OK(zss600_ctrl->trigger_value == ((3 << 8) | 2));
+    ik_cns_controller_context_t air_ctx{};
+    air_ctx.anim_element = 3u;
+    air_ctx.anim_element_time = 2u;
+    OK(ik_cns_controller_trigger_context_now(zss600_ctrl, &air_ctx));
+    air_ctx.anim_element_time = 1u;
+    OK(!ik_cns_controller_trigger_context_now(zss600_ctrl, &air_ctx));
+
     const ik_cns_state_t* zss170 = ik_cns_find_state(&kfm_zss_cns, 170);
     OK(zss170->anim == 170);
     const ik_cns_state_t* zss180 = ik_cns_find_state(&kfm_zss_cns, 180);
