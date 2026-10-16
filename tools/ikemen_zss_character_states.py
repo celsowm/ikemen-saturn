@@ -2,8 +2,9 @@
 """Strict source-checked character-state lowering for KFM ZSS.
 
 Only controllers already implemented by Ikemen Saturn are accepted.
-Eight state bodies are translated, not merely their StateDef metadata.
-Human throw recovery is supported; AI-random recovery is not yet modeled.
+Nine state bodies are translated, not merely their StateDef metadata.
+Human throw recovery and strong-knee air follow-up are supported;
+AI-random recovery is not yet modeled.
 Other ZSS states keep the classic CNS fallback at runtime.
 
 A source change invalidates the conversion until it has been reviewed
@@ -23,6 +24,10 @@ from tools.ikemen_cns import (Section, State, _common_ctrl, parse_zss_states,
 BODIES = {
     170: "nothitby{value:sca;time:1}",
     180: "changestate{value:181;ctrl:0}",
+    1061: ('veladd{y:.45}'
+           'if(command="a"||command="b")&&!ailevelf&&vely<-1{'
+           'changestate{value:1055}}'
+           'ifvely>0&&posy>=-10{changestate{value:1052}}'),
     820: ("iftime=0{changeanim2{value:820}}"
           "if!gethitvar(isbound){selfstate{value:5050}}"),
     1025: ("changeanim2{value:1025}"
@@ -58,7 +63,7 @@ BODIES = {
            'ifanimtime=0{changestate{value:1028}}'),
 }
 
-CHARACTER_STATES = (170, 180)
+CHARACTER_STATES = (170, 180, 1061)
 HIT_STATES = (820, 821, 1025, 1026, 1027, 1028)
 
 # These guards protect against silently compiling outdated states with an
@@ -66,6 +71,8 @@ HIT_STATES = (820, 821, 1025, 1026, 1027, 1028)
 METADATA = {
     170: {"type": "S", "movetype": "I", "physics": "S", "anim": "170", "ctrl": "0"},
     180: {"type": "S", "movetype": "I", "physics": "S", "anim": "-2", "ctrl": "0"},
+    1061: {"type": "A", "movetype": "A", "physics": "N",
+           "velset": "2,-7.5", "anim": "1051", "hitdefpersist": "1"},
     820: {"type": "A", "movetype": "H", "physics": "N", "velset": "0,0"},
     1025: {"type": "A", "movetype": "H", "physics": "N", "velset": "0,0"},
     821: {"type": "A", "movetype": "H", "physics": "N",
@@ -93,6 +100,23 @@ def _controllers(state: int) -> list[dict]:
             180, "IK_CNS_CTRL_CHANGE_STATE",
             "IK_CNS_TRIGGER_ALWAYS", 0, 0, 181, 0,
             "IK_CNS_CTRL_HAS_CTRL")]
+    if state == 1061:
+        # Strong Knee: keep the previous HitDef while jumping, allow human
+        # a/b air-kick follow-up on ascent, then land at Pos Y >= -10.
+        # AI is not enabled in the current native fighter driver.
+        return [
+            _common_ctrl(
+                1061, "IK_CNS_CTRL_VEL_ADD",
+                "IK_CNS_TRIGGER_ALWAYS", 0, 0, 0, q8(0.45),
+                "IK_CNS_CTRL_AXIS_Y", value5=q16(0.45)),
+            _common_ctrl(
+                1061, "IK_CNS_CTRL_CHANGE_STATE",
+                "IK_CNS_TRIGGER_COMMAND_ANY_VY_LT_Q8",
+                (1 << 5) | (1 << 6), q8(-1), 1055),
+            _common_ctrl(
+                1061, "IK_CNS_CTRL_CHANGE_STATE",
+                "IK_CNS_TRIGGER_VY_GT_Q8_AT_LEVEL", q8(-10), 0, 1052),
+        ]
     if state == 820:
         return [
             _common_ctrl(
