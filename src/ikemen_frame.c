@@ -11,6 +11,7 @@ typedef struct ik_rule_expr_user {
     ik_entity_expr_binding_t entity;
     const ik_command_state_t* command_state;
     const ik_command_asset_t* commands;
+    const ik_fight_t* fight;
 } ik_rule_expr_user_t;
 
 static int rule_expr_read_field(
@@ -24,6 +25,14 @@ static int rule_expr_read_field(
 ) {
     if (!user) return 0;
     ik_rule_expr_user_t* rule = (ik_rule_expr_user_t*)user;
+    /* State -1 belongs to the scene: its RoundState check cannot be
+     * resolved from an individual entity's stored fields. */
+    if (redirect == IK_EXPR_REDIRECT_SELF &&
+        field == IK_EXPR_FIELD_ROUND_STATE) {
+        if (!rule->fight || !out_value) return 0;
+        *out_value = rule->fight->round_state;
+        return 1;
+    }
     return ik_entity_expr_read_field(
         &rule->entity, redirect, field, index,
         redirect_id, redirect_index, out_value);
@@ -160,7 +169,7 @@ static uint8_t control_active(
 }
 
 static void controls_from_commands(
-    const ik_frame_ctx_t* ctx, uint32_t player,
+    const ik_frame_ctx_t* ctx, const ik_fight_t* fight, uint32_t player,
     ik_fight_controls_t* controls
 ) {
     if (!ctx || !controls || player >= 2u) return;
@@ -183,7 +192,7 @@ static void controls_from_commands(
     controls->recovery = control_active(ctx, player, IK_FRAME_CONTROL_RECOVERY);
 
     ik_rule_expr_user_t user = {
-        {&ctx->pool, ctx->players[player]}, state, character->commands
+        {&ctx->pool, ctx->players[player]}, state, character->commands, fight
     };
     const ik_expr_context_t expression = {
         &user, rule_expr_read_field, rule_expr_read_command
@@ -213,7 +222,7 @@ void ik_frame_step(
         fight->fighters[0].facing,
         fight->fighters[0].hit_pause != 0u,
         command_pause_end_buffer(fight, 0u));
-    controls_from_commands(ctx, 0u, &p1_controls);
+    controls_from_commands(ctx, fight, 0u, &p1_controls);
 
     if (pad2) {
         ik_command_update(
@@ -221,7 +230,7 @@ void ik_frame_step(
             fight->fighters[1].facing,
             fight->fighters[1].hit_pause != 0u,
             command_pause_end_buffer(fight, 1u));
-        controls_from_commands(ctx, 1u, &p2_controls);
+        controls_from_commands(ctx, fight, 1u, &p2_controls);
     }
 
     ik_fight_update(

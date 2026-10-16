@@ -45,7 +45,8 @@ typedef enum ik_expr_field {
     IK_EXPR_FIELD_PROJ_CONTACT_TIME,
     IK_EXPR_FIELD_PROJ_HIT_TIME,
     IK_EXPR_FIELD_PROJ_GUARDED_TIME,
-    IK_EXPR_FIELD_NUM_TARGETS
+    IK_EXPR_FIELD_NUM_TARGETS,
+    IK_EXPR_FIELD_ROUND_STATE /* scene-global, supplied by fight frame adapter */
 } ik_expr_field_t;
 
 typedef enum ik_expr_op {

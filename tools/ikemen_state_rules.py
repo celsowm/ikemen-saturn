@@ -573,6 +573,7 @@ def _lower_instruction(insn: Insn) -> list[VmInsn]:
         ]
 
     simple = {
+        "round_state_eq": ("IK_EXPR_FIELD_ROUND_STATE", self_r, "IK_EXPR_EQ"),
         "state_type_eq": ("IK_EXPR_FIELD_STATE_TYPE", self_r, "IK_EXPR_EQ"),
         "state_type_ne": ("IK_EXPR_FIELD_STATE_TYPE", self_r, "IK_EXPR_NE"),
         "state_no_eq": ("IK_EXPR_FIELD_STATE_NO", self_r, "IK_EXPR_EQ"),

@@ -27,6 +27,7 @@ set(KFM_ZSS_SFF "${_screenpack}/chars/kfm_zss/kfm.sff")
 set(KFM_ZSS_AIR "${_screenpack}/chars/kfm_zss/kfm.air")
 set(KFM_ZSS_CMD "${_screenpack}/chars/kfm_zss/kfm.cmd")
 set(KFM_ZSS_CONST "${_screenpack}/chars/kfm_zss/kfm.const")
+set(KFM_ZSS_COMMAND_ZSS "${_screenpack}/chars/kfm_zss/command.zss")
 set(KFM_SND "${_screenpack}/chars/kfm/kfm.snd")
 set(KFM_CMD "${_screenpack}/chars/kfm/kfm.cmd")
 set(KFM_CNS "${_screenpack}/chars/kfm/kfm.cns")
@@ -39,6 +40,7 @@ set(STAGE0_SFF "${_screenpack}/stages/stage0.sff")
 set(_inputs
     "${KFM_SFF}" "${KFM_AIR}" "${KFM_ZSS_SFF}" "${KFM_ZSS_AIR}" "${KFM_SND}"
     "${KFM_CMD}" "${KFM_CNS}" "${KFM_ZSS_CMD}" "${KFM_ZSS_CONST}"
+    "${KFM_ZSS_COMMAND_ZSS}"
     "${COMMON_CNS_ZSS}" "${COMMON_SND}"
     "${FIGHTFX_SFF}" "${FIGHTFX_AIR}" "${STAGE0_SFF}")
 foreach(_input IN LISTS _inputs)
@@ -183,6 +185,21 @@ ikemen_generate(COMMENT "Ikemen assets: state controllers"
 # Transitional state asset: native ZSS constants and AIR, with classic
 # CNS bodies until the kfm.zss/hits.zss state compiler is complete. Do not
 # mistake this for a bytecode translation of the ZSS scripts.
+# Compile only the State -1 ZSS predicates our postfix VM can faithfully
+# express. Unsupported conditions are reported in the JSON diagnostics; the
+# partial program is not wired into the playable fight until fully covered.
+set(KFM_ZSS_STATE_RULES_C "${IKEMEN_GEN_DIR}/kfm_zss_state_rules.c")
+ikemen_generate(COMMENT "Ikemen assets: supported ZSS State -1 rules"
+    OUTPUTS "${KFM_ZSS_STATE_RULES_C}"
+            "${IKEMEN_GEN_DIR}/kfm_zss_state_rules.h"
+    DEPENDS "${KFM_ZSS_COMMAND_ZSS}" "${KFM_ZSS_CMD}"
+            "${_tools}/ikemen_zss_state_rules.py"
+            "${_tools}/ikemen_state_rules.py" "${_tools}/ikemen_cmd.py"
+    COMMAND "${Python3_EXECUTABLE}" -m tools.ikemen_zss_state_rules
+        --zss "${KFM_ZSS_COMMAND_ZSS}" --cmd "${KFM_ZSS_CMD}"
+        --out-prefix "${IKEMEN_GEN_DIR}/kfm_zss_state_rules"
+        --symbol kfm_zss)
+
 set(KFM_ZSS_CNS_C "${IKEMEN_GEN_DIR}/kfm_zss_cns.c")
 ikemen_generate(COMMENT "Ikemen assets: ZSS constants + KFM compatibility states"
     OUTPUTS "${KFM_ZSS_CNS_C}" "${IKEMEN_GEN_DIR}/kfm_zss_cns.h"
@@ -199,7 +216,8 @@ ikemen_generate(COMMENT "Ikemen assets: ZSS constants + KFM compatibility states
 set(IKEMEN_GENERATED_SOURCES
     "${KFM_FRAMES_C}" "${KFM_ZSS_FRAMES_C}" "${FIGHTFX_FRAMES_C}" "${STAGE0_PLANE_C}"
     "${KFM_SOUNDS_C}" "${KFM_COMMANDS_C}" "${KFM_STATE_RULES_C}" "${KFM_CNS_C}"
-    "${KFM_ZSS_COMMANDS_C}" "${KFM_ZSS_CNS_C}")
+    "${KFM_ZSS_COMMANDS_C}" "${KFM_ZSS_CNS_C}"
+    "${KFM_ZSS_STATE_RULES_C}")
 set(IKEMEN_ISO_FILES "${KFM_SPRITES_BIN}" "${KFM_ZSS_SPRITES_BIN}" "${FIGHTFX_SPRITES_BIN}")
 
 # One target that owns every generated file, so the host tests and the

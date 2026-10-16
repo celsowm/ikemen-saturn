@@ -21,6 +21,9 @@ player. The playable demo now gives P2 the original ZSS CMD, .const and AIR/SFF
 while retaining classic KFM CNS state bodies and State -1 rules as a
 temporary compatibility bridge. ZSS's actual script-based gameplay/AI is
 not yet implemented or covered by the 66 classic-KFM oracle scenarios.
+The build separately compiles the supported `command.zss` State -1
+predicates into an experimental generated asset with a coverage report; its
+incomplete rule set is not yet activated in the playable demo.
 
 ## Requirements
 

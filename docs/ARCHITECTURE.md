@@ -13,8 +13,14 @@ may use entirely different generated assets. The demo now binds **P2's original 
 AIR/SFF**, keeping classic KFM CNS bodies and State -1 predicates as a
 clearly identified compatibility bridge. The two CMDs retain the same name
 ordering (checked by a source-data regression test) but several authored
-super-command motions differ. ZSS's own kfm.zss, hits.zss, command.zss and
-AI.zss behavior is not yet ported; never claim ZSS gameplay parity.
+super-command motions differ. The offline build now also compiles the supported subset of P2's original
+`command.zss` State -1 predicates into the same postfix VM that classic CNS
+uses. This partial ZSS rule table is intentionally not connected to gameplay:
+the script's animation-element predicates and other unsupported conditions
+must be implemented and verified before replacing the full classic State -1
+fallback. The compiler explicitly records skipped targets as diagnostics.
+ZSS's own kfm.zss, hits.zss and AI.zss behavior is not yet ported;
+never claim ZSS gameplay parity.
 
 ## Hardware profile
 
