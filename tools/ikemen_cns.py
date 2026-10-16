@@ -4186,6 +4186,8 @@ def emit(
     common_zss: Path | None = None,
     common_selected: list[int] | None = None,
     constants_source: Path | None = None,
+    character_zss: Path | None = None,
+    hits_zss: Path | None = None,
 ) -> dict:
     globals_, states = collect_states(parse_sections(path))
     by_number = {state.number: state for state in states}
@@ -4206,6 +4208,17 @@ def emit(
             raise ValueError(
                 f"{constants_source}: missing constants sections: {sorted(missing)}")
     const = constants(const_globals)
+    # Only strict, source-checked ZSS states are admitted. Every other P2
+    # state deliberately keeps its original classic-CNS compatibility path.
+    zss_overrides = {}
+    if character_zss is not None or hits_zss is not None:
+        if character_zss is None or hits_zss is None:
+            raise ValueError("character-zss and hits-zss must be provided together")
+        from tools.ikemen_zss_character_states import compile_zss_overrides
+        zss_overrides = compile_zss_overrides(character_zss, hits_zss)
+        outside = sorted(set(zss_overrides) - set(selected))
+        if outside:
+            raise ValueError(f"ZSS override states not selected: {outside}")
     state_rows: list[dict] = []
     hitdefs: list[dict] = []
     sounds: list[dict] = []
@@ -4218,12 +4231,14 @@ def emit(
     hitoverrides: list[dict] = []
 
     for number_ in selected:
+        zss_override = zss_overrides.get(number_)
+        source_state = zss_override[0] if zss_override else by_number[number_]
         (
             row, hs, ss, cs, helper_rows, explod_rows,
             projectile_rows, projectile_mod_rows,
             reversal_rows, hitoverride_rows
         ) = parse_state(
-            by_number[number_],
+            source_state,
             len(hitdefs),
             len(sounds),
             len(controllers),
@@ -4234,6 +4249,17 @@ def emit(
             const["default_spark_no"],
             const["default_guard_spark_no"],
         )
+        if zss_override is not None:
+            if hs or ss or cs or helper_rows or explod_rows or projectile_rows:
+                raise ValueError(
+                    f"state {number_}: unexpected duplicate ZSS controllers")
+            # ZSS bodies are lowered as native CNS controllers with exactly
+            # the offsets used by classic states and common1.zss.
+            cs = list(zss_override[1])
+            row["controller_count"] = len(cs)
+            row["source"] = "zss"
+        else:
+            row["source"] = "classic_cns"
         row["reversal_ofs"] = len(reversals)
         row["hitoverride_ofs"] = len(hitoverrides)
         state_rows.append(row)
@@ -4616,6 +4642,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--cns", required=True, type=Path)
     parser.add_argument("--constants-cns", type=Path,
                         help="separate [Data]/[Size]/[Velocity]/[Movement] file")
+    parser.add_argument("--character-zss", type=Path,
+                        help="original ZSS character states (strict subset)")
+    parser.add_argument("--hits-zss", type=Path,
+                        help="original ZSS hit reactions (strict subset)")
     parser.add_argument("--states", required=True)
     parser.add_argument("--common-zss", type=Path)
     parser.add_argument("--air", type=Path,
@@ -4649,6 +4679,8 @@ def main(argv: list[str] | None = None) -> int:
         args.common_zss,
         common_selected,
         args.constants_cns,
+        args.character_zss,
+        args.hits_zss,
     )
 
     unsupported = {

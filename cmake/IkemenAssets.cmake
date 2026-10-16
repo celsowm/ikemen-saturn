@@ -28,6 +28,8 @@ set(KFM_ZSS_AIR "${_screenpack}/chars/kfm_zss/kfm.air")
 set(KFM_ZSS_CMD "${_screenpack}/chars/kfm_zss/kfm.cmd")
 set(KFM_ZSS_CONST "${_screenpack}/chars/kfm_zss/kfm.const")
 set(KFM_ZSS_COMMAND_ZSS "${_screenpack}/chars/kfm_zss/command.zss")
+set(KFM_ZSS_CHARACTER_ZSS "${_screenpack}/chars/kfm_zss/kfm.zss")
+set(KFM_ZSS_HITS_ZSS "${_screenpack}/chars/kfm_zss/hits.zss")
 set(KFM_SND "${_screenpack}/chars/kfm/kfm.snd")
 set(KFM_CMD "${_screenpack}/chars/kfm/kfm.cmd")
 set(KFM_CNS "${_screenpack}/chars/kfm/kfm.cns")
@@ -40,7 +42,7 @@ set(STAGE0_SFF "${_screenpack}/stages/stage0.sff")
 set(_inputs
     "${KFM_SFF}" "${KFM_AIR}" "${KFM_ZSS_SFF}" "${KFM_ZSS_AIR}" "${KFM_SND}"
     "${KFM_CMD}" "${KFM_CNS}" "${KFM_ZSS_CMD}" "${KFM_ZSS_CONST}"
-    "${KFM_ZSS_COMMAND_ZSS}"
+    "${KFM_ZSS_COMMAND_ZSS}" "${KFM_ZSS_CHARACTER_ZSS}" "${KFM_ZSS_HITS_ZSS}"
     "${COMMON_CNS_ZSS}" "${COMMON_SND}"
     "${FIGHTFX_SFF}" "${FIGHTFX_AIR}" "${STAGE0_SFF}")
 foreach(_input IN LISTS _inputs)
@@ -182,9 +184,9 @@ ikemen_generate(COMMENT "Ikemen assets: state controllers"
         --common-states "${IKEMEN_CNS_COMMON_STATES}"
         --out-prefix "${IKEMEN_GEN_DIR}/kfm_cns" --symbol kfm)
 
-# Transitional state asset: native ZSS constants and AIR, with classic
-# CNS bodies until the kfm.zss/hits.zss state compiler is complete. Do not
-# mistake this for a bytecode translation of the ZSS scripts.
+# Hybrid character state asset: strict, executable ZSS state conversions
+# for known states and classic CNS fallback for remaining unported scripts.
+# The source-checked importer refuses changes it cannot represent exactly.
 # Compile only the State -1 ZSS predicates our postfix VM can faithfully
 # express. Unsupported conditions are reported in the JSON diagnostics; the
 # partial program is not wired into the playable fight until fully covered.
@@ -201,12 +203,16 @@ ikemen_generate(COMMENT "Ikemen assets: supported ZSS State -1 rules"
         --symbol kfm_zss)
 
 set(KFM_ZSS_CNS_C "${IKEMEN_GEN_DIR}/kfm_zss_cns.c")
-ikemen_generate(COMMENT "Ikemen assets: ZSS constants + KFM compatibility states"
+ikemen_generate(COMMENT "Ikemen assets: ZSS states 170/180/820/1025 plus CNS fallback"
     OUTPUTS "${KFM_ZSS_CNS_C}" "${IKEMEN_GEN_DIR}/kfm_zss_cns.h"
     DEPENDS "${KFM_CNS}" "${KFM_ZSS_CONST}" "${KFM_ZSS_AIR}"
+            "${KFM_ZSS_CHARACTER_ZSS}" "${KFM_ZSS_HITS_ZSS}"
             "${COMMON_CNS_ZSS}" "${_tools}/ikemen_cns.py"
+            "${_tools}/ikemen_zss_character_states.py"
     COMMAND "${Python3_EXECUTABLE}" "${_tools}/ikemen_cns.py"
         --cns "${KFM_CNS}" --constants-cns "${KFM_ZSS_CONST}"
+        --character-zss "${KFM_ZSS_CHARACTER_ZSS}"
+        --hits-zss "${KFM_ZSS_HITS_ZSS}"
         --air "${KFM_ZSS_AIR}"
         --states "${IKEMEN_CNS_STATES}"
         --common-zss "${COMMON_CNS_ZSS}"

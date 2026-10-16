@@ -24,8 +24,11 @@ not yet implemented or covered by the 66 classic-KFM oracle scenarios.
 The build compiles all 36 directly guarded `command.zss` State -1
 ChangeState branches (including AnimElemTime cancel tests) and activates them
 for human-controlled P2. The importer rejects incomplete coverage.
-ZSS's per-state scripts and autonomous AI still need a separate port;
-KFM-vs-ZSS gameplay parity has not yet been established.
+Four ZSS state bodies are now actually lowered to Saturn controllers:
+170, 180 (from `kfm.zss`), and 820, 1025 (from `hits.zss`).
+Unported states keep classic-CNS fallback. Autonomous AI and full ZSS
+per-state gameplay still need porting; KFM-vs-ZSS oracle parity is not
+established.
 
 ## Requirements
 
