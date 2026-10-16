@@ -191,8 +191,19 @@ independently per player: `chars/kfm/kfm.def` or
 and State -1 tables, exactly as the Saturn demo does. Unsupported character
 paths are rejected rather than running the classic KFM accidentally.
 
-Four reproducible ZSS-specific scenarios live in `scenarios/zss_*.json`,
-covering idle, P1 punches, P2 punches and the P2 Fast Palm victim sequence.
+The original four ZSS-specific scenarios (idle, P1 punch, P2 punch and
+Fast Palm victim) passed all 720 compared frames in upstream CI run
+[38925902594](https://github.com/celsowm/ikemen-saturn/actions/runs/38925902594).
+Their obsolete `pending` marks were removed; they are strict parity gates.
+The first CI job failed solely because those marks were still present.
+
+Nine new `zss_*.json` scenarios cover throw recovery, airborne recovery,
+uppercut, standing guard, timeout, knockout, crouch, special QCF and
+P2 uppercut as attacker. They carry `exploratory: true` until the upstream
+comparison is first run. For exploratory scenarios the pipeline still
+requires the real upstream move and valid traces, but reports parity
+differences as diagnostic rather than regressions. Once a scenario matches,
+remove `exploratory` and turn it into a strict gate.
 The classic matrix remains `kfm_*.json`, so adding ZSS scenarios does not
 silently redefine the previously established classic parity baseline.
 
@@ -221,7 +232,7 @@ against the corresponding Saturn port; classic-vs-ZSS outputs are **not**
 supposed to be identical. Current ZSS states still use classic fallback in
 many places; these cases carry an explicit `pending` reason and the first
 parity difference must be investigated. The suite checks non-vacuity against
-upstream before allowing pending differences. A failing upstream runner or
+upstream before allowing pending or exploratory differences. A failing upstream runner or
 vacuous scripted input is **never** treated as pending; stale traces are
 deleted before each run. Reports count mismatching frames by field and side
 and pinpoint the first divergence, with 1.5px position and 0.35px/tick

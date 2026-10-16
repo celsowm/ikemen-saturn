@@ -143,8 +143,9 @@ def main() -> int:
         # A scenario that needs a feature the port does not have yet says so
         # in "pending": its divergence is reported, but does not fail the
         # suite. It must start failing the suite as soon as it matches.
-        reason = json.loads(
-            scenario.read_text(encoding="utf-8")).get("pending")
+        metadata = json.loads(scenario.read_text(encoding="utf-8"))
+        reason = metadata.get("pending")
+        exploratory = metadata.get("exploratory") is True
 
         scenario_failed = False
         for step_index, step in enumerate(steps):
@@ -153,9 +154,11 @@ def main() -> int:
                 print(result.stdout.rstrip())
             if result.returncode != 0:
                 scenario_failed = True
-                if reason and step_index == 2:
+                if step_index == 2 and (reason or exploratory):
                     pending += 1
-                    print(f"PENDING {name}: {reason}")
+                    label = "EXPLORATORY" if exploratory else "PENDING"
+                    print(f"{label} {name}: gameplay difference; "
+                          "see the frame report")
                 else:
                     failures += 1
                     print(f"FAIL {name}: step {step_index}, exit {result.returncode}")
@@ -190,6 +193,8 @@ def main() -> int:
                 scenario_failed = True
                 failures += 1
                 print(f"FAIL {name}: matches now; drop its \"pending\" entry")
+            elif exploratory:
+                print(f"PASS {name}: exploratory scenario also matches")
             else:
                 print(f"PASS {name}")
 

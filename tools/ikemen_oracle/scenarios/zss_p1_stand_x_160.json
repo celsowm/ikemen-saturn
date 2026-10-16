@@ -33,6 +33,5 @@
     "p1_states": [
       200
     ]
-  },
-  "pending": "ZSS gameplay parity is not yet established: most kfm.zss/hits.zss state bodies still use CNS fallbacks. Diagnose first mismatching frame in the paired upstream/Saturn trace."
+  }
 }
