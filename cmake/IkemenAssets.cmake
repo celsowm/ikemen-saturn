@@ -203,7 +203,7 @@ ikemen_generate(COMMENT "Ikemen assets: supported ZSS State -1 rules"
         --symbol kfm_zss)
 
 set(KFM_ZSS_CNS_C "${IKEMEN_GEN_DIR}/kfm_zss_cns.c")
-ikemen_generate(COMMENT "Ikemen assets: ZSS states 170/180/820/1025 plus CNS fallback"
+ikemen_generate(COMMENT "Ikemen assets: six source-checked ZSS states plus CNS fallback"
     OUTPUTS "${KFM_ZSS_CNS_C}" "${IKEMEN_GEN_DIR}/kfm_zss_cns.h"
     DEPENDS "${KFM_CNS}" "${KFM_ZSS_CONST}" "${KFM_ZSS_AIR}"
             "${KFM_ZSS_CHARACTER_ZSS}" "${KFM_ZSS_HITS_ZSS}"

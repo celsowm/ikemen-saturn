@@ -107,8 +107,8 @@ int main() {
                 fx_scratch, sizeof(fx_scratch));
 
     /* Check the actual compiled CNS table linked into the Saturn firmware,
-     * not only the Python importer report. These four controllers must come
-     * from verified original ZSS bodies; all other states keep fallback. */
+     * not only the Python importer report. Six state bodies now come
+     * from verified ZSS sources; unported states keep the fallback. */
     struct ExpectedZss {
         int16_t state;
         uint8_t count;
@@ -120,6 +120,8 @@ int main() {
         {180, 1u, IK_CNS_CTRL_CHANGE_STATE, IK_CNS_CTRL_CHANGE_STATE},
         {820, 2u, IK_CNS_CTRL_CHANGE_ANIM2, IK_CNS_CTRL_SELF_STATE},
         {1025, 2u, IK_CNS_CTRL_CHANGE_ANIM2, IK_CNS_CTRL_CHANGE_STATE},
+        {821, 4u, IK_CNS_CTRL_VEL_ADD, IK_CNS_CTRL_SELF_STATE},
+        {1026, 5u, IK_CNS_CTRL_HIT_VEL_SET, IK_CNS_CTRL_SELF_STATE},
     };
     for (const ExpectedZss& expected : expected_zss) {
         const ik_cns_state_t* state = ik_cns_find_state(
@@ -156,6 +158,30 @@ int main() {
         kfm_zss_cns.controllers + zss1025->controller_ofs;
     OK(palm[1].trigger_kind == IK_CNS_TRIGGER_HIT_SHAKE_OVER);
     OK(palm[1].value0 == 1026);
+    const ik_cns_state_t* zss821 = ik_cns_find_state(&kfm_zss_cns, 821);
+    const ik_cns_controller_t* airborne =
+        kfm_zss_cns.controllers + zss821->controller_ofs;
+    OK(airborne[0].value5 != 0);
+    OK(airborne[1].trigger_kind == IK_CNS_TRIGGER_THROW_GROUND_RECOVERY);
+    OK(airborne[1].value0 == 5200);
+    OK(airborne[2].trigger_kind == IK_CNS_TRIGGER_THROW_AIR_RECOVERY);
+    OK(airborne[2].value0 == 5210);
+    OK(airborne[3].trigger_kind == IK_CNS_TRIGGER_VY_GT_Q8_AT_FLOOR);
+    OK(airborne[3].value0 == 5100);
+    const ik_cns_state_t* zss1026 = ik_cns_find_state(&kfm_zss_cns, 1026);
+    const ik_cns_controller_t* wall =
+        kfm_zss_cns.controllers + zss1026->controller_ofs;
+    OK(wall[0].trigger_kind == IK_CNS_TRIGGER_TIME_EQ);
+    OK(wall[1].type == IK_CNS_CTRL_VEL_ADD);
+    OK(wall[2].type == IK_CNS_CTRL_SCREEN_BOUND);
+    OK(wall[2].trigger_kind == IK_CNS_TRIGGER_AIR_NEAR_BODY_EDGE_LT);
+    OK(wall[2].trigger_value2 == 65);
+    OK(wall[2].value0 == 1);
+    OK(wall[2].value3 == 3);
+    OK(wall[3].trigger_kind == IK_CNS_TRIGGER_AIR_NEAR_BODY_EDGE);
+    OK(wall[3].trigger_value2 == 20);
+    OK(wall[3].value0 == 1027);
+    OK(wall[4].value0 == 5100);
     OK(kfm_zss_cns.constants.life == 1000);
     OK(ik_cns_find_state(&kfm_zss_cns, 200) != nullptr);
 
