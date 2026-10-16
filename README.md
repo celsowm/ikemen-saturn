@@ -17,8 +17,10 @@ header or build-tree path anywhere in this repository.
 
 The shared frame driver accepts independent CNS, AIR, CMD and State -1
 tables for each fighter, configuring the match from one consistent bundle per
-player. The playable demo still shares KFM's gameplay tables on both sides
-while P2 uses ZSS AIR/SFF; porting ZSS's script-based moves is separate work.
+player. The playable demo now gives P2 the original ZSS CMD, .const and AIR/SFF
+while retaining classic KFM CNS state bodies and State -1 rules as a
+temporary compatibility bridge. ZSS's actual script-based gameplay/AI is
+not yet implemented or covered by the 66 classic-KFM oracle scenarios.
 
 ## Requirements
 

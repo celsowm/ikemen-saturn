@@ -28,8 +28,10 @@
 #include "ikemen_fight.h"
 #include "ikemen_frame.h"
 #include "ikemen_saturn/kfm_commands.h"
+#include "ikemen_saturn/kfm_zss_commands.h"
 #include "ikemen_saturn/kfm_state_rules.h"
 #include "ikemen_saturn/kfm_cns.h"
+#include "ikemen_saturn/kfm_zss_cns.h"
 #include "ikemen_saturn/fightfx_frames.h"
 #include "ikemen_saturn/kfm_frames.h"
 #include "ikemen_saturn/kfm_zss_frames.h"
@@ -1269,11 +1271,13 @@ int main(void) {
         SAT_VDP2_COLOR_CALC_ADD));
     sat_example_must(ik_audio_init(&audio));
 
-    /* P2 has its own AIR/SFF data. Until ZSS CNS parsing is supported,
-     * both fighters intentionally share the original KFM behavior tables. */
+    /* The ZSS character gets its own CMD and native .const values.
+     * Its CNS states and State -1 rules still use the classic compatibility
+     * implementation, until the ZSS scripts can be translated faithfully.
+     * The per-character CMD IDs are checked by test_ikemen_zss_assets.py. */
     const ik_frame_character_assets_t character_assets[2] = {
         {&kfm_cns, &g_kfm_table, &kfm_commands, &kfm_state_rules},
-        {&kfm_cns, &g_kfm_zss_table, &kfm_commands, &kfm_state_rules}
+        {&kfm_zss_cns, &g_kfm_zss_table, &kfm_zss_commands, &kfm_state_rules}
     };
     sat_example_must(ik_frame_ctx_init(
         &g_frame, &fight, character_assets) ? SAT_OK : SAT_ERR_CAPACITY);

@@ -9,9 +9,12 @@ character data on Saturn hardware. P1 and P2 own independent AIR/SFF runtime dat
 owns CNS (including constants and common states), AIR, CMD and State -1 data;
 the frame driver configures the fight, commands and entity pool together.
 Character command IDs are resolved by name independently at startup, so P1/P2
-may use entirely different generated assets. The current demo binds KFM's
-classic CNS/CMD to both slots but P2 uses its own ZSS AIR/SFF visuals; the
-ZSS character's script-based behavior has not been ported.
+may use entirely different generated assets. The demo now binds **P2's original ZSS CMD, ZSS .const values and ZSS
+AIR/SFF**, keeping classic KFM CNS bodies and State -1 predicates as a
+clearly identified compatibility bridge. The two CMDs retain the same name
+ordering (checked by a source-data regression test) but several authored
+super-command motions differ. ZSS's own kfm.zss, hits.zss, command.zss and
+AI.zss behavior is not yet ported; never claim ZSS gameplay parity.
 
 ## Hardware profile
 

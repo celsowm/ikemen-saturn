@@ -4185,6 +4185,7 @@ def emit(
     symbol: str,
     common_zss: Path | None = None,
     common_selected: list[int] | None = None,
+    constants_source: Path | None = None,
 ) -> dict:
     globals_, states = collect_states(parse_sections(path))
     by_number = {state.number: state for state in states}
@@ -4193,7 +4194,18 @@ def emit(
     if missing:
         raise ValueError(f"missing Statedef(s): {missing}")
 
-    const = constants(globals_)
+    # Ikemen ZSS characters can keep [Data]/[Size]/[Velocity]/[Movement]
+    # in a separate .const file. Until their ZSS state bodies are lowered,
+    # permit a distinct source for constants without substituting defaults.
+    const_globals = globals_
+    if constants_source is not None:
+        const_globals, _ = collect_states(parse_sections(constants_source))
+        required = {"data", "size", "velocity", "movement"}
+        missing = required - set(const_globals)
+        if missing:
+            raise ValueError(
+                f"{constants_source}: missing constants sections: {sorted(missing)}")
+    const = constants(const_globals)
     state_rows: list[dict] = []
     hitdefs: list[dict] = []
     sounds: list[dict] = []
@@ -4602,6 +4614,8 @@ extern const ik_cns_asset_t {ident}_cns;
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--cns", required=True, type=Path)
+    parser.add_argument("--constants-cns", type=Path,
+                        help="separate [Data]/[Size]/[Velocity]/[Movement] file")
     parser.add_argument("--states", required=True)
     parser.add_argument("--common-zss", type=Path)
     parser.add_argument("--air", type=Path,
@@ -4634,6 +4648,7 @@ def main(argv: list[str] | None = None) -> int:
         args.symbol,
         args.common_zss,
         common_selected,
+        args.constants_cns,
     )
 
     unsupported = {
