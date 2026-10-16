@@ -1,8 +1,10 @@
 # Ikemen GO compatibility (ikemen_saturn)
 
 Goal: the Saturn port of Kung Fu Man (classic CNS/CMD) behaves 1:1 like upstream
-Ikemen GO, measured frame by frame by the oracle in `tools/ikemen_oracle`. ZSS
-characters are out of scope for now (the "P2 ZSS" is only a sprite/AIR label).
+Ikemen GO for the 66 covered gameplay scenarios, measured frame by frame by
+the oracle in `tools/ikemen_oracle`. Mixed KFM/ZSS matches use genuine ZSS
+commands, assets and selected native states; full ZSS script/AI parity is not
+established. Run `suite.py --zss-only` to measure the separate ZSS matrix.
 
 ## Running it
 
@@ -179,6 +181,23 @@ every file in `scenarios/` (66 now: all 66 pass for the KFM gameplay matrix).
   5000/5010/5020 + type; knocked-back anim 5005/5015/5025 + type.
 
 Host tests: all `test_ikemen_*` pass with no tracked gaps. `tests/tools/test_ikemen_cns.py` passes again (explod 191 now compiles: explod fields are int32, `q8(wide=True)`; AfterImage with default palette keys compiles).
+
+## ZSS status (2026-10-16)
+
+The 13 mixed KFM/ZSS oracle scenarios cover a bounded set of human gameplay
+and hit-reaction paths. They must not be confused with coverage of arbitrary
+ZSS characters or autonomous AI. The current source-checked ZSS lowering
+contains nine state bodies:
+
+- `kfm.zss`: 170, 180, **1061** (Strong Knee air continuation).
+- `hits.zss`: 820, 821, 1025, 1026, 1027, 1028.
+
+State 1061 keeps `hitdefpersist: 1`, applies native 0.45 gravity, allows
+human A/B ascent cancels into 1055, and lands through 1052. Its runtime
+transitions have host tests, but **upstream frame parity for 1061 is not yet
+claimed**. The 821 AI-random recovery branch is still deferred because the
+native driver has no mirrored Ikemen GO AI/RNG execution path. All other
+unported ZSS states continue to use the documented classic CNS fallback.
 
 ## Known shims and gaps
 
