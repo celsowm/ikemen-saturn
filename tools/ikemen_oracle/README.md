@@ -202,13 +202,16 @@ complete original victim chain 1025->1026->1027->1028 (including wall
 impact and bounce), and the throw test asserts 820->821->5100;
 both sequences were observed in the original engine's exported trace.
 
-The remaining `zss_p2_timeout_win_180` case is exploratory, pending a
-candidate trace. The upstream match enters state 181 (winner) directly on
-its visible frame and P2 enters 170 (loser); the original expectation's
-intermediate 180 is not observable, so its non-vacuity condition was
-corrected using the captured upstream trace. Exploratory parity mismatches
-are diagnostic, but upstream execution failures and vacuous inputs still
-fail CI. Matching exploratory scenarios can be promoted to strict tests.
+All **13** mixed classic/ZSS scenarios now match upstream under the
+configured 1.5-pixel position and 0.35-pixel-per-tick velocity tolerances.
+CI run [38928274699](https://github.com/celsowm/ikemen-saturn/actions/runs/38928274699)
+passed the complete matrix, including `zss_p2_timeout_win_180`.
+The recorded upstream timeout immediately transitions to visible winner
+state 181 and loser state 170 (state 180 is transitory, not visible in the
+per-frame trace). This final case is now also a strict parity gate.
+The current 13-case corpus totals **2,600 compared frames**.
+Future exploratory cases must use `exploratory: true`; upstream execution
+failures and vacuous inputs still fail CI.
 The classic matrix remains `kfm_*.json`, so adding ZSS scenarios does not
 silently redefine the previously established classic parity baseline.
 

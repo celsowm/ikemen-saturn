@@ -23,6 +23,5 @@
     "timer_frames": 5,
     "p2_life": 900
   },
-  "exploratory": true,
   "origin": "kfm_timeout_win_180.json"
 }
