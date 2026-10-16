@@ -58,7 +58,7 @@ int main() {
          * must be measured after turning: 30-12-0.5 = 17.5px, producing
          * a +2.5px displacement against the new facing. */
         OK(f->facing == -1);
-        OK(f->x_q8 == (610 * 256 + 128));
+        OK(f->x_q8 == (610 * 256 + 640));
         OK(f->pos_freeze_x && f->pos_freeze_y);
         OK(f->screen_bound == 1u);
         OK(f->move_camera_x == 0u && f->move_camera_y == 1u);
