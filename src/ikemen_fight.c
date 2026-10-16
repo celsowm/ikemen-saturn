@@ -261,6 +261,8 @@ void ik_fight_reset(ik_fight_t* fight) {
     const ik_cns_asset_t* cns = fight->cns;
     const ik_cns_asset_t* p1_cns = fight->player_cns[0];
     const ik_cns_asset_t* p2_cns = fight->player_cns[1];
+    const ik_frame_table_t* p1_frames = fight->player_frames[0];
+    const ik_frame_table_t* p2_frames = fight->player_frames[1];
     ik_entity_pool_t* entities = fight->entities;
     const ik_entity_handle_t p1 = fight->player_entities[0];
     const ik_entity_handle_t p2 = fight->player_entities[1];
@@ -283,6 +285,11 @@ void ik_fight_reset(ik_fight_t* fight) {
 
     (void)cns;
     ik_fight_init_players(fight, p1_cns, p2_cns);
+    /* Per-character AIR ownership must survive round reset. Clearing these
+     * pointers can leave the first post-reset render without animations and
+     * makes state-owned animation lookup depend on a later frame update. */
+    fight->player_frames[0] = p1_frames;
+    fight->player_frames[1] = p2_frames;
     ik_fight_set_stage(fight, &stage);
     ik_fight_bind_entities(fight, entities, p1, p2);
     fight->hits_p1 = h1;

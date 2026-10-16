@@ -62,6 +62,8 @@ int main() {
     ik_fight_reset(&fight);
     OK(fight.player_cns[0] == &p1_cns);
     OK(fight.player_cns[1] == &p2_cns);
+    OK(fight.player_frames[0] == &p1_frames);
+    OK(fight.player_frames[1] == &p2_frames);
     OK(fight.fighters[0].hp == 950);
     OK(fight.fighters[1].hp == 1200);
     std::puts("[test] independent per-player CNS/AIR/CMD binding OK");
