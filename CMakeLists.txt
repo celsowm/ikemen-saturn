@@ -113,9 +113,10 @@ set(IKEMEN_TEST_SOURCES_test_ikemen_anim "${_ik}/ikemen_anim.c")
 set(IKEMEN_TEST_SOURCES_test_ikemen_decode "${_ik}/ikemen_anim.c")
 # End-to-end asset contract: needs the generated tables and sprite blobs.
 set(IKEMEN_TEST_SOURCES_test_ikemen_assets
-    "${_ik}/ikemen_anim.c"
+    "${_ik}/ikemen_anim.c" "${_ik}/ikemen_cns.c"
     "${IKEMEN_GEN_DIR}/kfm_frames.c" "${IKEMEN_GEN_DIR}/kfm_zss_frames.c"
-    "${IKEMEN_GEN_DIR}/fightfx_frames.c" "${IKEMEN_GEN_DIR}/stage0_plane.c")
+    "${IKEMEN_GEN_DIR}/fightfx_frames.c" "${IKEMEN_GEN_DIR}/stage0_plane.c"
+    "${IKEMEN_GEN_DIR}/kfm_cns.c" "${IKEMEN_GEN_DIR}/kfm_zss_cns.c")
 
 file(GLOB IKEMEN_HOST_TESTS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/tests/host/*.cpp")
 foreach(_test_src IN LISTS IKEMEN_HOST_TESTS)

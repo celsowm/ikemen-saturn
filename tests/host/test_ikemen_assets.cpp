@@ -17,6 +17,9 @@
 #include <vector>
 
 #include "ikemen_anim.h"
+#include "ikemen_cns.h"
+#include "ikemen_saturn/kfm_cns.h"
+#include "ikemen_saturn/kfm_zss_cns.h"
 #include "ikemen_saturn/fightfx_frames.h"
 #include "ikemen_saturn/kfm_frames.h"
 #include "ikemen_saturn/kfm_zss_frames.h"
@@ -102,6 +105,59 @@ int main() {
     check_table(fightfx_frames, FIGHTFX_FRAME_COUNT, fightfx_sprites,
                 FIGHTFX_SPRITE_COUNT, FIGHTFX_SPRITE_DATA_BYTES, fightfx_blob,
                 fx_scratch, sizeof(fx_scratch));
+
+    /* Check the actual compiled CNS table linked into the Saturn firmware,
+     * not only the Python importer report. These four controllers must come
+     * from verified original ZSS bodies; all other states keep fallback. */
+    struct ExpectedZss {
+        int16_t state;
+        uint8_t count;
+        uint8_t first_type;
+        uint8_t last_type;
+    };
+    const ExpectedZss expected_zss[] = {
+        {170, 1u, IK_CNS_CTRL_NOT_HIT_BY, IK_CNS_CTRL_NOT_HIT_BY},
+        {180, 1u, IK_CNS_CTRL_CHANGE_STATE, IK_CNS_CTRL_CHANGE_STATE},
+        {820, 2u, IK_CNS_CTRL_CHANGE_ANIM2, IK_CNS_CTRL_SELF_STATE},
+        {1025, 2u, IK_CNS_CTRL_CHANGE_ANIM2, IK_CNS_CTRL_CHANGE_STATE},
+    };
+    for (const ExpectedZss& expected : expected_zss) {
+        const ik_cns_state_t* state = ik_cns_find_state(
+            &kfm_zss_cns, expected.state);
+        OK(state != nullptr);
+        OK(state->controller_count == expected.count);
+        OK(static_cast<uint32_t>(state->controller_ofs) + expected.count <=
+           kfm_zss_cns.controller_count);
+        const ik_cns_controller_t* cs =
+            kfm_zss_cns.controllers + state->controller_ofs;
+        OK(cs[0].type == expected.first_type);
+        OK(cs[expected.count - 1u].type == expected.last_type);
+        const ik_cns_state_t* classic =
+            ik_cns_find_state(&kfm_cns, expected.state);
+        OK(classic != nullptr);
+    }
+    const ik_cns_state_t* zss170 = ik_cns_find_state(&kfm_zss_cns, 170);
+    OK(zss170->anim == 170);
+    const ik_cns_state_t* zss180 = ik_cns_find_state(&kfm_zss_cns, 180);
+    OK(zss180->anim == -2);
+    const ik_cns_controller_t* win =
+        &kfm_zss_cns.controllers[zss180->controller_ofs];
+    OK(win->value0 == 181);
+    OK((win->flags & IK_CNS_CTRL_HAS_CTRL) != 0u);
+    const ik_cns_state_t* zss820 = ik_cns_find_state(&kfm_zss_cns, 820);
+    const ik_cns_controller_t* thrown =
+        kfm_zss_cns.controllers + zss820->controller_ofs;
+    OK(thrown[0].trigger_kind == IK_CNS_TRIGGER_TIME_EQ);
+    OK(thrown[0].value0 == 820);
+    OK(thrown[1].trigger_kind == IK_CNS_TRIGGER_NOT_BOUND);
+    OK(thrown[1].value0 == 5050);
+    const ik_cns_state_t* zss1025 = ik_cns_find_state(&kfm_zss_cns, 1025);
+    const ik_cns_controller_t* palm =
+        kfm_zss_cns.controllers + zss1025->controller_ofs;
+    OK(palm[1].trigger_kind == IK_CNS_TRIGGER_HIT_SHAKE_OVER);
+    OK(palm[1].value0 == 1026);
+    OK(kfm_zss_cns.constants.life == 1000);
+    OK(ik_cns_find_state(&kfm_zss_cns, 200) != nullptr);
 
     bool saw_attack = false;
     bool saw_hurt = false;
