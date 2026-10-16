@@ -255,6 +255,32 @@ deleted before each run. Reports count mismatching frames by field and side
 and pinpoint the first divergence, with 1.5px position and 0.35px/tick
 velocity tolerances.
 
+## Autonomous ZSS AI: upstream observation (not Saturn parity)
+
+The Saturn trace runner currently replays deterministic human inputs. It does
+**not** execute Ikemen GO's AI decisions, including the probabilistic aerial
+throw recovery in State 821. Consequently, do not count an AI-only trace as
+engine parity or silently replace its commands with hand-authored controls.
+
+An optional GitHub Actions dispatch input `zss_ai_probe`, or a commit tagged
+`[zss-ai-probe]`, runs a separate **upstream-only** experiment using P2 KFM
+ZSS at AI level 8 (seed 1, 360 frames). The output artifact
+`ikemen-zss-ai-observation` contains `upstream_ai.jsonl` and
+`ai_report.json`: per-state occupancy, frame-indexed state transitions, and
+attack/reaction frame counts. No candidate Saturn trace is fabricated.
+
+Run locally with the configured Ikemen GO dependencies:
+
+```sh
+xvfb-run -a python tools/ikemen_oracle/ai_probe.py \
+  --ikemen-dir .external/Ikemen-GO \
+  --out build/ikemen_oracle/ai_probe
+```
+
+The observation flags cases where no attack was seen, because upstream's
+scripted-input hook and CPU command routing need separate verification before
+implementing deterministic AI replay on Saturn.
+
 ## Important scope
 
 This is a behavioral oracle, not a source-code dependency. Ikemen GO remains in
