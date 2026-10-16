@@ -24,8 +24,10 @@ not yet implemented or covered by the 66 classic-KFM oracle scenarios.
 The build compiles all 36 directly guarded `command.zss` State -1
 ChangeState branches (including AnimElemTime cancel tests) and activates them
 for human-controlled P2. The importer rejects incomplete coverage.
-Eight ZSS state bodies now have native lowering:
-170, 180 (from kfm.zss), and 820, 821, 1025, 1026, 1027, 1028 (from hits.zss).
+Nine ZSS state bodies now have source-checked native lowering:
+170, 180 and 1061 (from kfm.zss), and 820, 821, 1025, 1026, 1027,
+1028 (from hits.zss). State 1061 preserves Strong Knee's prior HitDef,
+accepts human A/B air-kick cancels into 1055 and lands through 1052.
 The 821 human recovery path is ported; AI random recovery remains deferred.
 1027 and 1028 now have source-checked native wall-impact, F72 FightFX,
 common SysSnd(7,0), wall-bounce and descending animation logic.
