@@ -5,8 +5,7 @@
 #include "ikemen_saturn/kfm_zss_cns.h"
 #include "ikemen_saturn/kfm_zss_frames.h"
 
-#define OK(x) do { if (!(x)) { std::fprintf(stderr,
-    "FAIL %s:%d: %s\n", __FILE__, __LINE__, #x); std::exit(1); } } while (0)
+#define OK(x) do { if (!(x)) { std::fprintf(stderr, "FAIL %s:%d: %s\n", __FILE__, __LINE__, #x); std::exit(1); } } while (0)
 
 static const ik_frame_table_t zss_frames = {
     kfm_zss_frames, KFM_ZSS_FRAME_COUNT,
