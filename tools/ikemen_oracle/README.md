@@ -212,12 +212,20 @@ xvfb-run -a python tools/ikemen_oracle/suite.py --zss-only --keep-going \
     --trace-bin build/host/ikemen_oracle_trace
 ```
 
+The optional Actions workflow dispatch input `zss_oracle` runs this matrix
+under Go + Xvfb and uploads both JSONL traces plus the machine-readable
+`zss_report.json` for each scenario.
+
 Each scenario compares its *own* original upstream character selection
 against the corresponding Saturn port; classic-vs-ZSS outputs are **not**
 supposed to be identical. Current ZSS states still use classic fallback in
 many places; these cases carry an explicit `pending` reason and the first
 parity difference must be investigated. The suite checks non-vacuity against
-upstream before allowing pending differences.
+upstream before allowing pending differences. A failing upstream runner or
+vacuous scripted input is **never** treated as pending; stale traces are
+deleted before each run. Reports count mismatching frames by field and side
+and pinpoint the first divergence, with 1.5px position and 0.35px/tick
+velocity tolerances.
 
 ## Important scope
 

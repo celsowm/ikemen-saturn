@@ -15,6 +15,10 @@ on:
         description: Also run the full upstream Ikemen GO oracle (long)
         type: boolean
         default: false
+      zss_oracle:
+        description: Run mixed classic KFM vs KFM ZSS oracle scenarios
+        type: boolean
+        default: false
 
 env:
   # LibSaturn release tag or commit whose installed package this project builds
@@ -68,8 +72,8 @@ jobs:
             build/saturn/disc/ikemen_saturn.bin
 
   oracle:
-    name: Upstream oracle
-    if: github.event_name == 'workflow_dispatch' && inputs.oracle
+    name: Upstream oracle (classic KFM / KFM ZSS)
+    if: github.event_name == 'workflow_dispatch' && (inputs.oracle || inputs.zss_oracle)
     runs-on: ubuntu-latest
     timeout-minutes: 240
     steps:
@@ -97,7 +101,22 @@ jobs:
           GOEXPERIMENT: arenas
         run: |
           cmake --preset host
-          xvfb-run -a cmake --build build/host --target ikemen_oracle_suite
+          cmake --build --preset host
+          if [ "${{ inputs.zss_oracle }}" = "true" ]; then
+            xvfb-run -a python tools/ikemen_oracle/suite.py \
+              --zss-only --keep-going \
+              --trace-bin build/host/ikemen_oracle_trace
+          else
+            xvfb-run -a python tools/ikemen_oracle/suite.py \
+              --keep-going --trace-bin build/host/ikemen_oracle_trace
+          fi
+      - name: Upload ZSS parity diagnostics
+        if: always() && inputs.zss_oracle
+        uses: actions/upload-artifact@v4
+        with:
+          name: ikemen-zss-parity
+          if-no-files-found: warn
+          path: build/ikemen_oracle/suite/zss_*/**
 
 
   timeout_oracle:

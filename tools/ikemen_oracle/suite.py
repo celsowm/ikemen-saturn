@@ -102,6 +102,10 @@ def main() -> int:
         out_dir.mkdir(parents=True, exist_ok=True)
         oracle = out_dir / "ikemen.jsonl"
         saturn = out_dir / "libsaturn.jsonl"
+        report_path = out_dir / "zss_report.json"
+        # Never read stale traces if one of the runners failed this time.
+        for previous in (oracle, saturn, report_path):
+            previous.unlink(missing_ok=True)
 
         print(f"== {name} ==")
 
@@ -149,12 +153,12 @@ def main() -> int:
                 print(result.stdout.rstrip())
             if result.returncode != 0:
                 scenario_failed = True
-                if reason:
+                if reason and step_index == 2:
                     pending += 1
                     print(f"PENDING {name}: {reason}")
                 else:
                     failures += 1
-                    print(f"FAIL {name}: exit {result.returncode}")
+                    print(f"FAIL {name}: step {step_index}, exit {result.returncode}")
                 break
             # Verify the upstream move really occurred *before* diffing.
             # A pending ZSS scenario must never hide a wrong or vacuous input.
@@ -168,6 +172,19 @@ def main() -> int:
                     print(f"FAIL {name}: upstream expectation not met")
                     break
 
+        if name.startswith("zss_") and oracle.is_file() and saturn.is_file():
+            summary = run([
+                sys.executable, str(tool / "zss_report.py"),
+                str(oracle), str(saturn),
+                "--out", str(report_path),
+                *Q8_TOLERANCE,
+            ])
+            if summary.stdout:
+                print(summary.stdout.rstrip())
+            if summary.returncode != 0:
+                failures += 1
+                scenario_failed = True
+                print(f"FAIL {name}: report could not be generated")
         if not scenario_failed:
             if reason:
                 scenario_failed = True
