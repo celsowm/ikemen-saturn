@@ -28,14 +28,28 @@ for path in cases:
         base = OUT / item["origin"]
         assert base.exists(), base
         original = json.loads(base.read_text(encoding="utf-8"))
-        assert build_timeline(item) == build_timeline(original)
+        if path.stem == "zss_p1_strong_knee_ff_b_220":
+            # Same authored double-tap as stock FF+A, but with B.
+            assert item["frames"] == 220
+            assert item["expect"] == {
+                "p1_states": [1060, 1061], "p2_life_drops": True,
+            }
+            source_events = [dict(event) for event in original["inputs"]]
+            source_events[-1] = dict(source_events[-1])
+            source_events[-1]["p1"] = ["forward", "b"]
+            comparison = dict(original)
+            comparison["frames"] = 220
+            comparison["inputs"] = source_events
+            assert build_timeline(item) == build_timeline(comparison)
+        else:
+            assert build_timeline(item) == build_timeline(original)
         if path.stem == "zss_p2_timeout_win_180":
             # The upstream trace goes straight to 181 on the next visible
             # frame. State 180 is transitory within one simulation tick.
             assert item["expect"] == {
                 "p1_states": [181], "p2_states": [170],
             }
-        else:
+        elif path.stem != "zss_p1_strong_knee_ff_b_220":
             assert item.get("expect") == original.get("expect")
         assert item.get("setup") == original.get("setup")
     else:
@@ -50,7 +64,21 @@ assert set(strict) == {
     "zss_p2_upper_y_200", "zss_p2_upper_y_attacker_200",
     "zss_p2_timeout_win_180",
 }
-assert exploratory == []
+assert set(exploratory) == {
+    "zss_p1_air_x_200",
+    "zss_p1_combo_cancel_x_qcf_y_200",
+    "zss_p1_combo_cancel_x_upper_x_200",
+    "zss_p1_combo_cancel_y_blow_y_200",
+    "zss_p1_combo_chain_x_a_200",
+    "zss_p1_combo_chain_x_y_200",
+    "zss_p1_combo_rapid_x_200",
+    "zss_p1_ff_a_200",
+    "zss_p1_strong_knee_ff_b_220",
+    "zss_p1_super_knee_ab_200",
+    "zss_p2_blocking_air_air_200",
+    "zss_p2_guard_air_160",
+    "zss_p2_guard_crouch_x_160",
+    "zss_p2_qcf_y_attacker_200",
 # Require each observed state in the full hit-reaction sequence, preventing
 # vacuous PASSes that only execute 1025 without reaching the wall.
 palm = json.loads((OUT / "zss_p2_fast_palm_240.json").read_text())
@@ -60,4 +88,4 @@ assert thrown["expect"]["p2_states"] == [820, 821, 5100]
 timeout = json.loads((OUT / "zss_p2_timeout_win_180.json").read_text())
 assert timeout["expect"]["p1_states"] == [181]
 assert timeout["expect"]["p2_states"] == [170]
-print("ZSS oracle corpus: 13 upstream-proven strict scenarios OK")
+print("ZSS oracle corpus: 13 proven strict + 14 exploratory combo/air/knee cases OK")
