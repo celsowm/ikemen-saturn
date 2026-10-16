@@ -209,7 +209,7 @@ ikemen_generate(COMMENT "Ikemen assets: ZSS states 170/180/820/1025 plus CNS fal
             "${KFM_ZSS_CHARACTER_ZSS}" "${KFM_ZSS_HITS_ZSS}"
             "${COMMON_CNS_ZSS}" "${_tools}/ikemen_cns.py"
             "${_tools}/ikemen_zss_character_states.py"
-    COMMAND "${Python3_EXECUTABLE}" "${_tools}/ikemen_cns.py"
+    COMMAND "${Python3_EXECUTABLE}" -m tools.ikemen_cns
         --cns "${KFM_CNS}" --constants-cns "${KFM_ZSS_CONST}"
         --character-zss "${KFM_ZSS_CHARACTER_ZSS}"
         --hits-zss "${KFM_ZSS_HITS_ZSS}"
