@@ -210,6 +210,15 @@ The recorded upstream timeout immediately transitions to visible winner
 state 181 and loser state 170 (state 180 is transitory, not visible in the
 per-frame trace). This final case is now also a strict parity gate.
 The current 13-case corpus totals **2,600 compared frames**.
+A second exploratory matrix adds **14 scenarios** (27 total) covering
+chained punches, command cancels, supers, jumping attacks, air/crouch
+reversals, and native ZSS Strong Knee. The Strong Knee FF+B scenario uses
+an explicit altered input timeline and requires states 1060 and 1061.
+A matched exploratory trace must be promoted to a strict regression
+gate; an upstream move that never occurs remains an error, not a pass.
+This does **not** assert autonomous AI parity: the Saturn oracle runner
+still replays scripted player inputs rather than implementing upstream AI.
+
 Future exploratory cases must use `exploratory: true`; upstream execution
 failures and vacuous inputs still fail CI.
 The classic matrix remains `kfm_*.json`, so adding ZSS scenarios does not
