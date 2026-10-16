@@ -16,7 +16,7 @@ folder = ROOT / ".external" / "Ikemen-GO-Screenpack" / "chars" / "kfm_zss"
 character = folder / "kfm.zss"
 hits = folder / "hits.zss"
 overrides = compile_zss_overrides(character, hits)
-assert set(overrides) == {170, 180, 820, 821, 1025, 1026, 1028}
+assert set(overrides) == {170, 180, 820, 821, 1025, 1026, 1027, 1028}
 
 expected = {
     170: ("IK_CNS_CTRL_NOT_HIT_BY",),
@@ -32,6 +32,10 @@ expected = {
            "IK_CNS_CTRL_TURN", "IK_CNS_CTRL_CHANGE_ANIM_IF_EXISTS",
            "IK_CNS_CTRL_VEL_ADD", "IK_CNS_CTRL_CHANGE_ANIM_DESCENT_IF_EXISTS",
            "IK_CNS_CTRL_SELF_STATE"),
+    1027: ("IK_CNS_CTRL_TURN", "IK_CNS_CTRL_POS_ADD_FROM_BACK_EDGE",
+           "IK_CNS_CTRL_SCREEN_BACK_EFFECT", "IK_CNS_CTRL_SOUND_EVENT",
+           "IK_CNS_CTRL_CHANGE_ANIM2", "IK_CNS_CTRL_POS_FREEZE",
+           "IK_CNS_CTRL_SCREEN_BOUND", "IK_CNS_CTRL_CHANGE_STATE"),
 }
 for number, (state, controllers) in overrides.items():
     row, *emitted = parse_state(state, 0, 0, 0, 0, 0, 0, 0)
@@ -63,6 +67,15 @@ assert overrides[1028][1][3]["value1"] == 5050
 assert overrides[1028][1][5]["value2"] == 10
 assert overrides[1028][1][5]["value3"] == 1
 assert overrides[1028][1][5]["value0"] == -2 * 256
+wall = overrides[1027][1]
+assert wall[0]["trigger_kind"] == "IK_CNS_TRIGGER_STATE_ENTRY_FRONT_EDGE_BODY_LE"
+assert wall[1]["value0"] == 15 * 256 and wall[1]["value1"] == 1
+assert wall[2]["value0"] == 72 and wall[2]["value1"] == -50
+assert wall[3]["value0"] == 7 and wall[3]["value1"] == 0
+assert wall[4]["value0"] == 1027
+assert wall[5]["flags"] == "IK_CNS_CTRL_AXIS_X | IK_CNS_CTRL_AXIS_Y"
+assert wall[7]["trigger_kind"] == "IK_CNS_TRIGGER_ANIM_END"
+assert wall[7]["value0"] == 1028
 
 # A new ZSS controller or missing semantic branch must break generation;
 # never let a partially compiled move masquerade as source parity.
@@ -88,6 +101,7 @@ with tempfile.TemporaryDirectory() as temp:
         ("backEdgeBodyDist < 65", "backEdgeBodyDist < 66", 1026),
         ("pos y >= -20", "pos y >= -15", 821),
         ("velAdd{y: .35}", "velAdd{y: .5}", 1028),
+        ("call SysSnd(7, 0, 1);", "call SysSnd(7, 1, 1);", 1027),
     ):
         changed = Path(temp) / "hits.zss"
         assert old in original
@@ -99,4 +113,4 @@ with tempfile.TemporaryDirectory() as temp:
         else:
             raise AssertionError(f"changed ZSS state {number} accepted")
 
-print("ZSS state compiler: native 170/180/820/821/1025/1026/1028 OK")
+print("ZSS state compiler: native 170/180/820/821/1025/1026/1027/1028 OK")

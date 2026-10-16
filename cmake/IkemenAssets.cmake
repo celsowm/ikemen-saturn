@@ -144,7 +144,8 @@ ikemen_generate(COMMENT "Ikemen assets: sounds"
         --sound strong_hit "${COMMON_SND}" 5 2
         --sound air_strong_hit "${COMMON_SND}" 5 3
         --sound heavy_hit "${COMMON_SND}" 5 4
-        --sound reversal_hit "${COMMON_SND}" 6 0)
+        --sound reversal_hit "${COMMON_SND}" 6 0
+        --sound wall_impact "${COMMON_SND}" 7 0)
 
 set(KFM_COMMANDS_C "${IKEMEN_GEN_DIR}/kfm_commands.c")
 ikemen_generate(COMMENT "Ikemen assets: command table"

@@ -57,8 +57,11 @@ sat_result_t ik_audio_init(ik_audio_t* audio) {
     if (st != SAT_OK) return st;
     st = create_pcm_sound(&audio->heavy_hit, &kfm_sounds_heavy_hit);
     if (st != SAT_OK) return st;
-    return create_pcm_sound(
+    st = create_pcm_sound(
         &audio->reversal_hit, &kfm_sounds_reversal_hit);
+    if (st != SAT_OK) return st;
+    return create_pcm_sound(
+        &audio->wall_impact, &kfm_sounds_wall_impact);
 }
 
 void ik_audio_process_fight(ik_audio_t* audio, const ik_fight_t* fight) {
@@ -99,6 +102,8 @@ void ik_audio_process_fight(ik_audio_t* audio, const ik_fight_t* fight) {
             sound = audio->heavy_hit;
         } else if (event->group == 6 && event->item == 0) {
             sound = audio->reversal_hit;
+        } else if (event->group == 7 && event->item == 0) {
+            sound = audio->wall_impact;
         }
         if (sound.slot != 0u || sound.generation != 0u) {
             (void)sat_sound_play(sound, 0, 0);

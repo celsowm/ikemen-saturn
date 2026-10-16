@@ -29,6 +29,7 @@ typedef struct ik_audio {
     sat_sound_t air_strong_hit;
     sat_sound_t heavy_hit;
     sat_sound_t reversal_hit;
+    sat_sound_t wall_impact;
 } ik_audio_t;
 
 sat_result_t ik_audio_init(ik_audio_t* audio);

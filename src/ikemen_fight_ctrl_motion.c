@@ -178,9 +178,24 @@ int ikf_ctrl_apply_motion(const ik_ctrl_exec_t* x) {
         }
 
         case IK_CNS_CTRL_POS_ADD_FROM_BACK_EDGE: {
+            int32_t back_body_dist = x->context->back_edge_body_dist_q8;
+            /* value1 opts into post-Turn evaluation. Existing classic CNS
+             * fixtures remain on the original pre-controller context. */
+            if (ctrl->value1 == 1) {
+                const int32_t back_dist = f->facing > 0
+                    ? f->x_q8 - f->xmin_q8
+                    : f->xmax_q8 - f->x_q8;
+                const int32_t body_offset =
+                    f->cur_state_type == IK_CNS_STATE_AIR
+                        ? IK_CNS_Q8_ONE / 2
+                        : f->cur_state_type == IK_CNS_STATE_LIEDOWN
+                            ? IK_CNS_Q8_ONE : 0;
+                back_body_dist =
+                    back_dist - (int32_t)f->edge_back * IK_CNS_Q8_ONE
+                    - body_offset;
+            }
             const int32_t delta =
-                (int32_t)ctrl->value0 -
-                x->context->back_edge_body_dist_q8;
+                (int32_t)ctrl->value0 - back_body_dist;
             f->x_q8 += (int32_t)f->facing * delta;
             sync_position(f);
             break;

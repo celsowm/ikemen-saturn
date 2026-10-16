@@ -180,7 +180,9 @@ typedef enum ik_cns_controller_type {
     IK_CNS_CTRL_TARGET_DROP,
     IK_CNS_CTRL_SCREEN_BOUND,
     IK_CNS_CTRL_LAND_HIT_ANIM,
-    IK_CNS_CTRL_MOVE_TYPE_SET
+    IK_CNS_CTRL_MOVE_TYPE_SET,
+    IK_CNS_CTRL_SCREEN_BACK_EFFECT, /* action / screen-Y offset */
+    IK_CNS_CTRL_SOUND_EVENT        /* common system group / item */
 } ik_cns_controller_type_t;
 
 typedef enum ik_cns_helper_postype {

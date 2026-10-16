@@ -2,7 +2,7 @@
 """Strict source-checked character-state lowering for KFM ZSS.
 
 Only controllers already implemented by Ikemen Saturn are accepted.
-Seven state bodies are translated, not merely their StateDef metadata.
+Eight state bodies are translated, not merely their StateDef metadata.
 Human throw recovery is supported; AI-random recovery is not yet modeled.
 Other ZSS states keep the classic CNS fallback at runtime.
 
@@ -49,10 +49,17 @@ BODIES = {
            'persistent(0)ifanim=5052&&selfanimexist(5062){'
            'changeanim{value:5062}}}'
            'ifvely>0&&posy>=0{selfstate{value:5100}}'),
+    1027: ('iftime=0{iffrontedgebodydist<=30{turn{}}'
+           'posadd{x:15-backedgebodydist}'
+           'explod{anim:f72;pos:0,floor(screenposy)-50;'
+           'postype:back;sprpriority:3;}'
+           'callsyssnd(7,0,1);changeanim2{value:1027}}'
+           'posfreeze{}screenbound{value:1;movecamera:0,1}'
+           'ifanimtime=0{changestate{value:1028}}'),
 }
 
 CHARACTER_STATES = (170, 180)
-HIT_STATES = (820, 821, 1025, 1026, 1028)
+HIT_STATES = (820, 821, 1025, 1026, 1027, 1028)
 
 # These guards protect against silently compiling outdated states with an
 # incompatible move class, physics type or action.
@@ -65,6 +72,7 @@ METADATA = {
           "velset": "2.8,-7", "poweradd": "40"},
     1026: {"type": "A", "movetype": "H", "physics": "N"},
     1028: {"type": "A", "movetype": "H", "physics": "N"},
+    1027: {"type": "A", "movetype": "H", "physics": "N"},
 }
 
 
@@ -143,6 +151,38 @@ def _controllers(state: int) -> list[dict]:
             _common_ctrl(
                 1026, "IK_CNS_CTRL_SELF_STATE",
                 "IK_CNS_TRIGGER_VY_GT_Q8_AT_FLOOR", 0, 0, 5100),
+        ]
+    if state == 1027:
+        # Script order matters: turn first, compute the new back-body
+        # distance for PosAdd (not the pre-turn context), then F72 and
+        # common-system SND (7,0). Screen Y is fixed in the Saturn stage.
+        return [
+            _common_ctrl(
+                1027, "IK_CNS_CTRL_TURN",
+                "IK_CNS_TRIGGER_STATE_ENTRY_FRONT_EDGE_BODY_LE", 30),
+            _common_ctrl(
+                1027, "IK_CNS_CTRL_POS_ADD_FROM_BACK_EDGE",
+                "IK_CNS_TRIGGER_TIME_EQ", 0, 0, q8(15), 1),
+            _common_ctrl(
+                1027, "IK_CNS_CTRL_SCREEN_BACK_EFFECT",
+                "IK_CNS_TRIGGER_TIME_EQ", 0, 0, 72, -50),
+            _common_ctrl(
+                1027, "IK_CNS_CTRL_SOUND_EVENT",
+                "IK_CNS_TRIGGER_TIME_EQ", 0, 0, 7, 0),
+            _common_ctrl(
+                1027, "IK_CNS_CTRL_CHANGE_ANIM2",
+                "IK_CNS_TRIGGER_TIME_EQ", 0, 0, 1027),
+            _common_ctrl(
+                1027, "IK_CNS_CTRL_POS_FREEZE",
+                "IK_CNS_TRIGGER_ALWAYS", 0, 0, 0, 0,
+                "IK_CNS_CTRL_AXIS_X | IK_CNS_CTRL_AXIS_Y"),
+            _common_ctrl(
+                1027, "IK_CNS_CTRL_SCREEN_BOUND",
+                "IK_CNS_TRIGGER_ALWAYS", 0, 0, 1, 0,
+                value2=1, value3=3),
+            _common_ctrl(
+                1027, "IK_CNS_CTRL_CHANGE_STATE",
+                "IK_CNS_TRIGGER_ANIM_END", 0, 0, 1028),
         ]
     if state == 1028:
         # NA/NP immunity, 1.6/-6 bounce, back-edge turn, native AIR

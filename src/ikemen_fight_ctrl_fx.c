@@ -6,6 +6,31 @@ int ikf_ctrl_apply_fx(const ik_ctrl_exec_t* x) {
     ik_fighter_t* f = x->fighter;
     const ik_cns_controller_t* ctrl = x->ctrl;
     switch ((ik_cns_controller_type_t)ctrl->type) {
+        case IK_CNS_CTRL_SCREEN_BACK_EFFECT: {
+            /* Ikemen ZSS Explod F72 / postype:back / pos:0,
+             * floor(screenPos Y)-50. Saturn's stage camera has no Y
+             * displacement. Compute the screen-back X from current camera
+             * width, not from the fighter's collision bounds. */
+            if (fight->effect_count >= IK_MAX_EFFECT_EVENTS ||
+                ctrl->value0 < 0) break;
+            const int32_t camera_back_q16 = fight->cam_x_q16 -
+                (int32_t)f->facing * fight->cam_half_q16;
+            const int32_t q8y = f->y_q8;
+            const int32_t floor_y = q8y >= 0
+                ? q8y / IK_CNS_Q8_ONE
+                : -((-q8y + IK_CNS_Q8_ONE - 1) / IK_CNS_Q8_ONE);
+            ik_effect_event_t* effect =
+                &fight->effect_events[fight->effect_count++];
+            effect->action = (int16_t)ctrl->value0;
+            effect->x = (int16_t)(camera_back_q16 / 65536);
+            effect->y = (int16_t)(floor_y + ctrl->value1);
+            break;
+        }
+
+        case IK_CNS_CTRL_SOUND_EVENT:
+            ikf_queue_sound_event(fight, ctrl->value0, ctrl->value1);
+            break;
+
         case IK_CNS_CTRL_SUPER_PAUSE: {
             if (f->pause_fired || ctrl->value0 <= 0) break;
             f->pause_fired = 1u;

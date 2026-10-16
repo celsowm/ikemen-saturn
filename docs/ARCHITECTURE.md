@@ -19,7 +19,7 @@ cancel predicates. Any unsupported branch fails the build rather than silently
 dropping a move. Human-controlled P2 now runs those ZSS State -1 input rules,
 using the original ZSS CMD and separate constants and AIR. ZSS's own
 `kfm.zss`, `hits.zss` and `AI.zss` state bodies are still unported:
-Seven P2 state bodies are now compiled directly from `kfm.zss`/`hits.zss`
+Eight P2 state bodies are now compiled directly from `kfm.zss`/`hits.zss`
 into existing CNS controller instructions: 170 (time-over loss), 180 (win
 transition), 820 (throw victim animation + unbound recovery), and 1025
 (Fast Palm hit-shake transition), 821 (airborne throw recovery), and 1026
@@ -27,9 +27,13 @@ transition), 820 (throw victim animation + unbound recovery), and 1025
 recovery path is translated, while the random AI recovery path is deferred.
 State 1028 now runs its native source-checked wall-bounce velocity, turn,
 animation selection and 5050/5052->5060/5062 descent transitions with a
-configurable generic animation offset. State 1027 still uses the classic CNS
-fallback: the original ZSS impact spark and SysSnd script have dynamic
-presentation semantics not yet translated.
+configurable generic animation offset. State 1027 now uses verified ZSS controller order: front-edge Turn,
+post-Turn BackEdgeBodyDist push, an F72 screen-back effect in the existing
+FightFX event queue, common SysSnd 7,0 PCM, attacker's AIR action 1027,
+PosFreeze/ScreenBound, then the AnimTime=0 transition into 1028. The vertical
+camera is fixed in the Saturn demo, so floor(screenPos Y)-50 uses its current
+world/screen Y. These ZSS conversions are source-checked, but full frame-by-
+frame ZSS oracle parity is not yet claimed.
 The importer verifies the **complete**
 source body of each state and fails the build on unhandled source changes.
 Other ZSS states still fall back to classic CNS state bodies; they are not
