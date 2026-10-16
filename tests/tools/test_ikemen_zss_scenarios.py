@@ -79,6 +79,7 @@ assert set(exploratory) == {
     "zss_p2_guard_air_160",
     "zss_p2_guard_crouch_x_160",
     "zss_p2_qcf_y_attacker_200",
+}
 # Require each observed state in the full hit-reaction sequence, preventing
 # vacuous PASSes that only execute 1025 without reaching the wall.
 palm = json.loads((OUT / "zss_p2_fast_palm_240.json").read_text())
