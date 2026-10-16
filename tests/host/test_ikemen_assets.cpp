@@ -182,6 +182,43 @@ int main() {
     OK(wall[3].trigger_value2 == 20);
     OK(wall[3].value0 == 1027);
     OK(wall[4].value0 == 5100);
+
+    /* Exercise the *runtime predicate evaluator*, not only generated rows.
+     * On recovery, near-ground wins over air recovery; negative vertical
+     * velocity or unavailable recovery blocks both branches. */
+    ik_cns_controller_context_t ctx{};
+    ctx.alive = 1u;
+    ctx.can_recover = 1u;
+    ctx.vy_q8 = 256;
+    ctx.command_mask = IK_CNS_COMMAND_RECOVERY;
+    ctx.floor_y_q8 = 178 * 256;
+    ctx.y_q8 = ctx.floor_y_q8 - 19 * 256;
+    OK(ik_cns_controller_trigger_context_now(&airborne[1], &ctx));
+    OK(ik_cns_controller_trigger_context_now(&airborne[2], &ctx));
+    ctx.y_q8 = ctx.floor_y_q8 - 21 * 256;
+    OK(!ik_cns_controller_trigger_context_now(&airborne[1], &ctx));
+    OK(ik_cns_controller_trigger_context_now(&airborne[2], &ctx));
+    ctx.can_recover = 0u;
+    OK(!ik_cns_controller_trigger_context_now(&airborne[2], &ctx));
+    ctx.can_recover = 1u;
+    ctx.vy_q8 = -256;
+    OK(!ik_cns_controller_trigger_context_now(&airborne[2], &ctx));
+    ctx.vy_q8 = 256;
+    ctx.command_mask = 0u;
+    OK(!ik_cns_controller_trigger_context_now(&airborne[2], &ctx));
+
+    /* 65-pixel screen lock is strict; 20-pixel wall hit is inclusive. */
+    ctx.y_q8 = ctx.floor_y_q8 - 16 * 256;
+    ctx.back_edge_body_dist_q8 = 64 * 256;
+    ctx.front_edge_body_dist_q8 = 100 * 256;
+    OK(ik_cns_controller_trigger_context_now(&wall[2], &ctx));
+    OK(!ik_cns_controller_trigger_context_now(&wall[3], &ctx));
+    ctx.back_edge_body_dist_q8 = 65 * 256;
+    OK(!ik_cns_controller_trigger_context_now(&wall[2], &ctx));
+    ctx.back_edge_body_dist_q8 = 20 * 256;
+    OK(ik_cns_controller_trigger_context_now(&wall[3], &ctx));
+    ctx.y_q8 = ctx.floor_y_q8 - 15 * 256;
+    OK(!ik_cns_controller_trigger_context_now(&wall[3], &ctx));
     OK(kfm_zss_cns.constants.life == 1000);
     OK(ik_cns_find_state(&kfm_zss_cns, 200) != nullptr);
 
