@@ -99,6 +99,12 @@ set(IKEMEN_FIGHT_TEST_SOURCES
 set(IKEMEN_TEST_SOURCES_test_ikemen_fight ${IKEMEN_FIGHT_TEST_SOURCES})
 set(IKEMEN_TEST_SOURCES_test_ikemen_command "${_ik}/ikemen_command.c" "${_ik}/ikemen_expr.c")
 set(IKEMEN_TEST_SOURCES_test_ikemen_frame ${IKEMEN_LOGIC_SOURCES})
+# Runtime contract against the actual generated KFM ZSS CNS/AIR assets:
+# F72 screen-edge effect, system sound and post-Turn wall displacement.
+set(IKEMEN_TEST_SOURCES_test_ikemen_zss_runtime
+    ${IKEMEN_FIGHT_TEST_SOURCES}
+    "${IKEMEN_GEN_DIR}/kfm_zss_cns.c"
+    "${IKEMEN_GEN_DIR}/kfm_zss_frames.c")
 set(IKEMEN_TEST_SOURCES_test_ikemen_expr "${_ik}/ikemen_expr.c")
 set(IKEMEN_TEST_SOURCES_test_ikemen_entity "${_ik}/ikemen_entity.c" "${_ik}/ikemen_expr.c")
 set(IKEMEN_TEST_SOURCES_test_ikemen_entity_runtime
