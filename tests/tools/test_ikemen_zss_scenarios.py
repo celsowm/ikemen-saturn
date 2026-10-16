@@ -29,7 +29,14 @@ for path in cases:
         assert base.exists(), base
         original = json.loads(base.read_text(encoding="utf-8"))
         assert build_timeline(item) == build_timeline(original)
-        assert item.get("expect") == original.get("expect")
+        if path.stem == "zss_p2_timeout_win_180":
+            # The upstream trace goes straight to 181 on the next visible
+            # frame. State 180 is transitory within one simulation tick.
+            assert item["expect"] == {
+                "p1_states": [181], "p2_states": [170],
+            }
+        else:
+            assert item.get("expect") == original.get("expect")
         assert item.get("setup") == original.get("setup")
     else:
         strict.append(path.stem)
@@ -37,6 +44,10 @@ for path in cases:
 assert set(strict) == {
     "zss_p1_stand_x_160", "zss_p2_stand_x_200",
     "zss_p2_fast_palm_240", "zss_p2_idle_120",
+    "zss_p1_crouch_a_160", "zss_p1_special_qcf_a_200",
+    "zss_p2_guard_stand_y_160", "zss_p2_ko_upper_y_420",
+    "zss_p2_recovery_200", "zss_p2_throw_victim_160",
+    "zss_p2_upper_y_200", "zss_p2_upper_y_attacker_200",
 }
-assert len(exploratory) == 9
-print("ZSS oracle corpus: 4 upstream-proven strict + 9 exploratory cases OK")
+assert exploratory == ["zss_p2_timeout_win_180"]
+print("ZSS oracle corpus: 12 upstream-proven strict + 1 exploratory case OK")

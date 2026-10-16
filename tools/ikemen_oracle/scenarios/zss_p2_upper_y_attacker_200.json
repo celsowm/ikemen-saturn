@@ -58,6 +58,5 @@
   "expect": {
     "p1_life_drops": true
   },
-  "exploratory": true,
   "origin": "kfm_p2_upper_y_200.json"
 }

@@ -191,19 +191,21 @@ independently per player: `chars/kfm/kfm.def` or
 and State -1 tables, exactly as the Saturn demo does. Unsupported character
 paths are rejected rather than running the classic KFM accidentally.
 
-The original four ZSS-specific scenarios (idle, P1 punch, P2 punch and
-Fast Palm victim) passed all 720 compared frames in upstream CI run
+The first four ZSS scenarios passed all 720 compared frames in upstream CI
 [38925902594](https://github.com/celsowm/ikemen-saturn/actions/runs/38925902594).
-Their obsolete `pending` marks were removed; they are strict parity gates.
-The first CI job failed solely because those marks were still present.
+Eight further scenarios (throws, recovery, guard, KO, uppercut and special
+moves) also matched. CI run
+[38927411982](https://github.com/celsowm/ikemen-saturn/actions/runs/38927411982)
+produced 12 matching ZSS traces totalling **2,420 compared frames**.
+These are now strict parity regression gates.
 
-Nine new `zss_*.json` scenarios cover throw recovery, airborne recovery,
-uppercut, standing guard, timeout, knockout, crouch, special QCF and
-P2 uppercut as attacker. They carry `exploratory: true` until the upstream
-comparison is first run. For exploratory scenarios the pipeline still
-requires the real upstream move and valid traces, but reports parity
-differences as diagnostic rather than regressions. Once a scenario matches,
-remove `exploratory` and turn it into a strict gate.
+The remaining `zss_p2_timeout_win_180` case is exploratory, pending a
+candidate trace. The upstream match enters state 181 (winner) directly on
+its visible frame and P2 enters 170 (loser); the original expectation's
+intermediate 180 is not observable, so its non-vacuity condition was
+corrected using the captured upstream trace. Exploratory parity mismatches
+are diagnostic, but upstream execution failures and vacuous inputs still
+fail CI. Matching exploratory scenarios can be promoted to strict tests.
 The classic matrix remains `kfm_*.json`, so adding ZSS scenarios does not
 silently redefine the previously established classic parity baseline.
 

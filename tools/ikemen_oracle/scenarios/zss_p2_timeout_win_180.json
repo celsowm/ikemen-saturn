@@ -13,7 +13,6 @@
   "inputs": [],
   "expect": {
     "p1_states": [
-      180,
       181
     ],
     "p2_states": [
