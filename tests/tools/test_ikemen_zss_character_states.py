@@ -113,8 +113,12 @@ with tempfile.TemporaryDirectory() as temp:
     old = 'if (command = "a" || command = "b") && !aiLevelF && vel y < -1'
     assert old in original
     modified = Path(temp) / "kfm.zss"
-    modified.write_text(original.replace(old, old.replace("-1", "-2"), 1),
-                        encoding="utf-8")
+    before, state_1061 = original.split("[StateDef 1061;", 1)
+    assert old in state_1061
+    modified.write_text(
+        before + "[StateDef 1061;" +
+        state_1061.replace(old, old.replace("-1", "-2"), 1),
+        encoding="utf-8")
     try:
         compile_zss_overrides(modified, hits)
     except ValueError as exc:
