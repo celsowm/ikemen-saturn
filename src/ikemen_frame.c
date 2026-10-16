@@ -33,6 +33,19 @@ static int rule_expr_read_field(
         *out_value = rule->fight->round_state;
         return 1;
     }
+    if (redirect == IK_EXPR_REDIRECT_SELF &&
+        field == IK_EXPR_FIELD_ANIM_ELEM_TIME) {
+        if (!rule->fight || !out_value || index < 1 || index > 65535) return 0;
+        const ik_entity_t* entity = ik_entity_get_const(
+            rule->entity.pool, rule->entity.self);
+        if (!entity) return 0;
+        const uint8_t owner = entity->anim_owner;
+        const ik_frame_table_t* frames =
+            owner < 2u ? rule->fight->player_frames[owner] : 0;
+        *out_value = ik_anim_elem_time(
+            frames, entity->anim_no, entity->anim_time, (uint16_t)index);
+        return 1;
+    }
     return ik_entity_expr_read_field(
         &rule->entity, redirect, field, index,
         redirect_id, redirect_index, out_value);

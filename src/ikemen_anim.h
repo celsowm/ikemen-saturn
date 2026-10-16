@@ -88,6 +88,11 @@ const ik_frame_t* ik_frame_after(const ik_frame_table_t* table,
  * shows the wrapped curtime instead of an ever-growing counter. */
 void ik_anim_trace_state(const ik_frame_table_t* table, int action,
                          uint32_t time, int* out_elem, uint32_t* out_time);
+/* MUGEN AnimElemTime(n): signed elapsed ticks since the start of 1-based
+ * element n (negative before it begins), evaluated at the current animation
+ * clock. Invalid elements return a negative value. */
+int32_t ik_anim_elem_time(const ik_frame_table_t* table, int action,
+                          uint32_t time, uint16_t element);
 uint32_t ik_action_duration_ticks(const ik_frame_table_t* table, int action);
 int ik_action_loops(const ik_frame_table_t* table, int action);
 int ik_visual_frame_resolve(

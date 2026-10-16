@@ -96,6 +96,18 @@ int main() {
         ik_anim_trace_state(&table, 20, 3u, 0, 0);   /* null outs are fine */
     }
 
+    /* AnimElemTime(2) changes sign at the second element boundary.
+     * This controls the ZSS light-to-heavy and crouching cancel windows. */
+    OK(ik_anim_elem_time(&table, 200, 0u, 2u) == -5);
+    OK(ik_anim_elem_time(&table, 200, 4u, 2u) == -1);
+    OK(ik_anim_elem_time(&table, 200, 5u, 2u) == 0);
+    OK(ik_anim_elem_time(&table, 200, 6u, 2u) == 1);
+    OK(ik_anim_elem_time(&table, 200, 500u, 2u) == 495);
+    OK(ik_anim_elem_time(&table, 200, 1u, 3u) < 0);
+    OK(ik_anim_elem_time(&table, 999, 1u, 1u) < 0);
+    OK(ik_anim_elem_time(&table, 20, 4u, 2u) == 0);
+    OK(ik_anim_elem_time(&table, 20, 5u, 2u) == 1);
+
     OK(ik_frames_bounds(&table, 100, &first, &count));
     OK(first == 5u && count == 2u);
     OK(!ik_action_loops(&table, 100));

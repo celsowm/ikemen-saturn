@@ -292,6 +292,48 @@ void ik_anim_trace_state(const ik_frame_table_t* table, int action,
     if (out_time != 0) *out_time = cur;
 }
 
+int32_t ik_anim_elem_time(const ik_frame_table_t* table, int action,
+                          uint32_t time, uint16_t element) {
+    uint32_t first = 0u;
+    uint32_t count = 0u;
+    if (!element || !ik_frames_bounds(table, action, &first, &count) ||
+        (uint32_t)element > count) return -32767;
+
+    uint32_t start = 0u;
+    for (uint32_t i = 0u; i + 1u < element; ++i) {
+        const uint16_t duration = ik_frame_ticks(&table->frames[first + i]);
+        if (duration == 0u) return -32767;
+        start += duration;
+    }
+
+    int current_elem = 0;
+    uint32_t current_time = 0u;
+    ik_anim_trace_state(table, action, time, &current_elem, &current_time);
+
+    /* At an exact animation-loop boundary upstream changes the element to
+     * loop start before resetting curtime on the next logical tick. Align
+     * AnimElemTime with the new element rather than with the old total. */
+    uint32_t total = 0u;
+    uint32_t loop_start = 0u;
+    int holds = 0;
+    for (uint32_t i = 0u; i < count; ++i) {
+        const ik_frame_t* frame = &table->frames[first + i];
+        if (frame->flags & IK_FRAME_FLAG_LOOP_START) loop_start = i;
+        const uint16_t ticks = ik_frame_ticks(frame);
+        if (!ticks) { holds = 1; break; }
+        total += ticks;
+    }
+    if (!holds && total && time >= total && current_time == total &&
+        current_elem == (int)(loop_start + 1u)) {
+        current_time = 0u;
+        for (uint32_t i = 0u; i < loop_start; ++i) {
+            current_time += ik_frame_ticks(&table->frames[first + i]);
+        }
+    }
+
+    return (int32_t)current_time - (int32_t)start;
+}
+
 const ik_frame_t* ik_frame_after(const ik_frame_table_t* table,
                                  const ik_frame_t* frame) {
     if (table == 0 || table->frames == 0 || frame == 0) return 0;

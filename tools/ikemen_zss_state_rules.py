@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """Compile the safely supported subset of ZSS State -1 to the Ikemen VM.
 
-This is a strict, *partial* ZSS importer. It emits only immediate
+This is a strict State -1-only ZSS importer. It emits immediate
   if <predicate> { changeState{value: <constant>} }
 branches. It does not interpret general ZSS statements, functions, AI,
-side effects, nested controllers or animation-element predicates. Entries
+side effects or nested controllers. Entries
 that cannot be lowered are reported instead of silently approximated.
 
-The resulting asset is staged but NOT wired to P2 until the rest of the
-source State -1 can run with the same semantics as upstream Ikemen GO.
+For human-controlled P2, the supported direct State -1 branches are executable.
+AI script, general state bodies and MapControllers remain separate work.
 """
 from __future__ import annotations
 
@@ -102,6 +102,10 @@ def compile_zss(path: Path, cmd: Path) -> tuple[list[Rule], list[str]]:
     if len(rules) != len(matches):
         diagnostics.append(
             f"{len(matches) - len(rules)} direct branch(es) need VM expansion")
+    # Do not silently deploy a truncated input program: for this known
+    # source we require every direct ChangeState expression to compile.
+    if diagnostics:
+        raise ValueError(f"incomplete ZSS State -1 import: {diagnostics}")
     if not any(rule.target == 3050 for rule in rules):
         raise ValueError(f"{path}: Smash Kung Fu Upper not compiled")
     if not any(rule.target == 3000 for rule in rules):
@@ -120,7 +124,7 @@ def main() -> int:
     emit(rules, diagnostics, args.out_prefix, args.symbol)
     print(f"[ikemen_zss_state_rules] {args.symbol}: "
           f"{len(rules)} supported entries, {len(diagnostics)} diagnostics "
-          "(asset generated, not activated)")
+          "(human input State -1 asset)")
     return 0
 
 

@@ -172,6 +172,25 @@ class Parser:
                 raise ValueError(f"unsupported variable predicate var({index})")
             return list(self.variables[index])
 
+        if name == "animelemtime":
+            self._take("(")
+            kind, element = self._take()
+            self._take(")")
+            if kind != "number" or int(element) < 1 or int(element) > 65535:
+                raise ValueError("AnimElemTime needs a positive 16-bit element")
+            _, cmpop = self._take()
+            operators = {
+                "=": "eq", "!=": "ne", "<": "lt", "<=": "le",
+                ">": "gt", ">=": "ge",
+            }
+            if cmpop not in operators:
+                raise ValueError(f"unsupported AnimElemTime comparator {cmpop!r}")
+            kind, value = self._take()
+            if kind != "number":
+                raise ValueError("AnimElemTime comparison needs an integer")
+            return [Insn(f"anim_elem_time_{operators[cmpop]}",
+                         int(element), int(value))]
+
         if name == "p2bodydist":
             axis_kind, axis = self._take()
             if axis_kind != "ident" or axis.lower() != "x":
@@ -564,6 +583,20 @@ def _lower_instruction(insn: Insn) -> list[VmInsn]:
     self_r = "IK_EXPR_REDIRECT_SELF"
     p2_r = "IK_EXPR_REDIRECT_P2"
 
+    if insn.op.startswith("anim_elem_time_"):
+        comparator = {
+            "eq": "IK_EXPR_EQ", "ne": "IK_EXPR_NE",
+            "lt": "IK_EXPR_LT", "le": "IK_EXPR_LE",
+            "gt": "IK_EXPR_GT", "ge": "IK_EXPR_GE",
+        }.get(insn.op[len("anim_elem_time_"):])
+        if comparator is None:
+            raise ValueError(f"invalid AnimElemTime opcode {insn.op!r}")
+        return [
+            VmInsn("IK_EXPR_LOAD_FIELD", "IK_EXPR_FIELD_ANIM_ELEM_TIME",
+                   self_r, insn.a),
+            VmInsn("IK_EXPR_PUSH_CONST", a=insn.b),
+            VmInsn(comparator),
+        ]
     if insn.op == "command_active":
         return [VmInsn("IK_EXPR_LOAD_COMMAND", a=insn.a)]
     if insn.op == "command_inactive":
