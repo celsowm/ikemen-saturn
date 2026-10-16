@@ -1269,12 +1269,11 @@ int main(void) {
         SAT_VDP2_COLOR_CALC_ADD));
     sat_example_must(ik_audio_init(&audio));
 
-    ik_fight_init(&fight, &kfm_cns);
-    /* This demo still uses KFM on both sides. The driver can bind other
-     * characters' CMD/State -1 assets without changing its own code. */
+    /* P2 has its own AIR/SFF data. Until ZSS CNS parsing is supported,
+     * both fighters intentionally share the original KFM behavior tables. */
     const ik_frame_character_assets_t character_assets[2] = {
-        {&kfm_commands, &kfm_state_rules},
-        {&kfm_commands, &kfm_state_rules}
+        {&kfm_cns, &g_kfm_table, &kfm_commands, &kfm_state_rules},
+        {&kfm_cns, &g_kfm_zss_table, &kfm_commands, &kfm_state_rules}
     };
     sat_example_must(ik_frame_ctx_init(
         &g_frame, &fight, character_assets) ? SAT_OK : SAT_ERR_CAPACITY);
@@ -1308,8 +1307,7 @@ int main(void) {
         }
 
         ik_frame_step(
-            &g_frame, &fight, &pad1, have_p2 ? &pad2 : 0,
-            g_characters[0].frames, g_characters[1].frames);
+            &g_frame, &fight, &pad1, have_p2 ? &pad2 : 0);
         spawn_effect_events(&fight);
         ik_audio_process_fight(&audio, &fight);
         sat_example_must(ik_audio_update());

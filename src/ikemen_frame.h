@@ -32,12 +32,19 @@ typedef enum ik_frame_control {
     IK_FRAME_CONTROL_COUNT
 } ik_frame_control_t;
 
+/* All character-owned simulation data is supplied as a single bundle.
+ * The frame driver owns no CNS/CMD/AIR payload; the caller retains it.
+ * P1/P2 may use completely different generated bundles. */
 typedef struct ik_frame_character_assets {
+    const ik_cns_asset_t* cns;
+    const ik_frame_table_t* frames;
     const ik_command_asset_t* commands;
     const ik_state_rule_asset_t* state_rules;
 } ik_frame_character_assets_t;
 
 typedef struct ik_frame_character {
+    const ik_cns_asset_t* cns;
+    const ik_frame_table_t* frames;
     const ik_command_asset_t* commands;
     const ik_state_rule_asset_t* state_rules;
     uint16_t control_ids[IK_FRAME_CONTROL_COUNT];
@@ -50,10 +57,10 @@ typedef struct ik_frame_ctx {
     ik_entity_handle_t players[2];
 } ik_frame_ctx_t;
 
-/* Spawns the two root players in the entity pool, binds them to the fight
- * and mirrors the initial fighter state into the pool. Returns 0 on pool
- * exhaustion or a missing CMD table. The caller retains ownership of the
- * character tables for the duration of the fight. */
+/* Initializes a fight with independent CNS (including life, constants,
+ * state and animation ownership), AIR and CMD/State -1 for each player.
+ * Then binds player entities and mirrors the initial state. Returns 0 on
+ * invalid bundles or entity-pool exhaustion. Caller owns every table. */
 int ik_frame_ctx_init(
     ik_frame_ctx_t* ctx, ik_fight_t* fight,
     const ik_frame_character_assets_t characters[2]);
@@ -63,15 +70,13 @@ int ik_frame_ctx_init(
  * first step. */
 void ik_frame_sync_players(ik_frame_ctx_t* ctx, const ik_fight_t* fight);
 
-/* Advances one frame. pad2 == NULL means "no second pad": P2 is an idle
- * training dummy and its command buffer is left untouched. */
+/* Advances one frame with the same character assets that were bound at
+ * initialization. P2 without a pad is an idle training dummy. */
 void ik_frame_step(
     ik_frame_ctx_t* ctx,
     ik_fight_t* fight,
     const sat_pad_state_t* pad1,
-    const sat_pad_state_t* pad2,
-    const ik_frame_table_t* frames_p1,
-    const ik_frame_table_t* frames_p2);
+    const sat_pad_state_t* pad2);
 
 #ifdef __cplusplus
 }

@@ -15,8 +15,10 @@ it reaches the library only through the installed CMake/Conan package contract
 There is no sibling checkout, no `add_subdirectory`, and no LibSaturn private
 header or build-tree path anywhere in this repository.
 
-The shared frame driver accepts separate CMD and State -1 tables for each
-fighter. The playable demo still binds KFM to both slots.
+The shared frame driver accepts independent CNS, AIR, CMD and State -1
+tables for each fighter, configuring the match from one consistent bundle per
+player. The playable demo still shares KFM's gameplay tables on both sides
+while P2 uses ZSS AIR/SFF; porting ZSS's script-based moves is separate work.
 
 ## Requirements
 

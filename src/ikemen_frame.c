@@ -96,8 +96,17 @@ int ik_frame_ctx_init(
     ik_frame_ctx_t* ctx, ik_fight_t* fight,
     const ik_frame_character_assets_t characters[2]
 ) {
-    if (!ctx || !fight || !characters ||
-        !characters[0].commands || !characters[1].commands) return 0;
+    if (!ctx || !fight || !characters) return 0;
+    for (uint32_t i = 0u; i < 2u; ++i) {
+        if (!characters[i].cns || !characters[i].frames ||
+            !characters[i].commands) return 0;
+    }
+
+    /* This is the only fight setup path: CNS and command sources can never
+     * disagree because they are bound together before entities are spawned. */
+    ik_fight_init_players(fight, characters[0].cns, characters[1].cns);
+    fight->player_frames[0] = characters[0].frames;
+    fight->player_frames[1] = characters[1].frames;
     ik_entity_pool_init(&ctx->pool);
     if (!ik_entity_spawn(
             &ctx->pool, IK_ENTITY_PLAYER, 1, 0u,
@@ -112,6 +121,8 @@ int ik_frame_ctx_init(
     ik_frame_sync_players(ctx, fight);
     for (uint32_t player = 0u; player < 2u; ++player) {
         ik_frame_character_t* character = &ctx->characters[player];
+        character->cns = characters[player].cns;
+        character->frames = characters[player].frames;
         character->commands = characters[player].commands;
         character->state_rules = characters[player].state_rules;
         for (uint32_t control = 0u; control < IK_FRAME_CONTROL_COUNT; ++control) {
@@ -189,9 +200,7 @@ void ik_frame_step(
     ik_frame_ctx_t* ctx,
     ik_fight_t* fight,
     const sat_pad_state_t* pad1,
-    const sat_pad_state_t* pad2,
-    const ik_frame_table_t* frames_p1,
-    const ik_frame_table_t* frames_p2
+    const sat_pad_state_t* pad2
 ) {
     if (!ctx || !fight || !pad1) return;
 
@@ -217,5 +226,5 @@ void ik_frame_step(
 
     ik_fight_update(
         fight, &p1_controls, pad2 ? &p2_controls : 0,
-        frames_p1, frames_p2);
+        ctx->characters[0].frames, ctx->characters[1].frames);
 }

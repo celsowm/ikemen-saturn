@@ -359,10 +359,9 @@ int main(int argc, char** argv) {
     static ik_frame_ctx_t ctx;
     ik_fight_controls_t idle{};
 
-    ik_fight_init(&fight, &kfm_cns);
     const ik_frame_character_assets_t character_assets[2] = {
-        {&kfm_commands, &kfm_state_rules},
-        {&kfm_commands, &kfm_state_rules}
+        {&kfm_cns, &k_frames, &kfm_commands, &kfm_state_rules},
+        {&kfm_cns, &k_frames, &kfm_commands, &kfm_state_rules}
     };
     if (!ik_frame_ctx_init(&ctx, &fight, character_assets)) {
         std::fclose(out);
@@ -391,7 +390,7 @@ int main(int argc, char** argv) {
         previous[1] = logical[1];
 
         /* Same per-frame step the console build runs (ikemen_frame.c). */
-        ik_frame_step(&ctx, &fight, &pad1, &pad2, &k_frames, &k_frames);
+        ik_frame_step(&ctx, &fight, &pad1, &pad2);
         emit_frame(out, &fight, &ctx.pool, i, seed);
     }
 
