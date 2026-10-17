@@ -11,6 +11,7 @@ file(GLOB IKEMEN_FIGHT_SOURCES CONFIGURE_DEPENDS "${IKEMEN_SRC_DIR}/ikemen_fight
 set(IKEMEN_LOGIC_SOURCES
     ${IKEMEN_FIGHT_SOURCES}
     "${IKEMEN_SRC_DIR}/ikemen_frame.c"
+    "${IKEMEN_SRC_DIR}/ikemen_zss_ai.c"
     "${IKEMEN_SRC_DIR}/ikemen_anim.c"
     "${IKEMEN_SRC_DIR}/ikemen_cns.c"
     "${IKEMEN_SRC_DIR}/ikemen_command.c"

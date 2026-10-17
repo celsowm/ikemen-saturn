@@ -196,7 +196,15 @@ contains nine state bodies:
 State 1061 keeps `hitdefpersist: 1`, applies native 0.45 gravity, allows
 human A/B ascent cancels into 1055, and lands through 1052. Its runtime
 transitions have host tests, but **upstream frame parity for 1061 is not yet
-claimed**. The 821 AI-random recovery branch is still deferred because the
+claimed**. The first native CPU-only State -1 branch is now opt-in per player through
+`ik_frame_set_zss_ai_level`: the deterministic airborne Kung Fu Knee kick
+cancel (1051/1061 -> 1055, 1071 -> 1075), conditioned on move hit/contact,
+AI level and ascending velocity. Asset generation checks the original AI.zss
+fragment for drift. Human inputs and an idle P2 remain the defaults. This
+is deliberately only a **subset**: autonomous neutral movement, opponent
+memory maps and upstream RNG are not yet implemented or proven equivalent.
+
+The 821 AI-random recovery branch is still deferred because the
 native driver has no mirrored Ikemen GO AI/RNG execution path. All other
 unported ZSS states continue to use the documented classic CNS fallback.
 

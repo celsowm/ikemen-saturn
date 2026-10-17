@@ -1,4 +1,5 @@
 #include "ikemen_frame.h"
+#include "ikemen_zss_ai.h"
 
 /* Resolve each player's commands once. Generated KFM IDs are not part of
  * the engine ABI; another character may number its CMD names differently. */
@@ -152,8 +153,31 @@ int ik_frame_ctx_init(
                 character->commands, k_control_names[control]);
         }
         ik_command_state_init(&ctx->command_states[player]);
+        ctx->zss_ai_level[player] = 0u;
     }
     return 1;
+}
+
+int ik_frame_set_zss_ai_level(
+    ik_frame_ctx_t* ctx, uint8_t player, uint8_t level
+) {
+    if (!ctx || player >= 2u || level > 8u ||
+        !ctx->characters[player].cns || !ctx->characters[player].frames)
+        return 0;
+    ctx->zss_ai_level[player] = level;
+    return 1;
+}
+
+/* Scripted CPU logic is intentionally distinct from human CMD evaluation. */
+static void ai_controls(
+    const ik_frame_ctx_t* ctx, const ik_fight_t* fight, uint8_t player,
+    ik_fight_controls_t* out
+) {
+    int16_t dest = 0;
+    if (ik_zss_ai_request(fight, player, ctx->zss_ai_level[player], &dest)) {
+        out->has_state_request = 1u;
+        out->requested_state = dest;
+    }
 }
 
 static int command_pause_end_buffer(
@@ -230,14 +254,20 @@ void ik_frame_step(
     ik_fight_controls_t p2_controls = {0};
 
     ik_frame_sync_players(ctx, fight);
-    ik_command_update(
-        &ctx->command_states[0], ctx->characters[0].commands, pad1,
-        fight->fighters[0].facing,
-        fight->fighters[0].hit_pause != 0u,
-        command_pause_end_buffer(fight, 0u));
-    controls_from_commands(ctx, fight, 0u, &p1_controls);
+    if (ctx->zss_ai_level[0] != 0u) {
+        ai_controls(ctx, fight, 0u, &p1_controls);
+    } else {
+        ik_command_update(
+            &ctx->command_states[0], ctx->characters[0].commands, pad1,
+            fight->fighters[0].facing,
+            fight->fighters[0].hit_pause != 0u,
+            command_pause_end_buffer(fight, 0u));
+        controls_from_commands(ctx, fight, 0u, &p1_controls);
+    }
 
-    if (pad2) {
+    if (ctx->zss_ai_level[1] != 0u) {
+        ai_controls(ctx, fight, 1u, &p2_controls);
+    } else if (pad2) {
         ik_command_update(
             &ctx->command_states[1], ctx->characters[1].commands, pad2,
             fight->fighters[1].facing,
@@ -247,6 +277,6 @@ void ik_frame_step(
     }
 
     ik_fight_update(
-        fight, &p1_controls, pad2 ? &p2_controls : 0,
+        fight, &p1_controls, (pad2 || ctx->zss_ai_level[1]) ? &p2_controls : 0,
         ctx->characters[0].frames, ctx->characters[1].frames);
 }

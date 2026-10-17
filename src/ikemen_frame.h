@@ -55,6 +55,8 @@ typedef struct ik_frame_ctx {
     ik_command_state_t command_states[2];
     ik_entity_pool_t pool;
     ik_entity_handle_t players[2];
+    /* AI is off by default, independent for P1/P2. */
+    uint8_t zss_ai_level[2];
 } ik_frame_ctx_t;
 
 /* Initializes a fight with independent CNS (including life, constants,
@@ -70,8 +72,14 @@ int ik_frame_ctx_init(
  * first step. */
 void ik_frame_sync_players(ik_frame_ctx_t* ctx, const ik_fight_t* fight);
 
+/* Enable source-checked ZSS AI-only decisions for a character bound to
+ * KFM ZSS. 0 restores human input, levels 1..8 enable limited CPU logic.
+ * No autonomous neutral RNG/movement is available yet. Returns 0 on error. */
+int ik_frame_set_zss_ai_level(ik_frame_ctx_t* ctx,
+                              uint8_t player, uint8_t level);
+
 /* Advances one frame with the same character assets that were bound at
- * initialization. P2 without a pad is an idle training dummy. */
+ * initialization. P2 without a pad is idle unless ZSS AI is enabled. */
 void ik_frame_step(
     ik_frame_ctx_t* ctx,
     ik_fight_t* fight,
