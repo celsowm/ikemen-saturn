@@ -47,7 +47,21 @@ def main() -> int:
                ("20", "100", "200", "400", "1100", "1110", "1120")):
         raise AssertionError("unplugged ZSS CPU stayed idle for entire scenario")
     if not stats["observed_attacks"]:
-        raise AssertionError("unplugged ZSS CPU never attacked")
+        def fighter(frame: dict, player: int) -> dict:
+            return next(c for c in frame["chars"] if
+                        c["player_no"] == player and c["helper_index"] == 0)
+        diagnostics = {
+            "state_histogram": stats["state_histogram"],
+            "transitions": stats["state_transitions"][:24],
+            "initial": [(fighter(rows[0], p)["state_no"],
+                         fighter(rows[0], p)["pos"]) for p in (0, 1)],
+            "at_120": [(fighter(rows[119], p)["state_no"],
+                        fighter(rows[119], p)["pos"]) for p in (0, 1)],
+            "last": [(fighter(rows[-1], p)["state_no"],
+                      fighter(rows[-1], p)["pos"]) for p in (0, 1)],
+        }
+        raise AssertionError("unplugged ZSS CPU never attacked: " +
+                             json.dumps(diagnostics, sort_keys=True))
     print("source-informed native ZSS CPU entered active states and attacked")
     return 0
 
