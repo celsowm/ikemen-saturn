@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Opt-in upstream RNG event audit, without building Go or SDL."""
-from tools.ikemen_oracle.rng_events import audit_events
+import json
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from tools.ikemen_oracle.rng_events import audit_events, load_and_audit
 
 frames = [
     {"frame": 0, "rand_seed": 16807},
@@ -30,6 +33,15 @@ events = [
 ]
 result = audit_events(frames, events)
 assert result["event_count"] == 3
+# The optional GO sidecar uses the same schema-v1 JSONL loader as frames.
+# A missing schema caused a real upstream CI probe to fail after capture.
+with TemporaryDirectory() as tmp:
+    event_path = Path(tmp) / "random.jsonl"
+    event_path.write_text(
+        "".join(json.dumps({"schema": 1, **row}) + "\\n" for row in events),
+        encoding="utf-8",
+    )
+    assert load_and_audit(frames, event_path)["event_count"] == 3
 assert result["counts_by_frame"] == [0, 2, 0, 1]
 assert result["verified_intervals"] == 3
 assert result["all_saved_intervals_reconciled"]
