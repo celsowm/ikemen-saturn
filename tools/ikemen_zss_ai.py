@@ -22,7 +22,7 @@ def validate_ai_followup(path: Path) -> None:
 # They do not constitute a translation of the entire neutral AI loop.
 NEUTRAL_CLAUSES = [
     'ifstatetype=s&&ctrl&&stateno!=100&&random<249&&(p2movetype!=a||backedgebodydist<40)&&p2bodydistx=[25,120]&&map(aiw)!=0{changestate{value:20}}',
-    'ifmap(aiw)=0&&stateno=20{printtoconsole{text:\'changestate{value:0}\'}changestate{value:0;ctrl:1}}',
+    'ifmap(aiw)=0&&stateno=20{printtoconsole{text:"changestate{value:0}"}changestate{value:0;ctrl:1}}',
     'ifstatetype!=a&&(ctrl||stateno=20)&&stateno!=100&&random<=(396*(ailevelf**2/48.0))&&(p2movetype!=a||backedgebodydist<40)&&(p2bodydistx>=cond($hitfall||p2stateno=5300,10,120)){changestate{value:100}}',
     'ifstateno=100&&(p2bodydistx<40-20*(!$grounded)&&p2stateno!=5040||p2bodydistx<-65||roundstate!=2){changestate{value:0;ctrl:1}}',
     'letatt=cond(p2bodydisty<-40||p2statetype=s,200,400);'
