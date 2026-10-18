@@ -126,8 +126,8 @@ with TemporaryDirectory() as temp:
          'random < (251 * (aiLevelF ** 2 / 48.0))'),
         ('random%4 = 0', 'random%4 = 2'),
         ('random%4 = 1', 'random%4 = 3'),
-        ('p2BodyDist x < 45 + (floor($trvelx * .4) * 5)',
-         'p2BodyDist x < 46 + (floor($trvelx * .4) * 5)'),
+        ('if $att = 240 && p2BodyDist x < 45 + (floor($trvelx * .4) * 5)',
+         'if $att = 240 && p2BodyDist x < 46 + (floor($trvelx * .4) * 5)'),
     ):
         assert old in content
         modified = Path(temp) / "AI.zss"
