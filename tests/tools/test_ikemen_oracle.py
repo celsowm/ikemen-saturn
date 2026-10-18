@@ -131,6 +131,24 @@ func (cl *CommandList) InputUpdate(char *Char, controller int) bool {
         assert compiler_go.read_text(encoding="utf-8") == compiler_source
         assert not (src / "libsaturn_oracle.go").exists()
 
+        # Abort without changing any source when the pinned compiler anchor
+        # drifts. Silent partial installation would invalidate every oracle.
+        wrong = compiler_source.replace("c.token = c.tokenizer(in)",
+                                        "c.token = c.tokenizer2(in)")
+        compiler_go.write_text(wrong, encoding="utf-8")
+        try:
+            install(root, hook)
+        except SystemExit as exc:
+            assert "typedExp compiler changed" in str(exc)
+        else:
+            raise AssertionError("unsafe compiler patch accepted")
+        assert system_go.read_text(encoding="utf-8") == source
+        assert input_go.read_text(encoding="utf-8") == input_source
+        assert common_go.read_text(encoding="utf-8") == common_source
+        assert bytecode_go.read_text(encoding="utf-8") == bytecode_source
+        assert compiler_go.read_text(encoding="utf-8") == wrong
+        compiler_go.write_text(compiler_source, encoding="utf-8")
+
 
 def test_input_timeline() -> None:
     scenario = {
