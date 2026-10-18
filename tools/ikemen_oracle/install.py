@@ -32,6 +32,19 @@ PATCHED_RANDOM = (
     f"\t{END_MARKER}\n" + RANDOM_ANCHOR
 )
 
+BYTECODE_ANCHOR = "\t\tcase OC_random:\n\t\t\tsys.bcStack.PushI(Rand(0, 999))\n"
+PATCHED_BYTECODE = (
+    "\t\tcase OC_random:\n"
+    f"\t\t\t{BEGIN_MARKER}\n"
+    "\t\t\tpreviousOwner := libsaturnOracleRandomOwner\n"
+    "\t\t\tlibsaturnOracleRandomOwner = c\n"
+    f"\t\t\t{END_MARKER}\n"
+    "\t\t\tsys.bcStack.PushI(Rand(0, 999))\n"
+    f"\t\t\t{BEGIN_MARKER}\n"
+    "\t\t\tlibsaturnOracleRandomOwner = previousOwner\n"
+    f"\t\t\t{END_MARKER}\n"
+)
+
 INPUT_ANCHOR = """	// Convert bool slice back to named inputs
 """
 
@@ -69,6 +82,7 @@ def install(root: Path, source_hook: Path) -> None:
     system_go = root / "src" / "system.go"
     input_go = root / "src" / "input.go"
     common_go = root / "src" / "common.go"
+    bytecode_go = root / "src" / "bytecode.go"
     hook_dst = root / "src" / "libsaturn_oracle.go"
     if not system_go.is_file():
         raise SystemExit(f"Ikemen GO system.go not found: {system_go}")
@@ -76,6 +90,12 @@ def install(root: Path, source_hook: Path) -> None:
         raise SystemExit(f"Ikemen GO input.go not found: {input_go}")
     if not common_go.is_file():
         raise SystemExit(f"Ikemen GO common.go not found: {common_go}")
+
+    if not bytecode_go.is_file():
+        raise SystemExit(f"Ikemen GO bytecode.go not found: {bytecode_go}")
+    bytecode_text = remove_marked_blocks(bytecode_go.read_text(encoding="utf-8"))
+    if bytecode_text.count(BYTECODE_ANCHOR) != 1:
+        raise SystemExit("Ikemen GO OC_random opcode changed; refusing unsafe patch")
 
     common_text = remove_marked_blocks(common_go.read_text(encoding="utf-8"))
     if common_text.count(RANDOM_ANCHOR) != 1:
@@ -99,6 +119,10 @@ def install(root: Path, source_hook: Path) -> None:
         common_text.replace(RANDOM_ANCHOR, PATCHED_RANDOM, 1),
         encoding="utf-8",
     )
+    bytecode_go.write_text(
+        bytecode_text.replace(BYTECODE_ANCHOR, PATCHED_BYTECODE, 1),
+        encoding="utf-8",
+    )
     shutil.copyfile(source_hook, hook_dst)
     print(f"installed oracle hook in {root}")
 
@@ -106,6 +130,7 @@ def uninstall(root: Path) -> None:
     system_go = root / "src" / "system.go"
     input_go = root / "src" / "input.go"
     common_go = root / "src" / "common.go"
+    bytecode_go = root / "src" / "bytecode.go"
     hook_dst = root / "src" / "libsaturn_oracle.go"
     if system_go.is_file():
         text = system_go.read_text(encoding="utf-8")
@@ -118,6 +143,9 @@ def uninstall(root: Path) -> None:
     if common_go.is_file():
         text = common_go.read_text(encoding="utf-8")
         common_go.write_text(remove_marked_blocks(text), encoding="utf-8")
+    if bytecode_go.is_file():
+        text = bytecode_go.read_text(encoding="utf-8")
+        bytecode_go.write_text(remove_marked_blocks(text), encoding="utf-8")
     if hook_dst.exists():
         hook_dst.unlink()
     print(f"removed oracle hook from {root}")
