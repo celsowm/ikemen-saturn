@@ -204,7 +204,9 @@ int ik_zss_ai_tick(const ik_fight_t* fight, uint8_t player,
         return 1;
     }
 
-    if (!f->ctrl || !f->on_ground ||
+    /* Original State -1 neutral block also runs in State 20 without Ctrl;
+     * it may attack or declare a jump while the walk state owns input. */
+    if ((!f->ctrl && f->state != 20) || !f->on_ground ||
         f->cur_state_type != IK_CNS_STATE_STAND ||
         f->cur_move_type == IK_CNS_MOVE_HIT) return 0;
 
@@ -241,7 +243,7 @@ int ik_zss_ai_tick(const ik_fight_t* fight, uint8_t player,
      * attacking opponent grants the unconditional level>6 alternative.
      * Native requests actual CNS State 40; it does not invent a jump arc.
      */
-    if (f->on_ground && f->ctrl && 
+    if (f->on_ground && (f->ctrl || f->state == 20) &&
         (f->state == 0 || f->state == 20) &&
         f->cur_state_type == IK_CNS_STATE_STAND &&
         f->cur_move_type != IK_CNS_MOVE_HIT &&
