@@ -47,6 +47,38 @@ def load_scenario(path: Path) -> dict:
         raise SystemExit("scenario.frames must be > 0")
     return data
 
+def cpu_levels(scenario: dict) -> tuple[int, int]:
+    """Enable native CPU only for a supported ZSS player, never silently
+    substitute it for a classic KFM CPU or use invalid difficulty values."""
+    result = []
+    for player in (1, 2):
+        value = scenario.get(f"p{player}_ai", 0)
+        if type(value) is not int or not 0 <= value <= 8:
+            raise ValueError(f"p{player}_ai must be an integer from 0 to 8")
+        if value and character_asset(str(scenario[f"p{player}"])) != "kfm_zss":
+            raise ValueError(
+                f"p{player}_ai={value}: native CPU only supports KFM ZSS"
+            )
+        result.append(value)
+    return result[0], result[1]
+
+
+def build_trace_command(host_bin: Path, trace: Path, scenario: dict,
+                        timeline: Path) -> list[str]:
+    """Stable legacy CLI for scripted play; explicit AI args for CPU traces."""
+    levels = cpu_levels(scenario)
+    command = [
+        str(host_bin), str(trace), str(int(scenario["frames"])),
+        str(int(scenario.get("seed", 1))), str(timeline),
+        setup_string(scenario),
+        character_asset(str(scenario["p1"])),
+        character_asset(str(scenario["p2"])),
+    ]
+    if any(levels):
+        command.extend(str(level) for level in levels)
+    return command
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("scenario", type=Path)
@@ -66,7 +98,6 @@ def main() -> int:
 
     scenario = load_scenario(args.scenario)
     frames = int(scenario["frames"])
-    seed = int(scenario.get("seed", 1))
     trace = args.trace.resolve()
     trace.parent.mkdir(parents=True, exist_ok=True)
     host_bin = args.trace_bin.resolve()
@@ -77,12 +108,7 @@ def main() -> int:
     timeline = trace.parent / "inputs.txt"
     write_timeline(timeline, scenario)
 
-    run_cmd = [
-        str(host_bin), str(trace), str(frames), str(seed), str(timeline),
-        setup_string(scenario),
-        character_asset(str(scenario["p1"])),
-        character_asset(str(scenario["p2"])),
-    ]
+    run_cmd = build_trace_command(host_bin, trace, scenario, timeline)
     subprocess.run(run_cmd, cwd=ROOT, check=True)
 
     count = 0

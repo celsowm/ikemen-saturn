@@ -183,6 +183,36 @@ comparable.
 The comparator is strict for integer/boolean/string/state fields and uses a
 small absolute tolerance for floating-point coordinates and velocities.
 
+## CPU scenario diagnostics (not AI parity)
+
+The original GO AI can be enabled per scenario with `p1_ai`/`p2_ai`
+(level 0..8). The Saturn host trace now honors these fields **only for
+KFM ZSS**. The classic KFM character still uses scripted input and
+cannot silently be labeled a CPU opponent. When the CPU is enabled the
+host runner selects the **same native frame driver and state bodies**
+as the console. The scenario seed starts an independent local CPU PRNG,
+not the original Ikemen GO global RNG.
+
+To produce two real, independently running CPU traces plus a divergence
+report:
+
+```sh
+cmake --preset host && cmake --build --preset host
+python tools/ikemen_oracle/ai_compare.py
+```
+
+It creates `build/ikemen_oracle/ai_comparison/`: `upstream_ai.jsonl`,
+`saturn_ai.jsonl` and `comparison.json`. The report shows the first
+different state, state histogram, transition counts and observed attack
+frames for both engines. It **does not assert frame-by-frame AI parity**:
+the original random stream, evaluations and other AI.zss branches are not
+reproduced. Non-matching decisions are measurements for porting, not a
+regression of the 66 classic / 27 mixed scripted corpus.
+
+Ordinary host CI additionally runs `zss_native_ai_smoke`, checking
+that the native CPU enters active states and attacks without relying on
+Go, SDL or an upstream checkout build.
+
 ## Mixed classic KFM / KFM ZSS oracle
 
 The native trace runner accepts either original character definition

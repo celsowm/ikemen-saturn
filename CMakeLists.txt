@@ -172,6 +172,14 @@ add_test(NAME zss_trace_smoke
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
 set_tests_properties(zss_trace_smoke PROPERTIES LABELS "zss;oracle-host")
 
+# AI has an independent opt-in smoke gate. It does not assert upstream
+# decision parity (the original RNG and full AI.zss are not implemented).
+add_test(NAME zss_native_ai_smoke
+    COMMAND "${Python3_EXECUTABLE}" tools/ikemen_oracle/smoke_ai.py
+            --trace-bin "$<TARGET_FILE:ikemen_oracle_trace>"
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
+set_tests_properties(zss_native_ai_smoke PROPERTIES LABELS "zss;cpu;oracle-host")
+
 # Python tool tests: scripts that exit non-zero on failure.
 file(GLOB IKEMEN_TOOL_TESTS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/tests/tools/test_*.py")
 foreach(_test_src IN LISTS IKEMEN_TOOL_TESTS)

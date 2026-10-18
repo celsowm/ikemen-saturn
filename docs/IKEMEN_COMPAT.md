@@ -311,3 +311,19 @@ This remains a bounded native subset and **not** upstream Ikemen AI parity.
 Motion-history maps, juggle queries, AI_JI, all original probabilistic
 evaluation ordering and RNG are deferred. Source predicate patterns are
 checked at generation time, and host unit tests cover the added decisions.
+
+## Independent AI trace comparison (2026-10-18)
+
+`tools/ikemen_oracle/run_saturn.py` now accepts `p1_ai` and
+`p2_ai` from a scenario for ZSS only. The native trace runner uses the
+same `ik_frame_step` as the console, and seeds a local CPU PRNG from
+the scenario seed. Classic KFM AI requests are rejected instead of
+fabricating apparent compatibility. Scripted cases with CPU=0 are
+unchanged.
+
+`tools/ikemen_oracle/ai_compare.py` executes an original GO AI scenario
+and the Saturn CPU independently, then writes a diagnostic first-state
+mismatch, state histograms, action/attack and transition counts. This
+is *not* a gate for oracle parity because original RNG and AI decision
+evaluation order remain different. CI covers native CPU activity; run
+the GO comparison explicitly when investigating autonomous behavior.

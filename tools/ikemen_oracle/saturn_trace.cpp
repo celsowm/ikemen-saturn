@@ -364,16 +364,38 @@ static void apply_setup(ik_fight_t* fight, const char* setup) {
 int main(int argc, char** argv) {
     if (argc < 5) {
         std::fprintf(
-            stderr, "usage: %s TRACE FRAMES SEED INPUTS [SETUP [P1_ASSET P2_ASSET]]\n", argv[0]);
+            stderr, "usage: %s TRACE FRAMES SEED INPUTS [SETUP [P1_ASSET P2_ASSET [P1_AI P2_AI]]]\n", argv[0]);
         return 2;
     }
     const int frames = std::atoi(argv[2]);
     const int seed = std::atoi(argv[3]);
-    if (frames <= 0 || argc == 7 || argc > 8) return 2;
-    const ik_frame_character_assets_t characters[2] = {
-        character_assets(argc == 8 ? argv[6] : "kfm"),
-        character_assets(argc == 8 ? argv[7] : "kfm")
+    if (frames <= 0 || (argc != 5 && argc != 6 &&
+                        argc != 8 && argc != 10)) return 2;
+    const char* names[2] = {
+        argc >= 8 ? argv[6] : "kfm",
+        argc >= 8 ? argv[7] : "kfm"
     };
+    const ik_frame_character_assets_t characters[2] = {
+        character_assets(names[0]),
+        character_assets(names[1])
+    };
+    int ai_levels[2] = {0, 0};
+    if (argc == 10) {
+        for (int p = 0; p < 2; ++p) {
+            const char* raw = argv[8 + p];
+            if (!raw || raw[0] < '0' || raw[0] > '8' ||
+                raw[1] != '\0') {
+                std::fprintf(stderr, "invalid CPU AI level for P%d\n", p + 1);
+                return 2;
+            }
+            ai_levels[p] = raw[0] - '0';
+            if (ai_levels[p] && std::strcmp(names[p], "kfm_zss") != 0) {
+                std::fprintf(stderr,
+                    "native CPU is only supported for kfm_zss (P%d)\n", p + 1);
+                return 2;
+            }
+        }
+    }
 
     const auto inputs = load_inputs(argv[4], frames);
     if (static_cast<int>(inputs.size()) != frames) {
@@ -396,6 +418,23 @@ int main(int argc, char** argv) {
     if (!ik_frame_ctx_init(&ctx, &fight, characters)) {
         std::fclose(out);
         return 3;
+    }
+
+    /* The scenario's seed is the local CPU seed only, NOT the upstream
+     * global RNG stream. Character AI is activated after the intro, so all
+     * ordinary scripted scenarios keep their existing input handling. */
+    for (int p = 0; p < 2; ++p) {
+        if (ai_levels[p] > 0) {
+            if (!ik_frame_set_zss_ai_level(
+                    &ctx, static_cast<uint8_t>(p),
+                    static_cast<uint8_t>(ai_levels[p]))) {
+                std::fclose(out);
+                return 3;
+            }
+            ctx.zss_ai_rng[p] =
+                static_cast<uint32_t>(seed) ^
+                (UINT32_C(0x9E3779B9) + static_cast<uint32_t>(p));
+        }
     }
 
     while (fight.round_state != 2u) {
