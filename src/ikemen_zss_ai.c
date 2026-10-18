@@ -238,23 +238,48 @@ int ik_zss_ai_tick_memory(const ik_fight_t* fight, uint8_t player,
     /* Grounded, non-juggle subset of the original light-attack clause.
      * Remaining AI_JI, get-up map, predicted velocity and juggle predicates
      * are deferred. At short range preserve the level-scaled random gate. */
-    if (memory->ai_ji == 0u && grounded && !foe_hit && dist > -15 &&
-        dist < (foe->cur_state_type == IK_CNS_STATE_CROUCH ? 45 : 55) &&
+    /* AI.zss 186-200: the grounded inner light branch selects
+     * state 200 below 45px for a standing target, state 400 only below
+     * 35px for a croucher. An outer 55px test cannot widen the inner
+     * state-change gate. Source get-up map and AI_JI both gate lights. */
+    if (memory->ai_ji == 0u && grounded && !foe_hit &&
+        (memory->gurt == 0u || dist > 35) &&
+        dist > -15 && dist < 45 &&
         (dist > 25 || ai_roll(rng) <= ai_threshold(level, 225u))) {
-        ai_state(out, foe->cur_state_type == IK_CNS_STATE_CROUCH ? 400 : 200);
-        return 1;
+        if (foe->cur_state_type == IK_CNS_STATE_STAND) {
+            ai_state(out, 200);
+            return 1;
+        }
+        if (foe->cur_state_type == IK_CNS_STATE_CROUCH && dist < 35) {
+            ai_state(out, 400);
+            return 1;
+        }
     }
 
-    /* AI.zss lines 206-214: the grounded heavy attack at medium range.
-     * The source runs this after the light family; only the interval
-     * where our light subset did not attack is considered here.
-     * $AI_JI, gurt, and predictive trvelx are not yet modeled.
-     * With a grounded foe the script chooses state 240 in this range. */
-    if (memory->ai_ji == 0u && grounded && !foe_hit &&
-        dist >= 45 && dist < 60 &&
-        ai_roll(rng) <= ai_threshold(level, 425u)) {
-        ai_state(out, 240);
-        return 1;
+    /* AI.zss 203-214: grounded heavy chooses 240, but its INNER
+     * p2BodyDist x < 45 gate forbids 240 at 45..60px. The prior
+     * native branch erroneously ignored this gate and fired early.
+     * At this range, native movement decisions must continue to the
+     * separate poke family, not invent a heavy attack. */
+
+    /* AI.zss 230-242: medium-range poke lottery. Each random opcode
+     * gets an independent original Rand(0,999) value. In the second
+     * elseif, distance <=50 short-circuits BEFORE its random%4 call.
+     * Standing fallback 440 is not available against a croucher. */
+    if (grounded && !foe_hit && dist >= 45 && dist <= 60 &&
+        ai_roll(rng) < ai_threshold(level, 250u)) {
+        if (ai_roll(rng) % 4u == 0u) {
+            ai_state(out, 210);
+            return 1;
+        }
+        if (dist <= 50 && ai_roll(rng) % 4u == 1u) {
+            ai_state(out, 240);
+            return 1;
+        }
+        if (foe->cur_state_type == IK_CNS_STATE_STAND) {
+            ai_state(out, 440);
+            return 1;
+        }
     }
 
     /* AI.zss lines 498-523: narrowly lowered jump declaration.

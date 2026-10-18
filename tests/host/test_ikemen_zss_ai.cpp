@@ -259,25 +259,60 @@ int main() {
     OK(blocked_throw_seed == 1u);
     victim->cur_move_type = IK_CNS_MOVE_IDLE;
 
-    /* At 50px, standing neutral extends the script's light reach to 55;
-     * against a croucher, the preceding light subset does not reach and
-     * the original medium-range heavy family can choose state 240. */
+    /* Pinned AI.zss 186-242: an outer 55px light predicate does NOT
+     * change the grounded inner <45px light gate. At 50px the original
+     * executes a separate 250-scaled poke lottery, not the heavy 240
+     * at <=425 gate (which has its own additional <45 condition). */
     attacker->x = 150;
     victim->x = 100;
-    uint32_t medium_seed = 1u;
+    uint32_t medium_seed = 1u; /* rolls: 0, 131, 755 */
     ik_fight_controls_t stand_medium{};
     OK(ik_zss_ai_tick(&neutral_fight, 1, 8,
                        &medium_seed, &stand_medium));
-    OK(stand_medium.has_state_request && stand_medium.requested_state == 200);
-    OK(medium_seed == 1u);
+    OK(stand_medium.has_state_request && stand_medium.requested_state == 440);
+    OK(medium_seed == 1622650073u);
     victim->cur_state_type = IK_CNS_STATE_CROUCH;
+    uint32_t crouch_seed = 1u;
     ik_fight_controls_t crouch_medium{};
-    OK(ik_zss_ai_tick(&neutral_fight, 1, 8,
-                       &medium_seed, &crouch_medium));
-    OK(crouch_medium.has_state_request &&
-       crouch_medium.requested_state == 240);
-    OK(medium_seed == 16807u);
+    (void)ik_zss_ai_tick(&neutral_fight, 1, 8,
+                         &crouch_seed, &crouch_medium);
+    OK(!crouch_medium.has_state_request ||
+       (crouch_medium.requested_state != 200 &&
+        crouch_medium.requested_state != 240 &&
+        crouch_medium.requested_state != 440));
+    OK(crouch_seed == 1622650073u);
     victim->cur_state_type = IK_CNS_STATE_STAND;
+
+    /* Poke state selection is dependent on INDEPENDENT random draws,
+     * and the conditional third draw occurs only in the 45..50px zone. */
+    uint32_t poke210_seed = 7u; /* 0, 920; 920%4 == 0 */
+    ik_fight_controls_t poke210{};
+    OK(ik_zss_ai_tick(&neutral_fight, 1, 8,
+                       &poke210_seed, &poke210));
+    OK(poke210.has_state_request && poke210.requested_state == 210);
+    OK(poke210_seed == 1977326743u);
+    uint32_t poke240_seed = 6u; /* 0, 789, 533; 533%4 == 1 */
+    ik_fight_controls_t poke240{};
+    OK(ik_zss_ai_tick(&neutral_fight, 1, 8,
+                       &poke240_seed, &poke240));
+    OK(poke240.has_state_request && poke240.requested_state == 240);
+    OK(poke240_seed == 1145965850u);
+    victim->x = 95; /* 55px: third random must NOT be evaluated */
+    uint32_t far_poke_seed = 1u;
+    ik_fight_controls_t far_poke{};
+    OK(ik_zss_ai_tick(&neutral_fight, 1, 8,
+                       &far_poke_seed, &far_poke));
+    OK(far_poke.has_state_request && far_poke.requested_state == 440);
+    OK(far_poke_seed == 282475249u);
+    victim->x = 89; /* 61px: no poke draw and no move */
+    uint32_t out_of_poke_seed = 1u;
+    ik_fight_controls_t no_poke{};
+    (void)ik_zss_ai_tick(&neutral_fight, 1, 8,
+                         &out_of_poke_seed, &no_poke);
+    OK(!no_poke.has_state_request || 
+       (no_poke.requested_state != 210 &&
+        no_poke.requested_state != 240 &&
+        no_poke.requested_state != 440));
 
     /* AI.zss State -1 jump decision around lines 498-523.
      * Opponent attacking at 85px and AI level 8 permits jump even if

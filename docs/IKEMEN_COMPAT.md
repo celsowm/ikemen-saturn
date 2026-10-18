@@ -458,3 +458,18 @@ per-player isolation and invalid input.
 This intentionally leaves full engine-global RNG consumption,
 jump cancellation beyond the bounded case, exact scoped `let`
 semantics and full GO AI parity unresolved.
+
+## Source-accurate grounded 45–60px poke choices
+
+The 360-frame GO-vs-Saturn diagnostic exposed a concrete violation of
+the pinned AI.zss: native State 240 started at frame 13 using the OUTER
+`p2BodyDist < 60` heavy condition; the original also requires the
+INNER `p2BodyDist < 45` for grounded State 240. Native now respects
+both gates and lowers the subsequent lines 230–242 poke lottery:
+independent strict `random < 250×AILevel²/48`, `random%4 == 0`
+for State 210, conditional `random%4 == 1` for State 240
+(at most 50px), and standing-only fallback State 440. Each random draw
+uses the pinned Park–Miller `Rand(0,999)`, with short-circuit count
+tested. The normal light gate also respects the inner 45px limit
+and crouch 35px limit. This is a source-correct behavioral increment
+without a claim of original global RNG parity or identical decisions.

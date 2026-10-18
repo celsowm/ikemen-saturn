@@ -75,6 +75,27 @@ def validate_ai_jump(path: Path) -> None:
                 "refusing stale native jumping rule")
 
 
+POKE_CLAUSES = [
+    'ifp2bodydistx=[45,60]&&p2movetype!=h&&$grounded&&random<(250*(ailevelf**2/48.0)){',
+    'ifp2bodydistx=[30,60+(floor($trvelx*.4)*5)]&&random%4=0{letatt2=210;}',
+    '}elseifp2bodydistx=[30,50+(floor($trvelx*.4)*5)]&&random%4=1{letatt2=240;}',
+    '}elseifp2bodydistx=[30,60+(floor($trvelx*.4)*5)]&&p2statetype=s{letatt2=440;}',
+    'if$att2>0{changestate{value:$att2}}',
+    'if$att=240&&p2bodydistx<45+(floor($trvelx*.4)*5)||$att!=240{changestate{value:$att}}',
+]
+
+
+def validate_ai_poke(path: Path) -> None:
+    source = path.read_text(encoding="utf-8-sig")
+    compact = "".join(line.split("#", 1)[0] for line in source.splitlines())
+    compact = re.sub(r"\s+", "", compact).lower()
+    for clause in POKE_CLAUSES:
+        if compact.count(clause) != 1:
+            raise ValueError(
+                f"{path}: ZSS AI poke source changed at {clause[:50]!r}; "
+                "refusing stale native poke lottery")
+
+
 def validate_ai_neutral(path: Path) -> None:
     source = path.read_text(encoding="utf-8-sig")
     compact = "".join(line.split("#", 1)[0] for line in source.splitlines())
