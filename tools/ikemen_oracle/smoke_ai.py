@@ -41,6 +41,13 @@ def main() -> int:
     if len(rows) != int(scenario["frames"]):
         raise AssertionError("native AI frame count mismatch")
     stats = summarize(rows, 1)
+    checkpoints = [frame.get("native_ai_rng") for frame in rows]
+    if any(not isinstance(seed, list) or len(seed) != 2 or
+           seed[0] is not None or type(seed[1]) is not int
+           for seed in checkpoints):
+        raise AssertionError("missing native CPU random checkpoints")
+    if len({seed[1] for seed in checkpoints}) < 2:
+        raise AssertionError("CPU Park-Miller RNG never advanced")
     # Running/walking/attacking are all real autonomous decisions; having
     # only idle frames is the same disconnected-CPU failure as before.
     if not any(s in stats["state_histogram"] for s in

@@ -229,7 +229,7 @@ static void print_projectile(
 
 static void emit_frame(
     FILE* out, const ik_fight_t* fight, const ik_entity_pool_t* pool,
-    int frame, int seed
+    int frame, int seed, const ik_frame_ctx_t* ctx
 ) {
     std::fprintf(out,
         "{\"schema\":1,\"frame\":%d,\"tick\":%u,"
@@ -265,7 +265,23 @@ static void emit_frame(
             first = false;
         }
     }
-    std::fputs("]}\n", out);
+    std::fputs("]", out);
+    /* Add checkpoints only to CPU traces; strict scripted oracle rows
+     * retain their exact original JSON field layout. */
+    if (ctx && (ctx->zss_ai_level[0] || ctx->zss_ai_level[1])) {
+        std::fputs(",\"native_ai_rng\":[", out);
+        for (int p = 0; p < 2; ++p) {
+            if (p) std::fputc(',', out);
+            if (ctx->zss_ai_level[p]) {
+                std::fprintf(out, "%u",
+                    static_cast<unsigned>(ctx->zss_ai_rng[p]));
+            } else {
+                std::fputs("null", out);
+            }
+        }
+        std::fputc(']', out);
+    }
+    std::fputs("}\n", out);
 }
 
 
@@ -463,7 +479,7 @@ int main(int argc, char** argv) {
 
         /* Same per-frame step the console build runs (ikemen_frame.c). */
         ik_frame_step(&ctx, &fight, &pad1, &pad2);
-        emit_frame(out, &fight, &ctx.pool, i, seed);
+        emit_frame(out, &fight, &ctx.pool, i, seed, &ctx);
     }
 
     std::fclose(out);

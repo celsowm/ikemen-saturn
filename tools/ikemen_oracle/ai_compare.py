@@ -60,6 +60,13 @@ def compare_ai(upstream: list[dict], saturn: list[dict], player: int) -> dict:
                 "upstream_state_time": x["state_time"],
                 "saturn_state_time": y["state_time"],
             })
+    checkpoints = [frame.get("native_ai_rng") for frame in saturn]
+    if any(value is not None for value in checkpoints):
+        if any(not isinstance(value, list) or len(value) != 2 or
+               type(value[player]) is not int for value in checkpoints):
+            raise ValueError("per-frame native AI RNG checkpoints missing")
+    rng_first = checkpoints[0][player] if checkpoints[0] else None
+    rng_last = checkpoints[-1][player] if checkpoints[-1] else None
     return {
         "schema": 1,
         "comparison": "diagnostic only; not AI RNG or frame parity",
@@ -78,6 +85,13 @@ def compare_ai(upstream: list[dict], saturn: list[dict], player: int) -> dict:
         "observed_attacks_on_both_sides":
             u["observed_attacks"] and s["observed_attacks"],
         "ai_parity_verified": False,
+        "random_debug": {
+            "upstream_global_first": upstream[0].get("rand_seed"),
+            "upstream_global_last": upstream[-1].get("rand_seed"),
+            "native_cpu_first": rng_first,
+            "native_cpu_last": rng_last,
+            "same_random_stream": False,
+        },
     }
 
 

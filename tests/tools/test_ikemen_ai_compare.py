@@ -62,6 +62,24 @@ assert report["upstream_attack_frames"] == 2
 assert report["saturn_attack_frames"] == 1
 assert report["observed_attacks_on_both_sides"]
 assert report["ai_parity_verified"] is False
+assert report["random_debug"]["native_cpu_first"] is None
+assert report["random_debug"]["same_random_stream"] is False
+for i, row in enumerate(native):
+    row["native_ai_rng"] = [None, (i + 1) * 16807]
+up[0]["rand_seed"] = 1
+up[-1]["rand_seed"] = 77
+snapshots = compare_ai(up, native, 1)
+assert snapshots["random_debug"]["native_cpu_first"] == 16807
+assert snapshots["random_debug"]["native_cpu_last"] == 50421
+assert snapshots["random_debug"]["upstream_global_last"] == 77
+native[1].pop("native_ai_rng")
+try:
+    compare_ai(up, native, 1)
+except ValueError:
+    pass
+else:
+    raise AssertionError("incomplete native random trace accepted")
+native[1]["native_ai_rng"] = [None, 33614]
 assert report["upstream"]["state_histogram"]["200"] == 2
 for a, b in ((up, []), (up, native[:2])):
     try:

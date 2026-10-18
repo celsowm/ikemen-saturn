@@ -346,3 +346,12 @@ guards/golden vectors test the primitive. Upstream GO still uses one global
 random stream shared among many systems, and native AI only evaluates its
 implemented predicates: comparison reports remain **diagnostic**, not
 RNG-consumption or whole-fight AI-parity certificates.
+
+### Post-frame CPU RNG diagnostics
+
+CPU-enabled host traces append a `native_ai_rng` array containing each
+active CPU's post-frame Park-Miller seed (`null` for a scripted player).
+The strict CPU-disabled oracle schema is unchanged. The AI comparison
+report separately labels native-local and upstream-global start/end seeds;
+they are **not comparable streams**, even though the next-number
+primitive is the same.
