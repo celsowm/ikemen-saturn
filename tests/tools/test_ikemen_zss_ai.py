@@ -5,13 +5,14 @@ from tempfile import TemporaryDirectory
 
 from tools.ikemen_zss_ai import (EXPECTED, validate_ai_followup,
                                  validate_ai_neutral, validate_ai_combat,
-                                 validate_ai_jump)
+                                 validate_ai_jump, validate_ai_memory)
 
 source = Path(".external/Ikemen-GO-Screenpack/chars/kfm_zss/AI.zss")
 validate_ai_followup(source)
 validate_ai_neutral(source)
 validate_ai_combat(source)
 validate_ai_jump(source)
+validate_ai_memory(source)
 assert EXPECTED.endswith("changestate{value:1075}}}")
 with TemporaryDirectory() as temp:
     content = source.read_text(encoding="utf-8-sig")
@@ -92,3 +93,22 @@ with TemporaryDirectory() as temp:
         else:
             raise AssertionError(f"unreviewed jumping rule accepted: {old}")
 print("KFM ZSS AI jump source guards OK")
+
+with TemporaryDirectory() as temp:
+    content = source.read_text(encoding="utf-8-sig")
+    for old, new in (
+        ('mapSet{map: "gurt"; value: 10}', 'mapSet{map: "gurt"; value: 11}'),
+        ('mapAdd{map: "gurt"; value: -1}', 'mapAdd{map: "gurt"; value: -2}'),
+        ('let AI_JI = p2,getHitVar(hittime);',
+         'let AI_JI = p2,getHitVar(fall.recovertime);'),
+    ):
+        assert old in content
+        changed = Path(temp) / "AI.zss"
+        changed.write_text(content.replace(old, new, 1), encoding="utf-8")
+        try:
+            validate_ai_memory(changed)
+        except ValueError as exc:
+            assert "ZSS AI memory source changed" in str(exc)
+        else:
+            raise AssertionError(f"AI memory drift accepted: {old}")
+print("KFM ZSS AI per-frame and persistent memory source guards OK")

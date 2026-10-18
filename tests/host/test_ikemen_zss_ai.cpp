@@ -75,6 +75,39 @@ int main() {
     fight.round_state = 3;
     OK(!ik_zss_ai_request(&fight, 1, 8, &next));
 
+    /* State -1 gurt is persistent, while AIJ and AI_JI are per-frame.
+     * This fixture tests state bookkeeping separately from move ordering. */
+    ik_zss_ai_memory_t mem{};
+    ik_fight_t memory_fight{};
+    memory_fight.round_state = 3u;
+    ik_fighter_t* mf = &memory_fight.fighters[1];
+    ik_fighter_t* mo = &memory_fight.fighters[0];
+    mf->ctrl = 1;
+    mf->anim = 0;
+    mo->hitstun = 12u;
+    mo->ctrl = 0;
+    ik_zss_ai_memory_step(&memory_fight, 1, &mem);
+    OK(mem.gurt == 10u && mem.ai_ji == 0u && mem.aij == 0u);
+    memory_fight.round_state = 2u;
+    mf->anim = 5120;
+    ik_zss_ai_memory_step(&memory_fight, 1, &mem);
+    OK(mem.gurt == 9u && mem.ai_ji == 12u);
+    mf->anim = 0;
+    for (int i = 0; i < 9; ++i) {
+        ik_zss_ai_memory_step(&memory_fight, 1, &mem);
+    }
+    OK(mem.gurt == 0u && mem.ai_ji == 12u);
+    mo->ctrl = 1;
+    ik_zss_ai_memory_step(&memory_fight, 1, &mem);
+    OK(mem.ai_ji == 0u && mem.gurt == 0u);
+    mem.aij = 1u;
+    ik_zss_ai_memory_step(&memory_fight, 1, &mem);
+    OK(mem.aij == 0u); /* no persisted jump decision */
+    ik_zss_ai_memory_step(nullptr, 1, &mem);
+    ik_zss_ai_memory_step(&memory_fight, 2, &mem);
+    ik_zss_ai_memory_step(&memory_fight, 1, nullptr);
+    OK(mem.gurt == 0u && mem.aij == 0u);
+
     static ik_frame_ctx_t ctx{};
     static ik_cns_asset_t cns{};
     static const ik_frame_table_t frames{};
@@ -87,12 +120,21 @@ int main() {
     };
     OK(ik_frame_ctx_init(&ctx, &fight, assets));
     OK(ctx.zss_ai_level[0] == 0 && ctx.zss_ai_level[1] == 0);
+    OK(ctx.zss_ai_memory[0].gurt == 0 &&
+       ctx.zss_ai_memory[1].gurt == 0);
     OK(!ik_frame_set_zss_ai_level(&ctx, 2, 5));
     OK(!ik_frame_set_zss_ai_level(&ctx, 1, 9));
     OK(ik_frame_set_zss_ai_level(&ctx, 1, 5));
     OK(ctx.zss_ai_level[0] == 0 && ctx.zss_ai_level[1] == 5);
+    ctx.zss_ai_memory[1].gurt = 7u;
+    OK(ik_frame_set_zss_ai_level(&ctx, 1, 4)); /* keeps memory */
+    OK(ctx.zss_ai_memory[1].gurt == 7u);
     OK(ik_frame_set_zss_ai_level(&ctx, 1, 0));
-    OK(ctx.zss_ai_level[1] == 0);
+    OK(ctx.zss_ai_level[1] == 0 && ctx.zss_ai_memory[1].gurt == 0);
+    ctx.zss_ai_memory[1].gurt = 7u;
+    OK(ik_frame_set_zss_ai_level(&ctx, 1, 8)); /* reset on enable */
+    OK(ctx.zss_ai_memory[1].gurt == 0u);
+    OK(ik_frame_set_zss_ai_level(&ctx, 1, 0));
     /* End-to-end: frame driver dispatches AI State -1 into real CNS/AIR.
      * P2 has no pad, but an opted-in CPU must no longer be an idle dummy.
      * This fixture enters native Strong Knee airborne State 1061 with a
@@ -220,6 +262,28 @@ int main() {
     OK(ik_zss_ai_tick(&neutral_fight, 1, 8, &jump_seed, &threat_jump));
     OK(threat_jump.has_state_request && threat_jump.requested_state == 40);
     OK(threat_jump.forward && jump_seed == 1622650073u);
+    /* The integrated CPU remembers gurt even if the present frame has
+     * otherwise valid jump conditions. Later frames can resume jumping. */
+    ik_zss_ai_memory_t jump_mem{};
+    jump_mem.gurt = 10u;
+    uint32_t locked_seed = 282475249u;
+    ik_fight_controls_t blocked_getup{};
+    (void)ik_zss_ai_tick_memory(
+        &neutral_fight, 1, 8, &locked_seed, &jump_mem, &blocked_getup);
+    OK(jump_mem.gurt == 9u && !jump_mem.aij);
+    OK(!blocked_getup.has_state_request ||
+       blocked_getup.requested_state != 40);
+    for (int i = 0; i < 9; ++i) {
+        ik_zss_ai_memory_step(&neutral_fight, 1, &jump_mem);
+    }
+    OK(jump_mem.gurt == 0u);
+    uint32_t resume_seed = 1u;
+    ik_fight_controls_t resumed_jump{};
+    OK(ik_zss_ai_tick_memory(
+        &neutral_fight, 1, 8, &resume_seed, &jump_mem, &resumed_jump));
+    OK(resumed_jump.has_state_request &&
+       resumed_jump.requested_state == 40 && jump_mem.aij == 1u);
+    OK(resume_seed == 16807u);
     /* Original State -1 also permits jump from walking State 20 when Ctrl
      * is disabled; the native dispatcher must not drop that decision. */
     attacker->state = 20;

@@ -56,10 +56,35 @@ static void ai_state(ik_fight_controls_t* out, int16_t state) {
     out->requested_state = state;
 }
 
-int ik_zss_ai_tick(const ik_fight_t* fight, uint8_t player,
-                   uint8_t level, uint32_t* rng, ik_fight_controls_t* out) {
-    if (!fight || !rng || !out || player >= 2u ||
+void ik_zss_ai_memory_step(const ik_fight_t* fight, uint8_t player,
+                           ik_zss_ai_memory_t* memory) {
+    if (!fight || player >= 2u || !memory) return;
+    const ik_fighter_t* f = &fight->fighters[player];
+    const ik_fighter_t* foe = &fight->fighters[player ^ 1u];
+    /* Pinned AI.zss 25-27 runs before the global AI loop. */
+    if (f->anim == 5120 || fight->round_state != 2u) {
+        memory->gurt = 10u;
+    }
+    memory->aij = 0u; /* let AIJ, not a cross-frame map */
+    memory->ai_ji = 0u;
+    if (fight->round_state != 2u) return;
+    /* Pinned AI.zss 73-76: take opponent's current hittime only when
+     * the CPU controls its character and the target is helpless. */
+    if (f->ctrl && !foe->ctrl && foe->hitstun > 0u) {
+        memory->ai_ji = foe->hitstun;
+    }
+    /* Original AI.zss 483-486 decrements gurt on each active AI tick
+     * before the subsequent jump declaration/cancellation predicates. */
+    if (memory->gurt) --memory->gurt;
+}
+
+int ik_zss_ai_tick_memory(const ik_fight_t* fight, uint8_t player,
+                          uint8_t level, uint32_t* rng,
+                          ik_zss_ai_memory_t* memory,
+                          ik_fight_controls_t* out) {
+    if (!fight || !rng || !out || !memory || player >= 2u ||
         level == 0u || level > 8u) return 0;
+    ik_zss_ai_memory_step(fight, player, memory);
     const ik_fighter_t* f = &fight->fighters[player];
     const ik_fighter_t* foe = &fight->fighters[player ^ 1u];
 
@@ -139,7 +164,7 @@ int ik_zss_ai_tick(const ik_fight_t* fight, uint8_t player,
      * retreat only with sufficient space behind the player. AI_JI omitted. */
     int direction = (!foe_attacking || dist > 25 ||
                      (foe->cur_state_type == IK_CNS_STATE_LIEDOWN &&
-                      dist > 70)) ? 1 : 0;
+                      dist > 70) || memory->ai_ji > 0u) ? 1 : 0;
     if (back_edge > 40 &&
         (foe_attacking ||
          (foe->cur_state_type != IK_CNS_STATE_LIEDOWN && dist < 30))) {
@@ -213,7 +238,7 @@ int ik_zss_ai_tick(const ik_fight_t* fight, uint8_t player,
     /* Grounded, non-juggle subset of the original light-attack clause.
      * Remaining AI_JI, get-up map, predicted velocity and juggle predicates
      * are deferred. At short range preserve the level-scaled random gate. */
-    if (grounded && !foe_hit && dist > -15 &&
+    if (memory->ai_ji == 0u && grounded && !foe_hit && dist > -15 &&
         dist < (foe->cur_state_type == IK_CNS_STATE_CROUCH ? 45 : 55) &&
         (dist > 25 || ai_roll(rng) <= ai_threshold(level, 225u))) {
         ai_state(out, foe->cur_state_type == IK_CNS_STATE_CROUCH ? 400 : 200);
@@ -225,7 +250,8 @@ int ik_zss_ai_tick(const ik_fight_t* fight, uint8_t player,
      * where our light subset did not attack is considered here.
      * $AI_JI, gurt, and predictive trvelx are not yet modeled.
      * With a grounded foe the script chooses state 240 in this range. */
-    if (grounded && !foe_hit && dist >= 45 && dist < 60 &&
+    if (memory->ai_ji == 0u && grounded && !foe_hit &&
+        dist >= 45 && dist < 60 &&
         ai_roll(rng) <= ai_threshold(level, 425u)) {
         ai_state(out, 240);
         return 1;
@@ -235,7 +261,7 @@ int ik_zss_ai_tick(const ik_fight_t* fight, uint8_t player,
      * The original emits an RNG value before checking the wider state,
      * distance and edge predicates. In native we only evaluate that roll
      * for eligible 80..90px grounded neutral encounters, because the
-     * global GO random call schedule and the gurt/AI_JI maps are missing.
+     * global GO random call schedule and the full AI_JI variables are missing.
      * At a safe distance the original jump requires either the opponent
      * attacking (level > 6), or our front edge < 50px plus a 375-scaled
      * roll. The latter is an intentionally narrower source-backed case.
@@ -248,7 +274,7 @@ int ik_zss_ai_tick(const ik_fight_t* fight, uint8_t player,
         f->cur_state_type == IK_CNS_STATE_STAND &&
         f->cur_move_type != IK_CNS_MOVE_HIT &&
         !foe_hit && grounded && dist >= 80 && dist <= 90 &&
-        f->prev_state != 5120) {
+        memory->gurt == 0u && f->prev_state != 5120) {
         const int bounds_known = f->xmin_q8 < f->xmax_q8 &&
             f->x_q8 >= f->xmin_q8 && f->x_q8 <= f->xmax_q8;
         const int front_edge = (int)((f->facing >= 0
@@ -260,6 +286,7 @@ int ik_zss_ai_tick(const ik_fight_t* fight, uint8_t player,
             if ((close_to_front_edge &&
                  roll < ai_threshold(level, 375u)) ||
                 (foe_attacking && level > 6u)) {
+                memory->aij = 1u;
                 ai_state(out, 40);
                 out->forward = 1u;
                 return 1;
@@ -295,4 +322,14 @@ int ik_zss_ai_tick(const ik_fight_t* fight, uint8_t player,
         return 1;
     }
     return 0;
+}
+
+
+/* Existing stateless API retained for isolated host tests and consumers.
+ * The integrated ik_frame_step uses ik_zss_ai_tick_memory instead. */
+int ik_zss_ai_tick(const ik_fight_t* fight, uint8_t player,
+                   uint8_t level, uint32_t* rng, ik_fight_controls_t* out) {
+    ik_zss_ai_memory_t local = {0};
+    return ik_zss_ai_tick_memory(
+        fight, player, level, rng, &local, out);
 }

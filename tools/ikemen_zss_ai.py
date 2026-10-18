@@ -35,6 +35,27 @@ NEUTRAL_CLAUSES = [
 # Pinned original State -1 jump declaration and cancellation fragments.
 # The native lowering deliberately accepts only the conservative neutral
 # 80..90px case and does not claim the complete AIJ/gurt/AI_JI state machine.
+MEMORY_CLAUSES = [
+    'ifanim=5120||roundstate!=2{mapset{map:"gurt";value:10}}',
+    'ifctrl&&!p2,ctrl&&(p2,gethitvar(hittime)>0){letai_ji=p2,gethitvar(hittime);}',
+    'ifmap(gurt)>0{mapadd{map:"gurt";value:-1}}',
+    'letaiJ=1;',
+    'letaiJ=0;',
+    '||$ai_ji>0{mapset{map:"aiw";value:1}}',
+]
+
+
+def validate_ai_memory(path: Path) -> None:
+    source = path.read_text(encoding="utf-8-sig")
+    compact = "".join(line.split("#", 1)[0] for line in source.splitlines())
+    compact = re.sub(r"\s+", "", compact).lower()
+    for clause in MEMORY_CLAUSES:
+        if compact.count(clause.lower()) != 1:
+            raise ValueError(
+                f"{path}: ZSS AI memory source changed at {clause[:50]!r}; "
+                "refusing stale native AI bookkeeping")
+
+
 JUMP_CLAUSES = [
     'ifstatetype!=a&&(((!map(gurt))&&(random<(375*(ailevelf**2/48.0))||p2movetype=a&&ailevelf>6)',
     '(p2bodydistx=[70,90+(floor(velx*.4)*5)]||frontedgedist<30)&&p2movetype!=h',

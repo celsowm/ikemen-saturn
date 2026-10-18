@@ -16,6 +16,7 @@
 #include "ikemen_command.h"
 #include "ikemen_entity.h"
 #include "ikemen_fight.h"
+#include "ikemen_zss_ai.h"
 #include "saturn/input.h"
 
 #ifdef __cplusplus
@@ -59,6 +60,8 @@ typedef struct ik_frame_ctx {
     uint8_t zss_ai_level[2];
     /* Independent reproducible local CPU random streams. */
     uint32_t zss_ai_rng[2];
+    /* One persistent AI map and per-frame transient ZSS fields per root. */
+    ik_zss_ai_memory_t zss_ai_memory[2];
 } ik_frame_ctx_t;
 
 /* Initializes a fight with independent CNS (including life, constants,

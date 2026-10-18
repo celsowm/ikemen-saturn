@@ -155,6 +155,7 @@ int ik_frame_ctx_init(
         ik_command_state_init(&ctx->command_states[player]);
         ctx->zss_ai_level[player] = 0u;
         ctx->zss_ai_rng[player] = 1u + player;
+        ctx->zss_ai_memory[player] = (ik_zss_ai_memory_t){0};
     }
     return 1;
 }
@@ -165,6 +166,11 @@ int ik_frame_set_zss_ai_level(
     if (!ctx || player >= 2u || level > 8u ||
         !ctx->characters[player].cns || !ctx->characters[player].frames)
         return 0;
+    /* Disabling or freshly enabling AI must not inherit an old match's
+     * gurt window or transient declarations. Level adjustments retain it. */
+    if (level == 0u || ctx->zss_ai_level[player] == 0u) {
+        ctx->zss_ai_memory[player] = (ik_zss_ai_memory_t){0};
+    }
     ctx->zss_ai_level[player] = level;
     return 1;
 }
@@ -174,8 +180,9 @@ static void ai_controls(
     ik_frame_ctx_t* ctx, const ik_fight_t* fight, uint8_t player,
     ik_fight_controls_t* out
 ) {
-    (void)ik_zss_ai_tick(fight, player, ctx->zss_ai_level[player],
-                         &ctx->zss_ai_rng[player], out);
+    (void)ik_zss_ai_tick_memory(
+        fight, player, ctx->zss_ai_level[player],
+        &ctx->zss_ai_rng[player], &ctx->zss_ai_memory[player], out);
 }
 
 static int command_pause_end_buffer(

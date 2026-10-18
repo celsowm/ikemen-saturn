@@ -428,3 +428,33 @@ cancellation. Current implementation does **not** implement all
 get-up, AI_JI, hitDefAttr, AIJ persistence, arbitrary distances
 or global RNG consumption order. Tests cover edge/AI-level gating,
 RNG call order, no jump inside 80px and source drift.
+
+## CPU AI state bookkeeping: gurt, AI_JI and AIJ
+
+A per-player `ik_zss_ai_memory_t` now lives in the normal
+`ik_frame_ctx_t` and is updated once per native CPU frame, rather
+than resetting on each `ik_zss_ai_tick` call. It mirrors the
+source's distinct storage semantics:
+
+- `map(gurt)`: persistent get-up cooldown set to 10 on the
+  recovery animation 5120 or outside the active round, and decremented
+  once per active tick, before jump/cancellation. It blocks the
+  80–90px AI jump decision until it reaches zero.
+- `AI_JI`: per-frame sampled opportunity window from
+  the opponent's remaining hitstun when CPU has Ctrl and foe
+  lacks Ctrl. It affects neutral light/heavy attacks and the
+  forward-chase predicate, but is **not** equivalent to GO's
+  local-variable/scoped-expression implementation in all states.
+- `AIJ`: a per-frame jump declaration diagnostic (1 only after an
+  accepted native State 40 request), reset before each new tick.
+  The original uses `let AIJ`, not a persistent map.
+
+Memory is reset when CPU control is disabled or first enabled;
+changing the active difficulty preserves the cooldown. Source
+drift tests cover all selected `AI.zss` clauses; C++ tests cover
+get-up suppression, nine-tick expiration, transient state reset,
+per-player isolation and invalid input.
+
+This intentionally leaves full engine-global RNG consumption,
+jump cancellation beyond the bounded case, exact scoped `let`
+semantics and full GO AI parity unresolved.
