@@ -78,6 +78,10 @@ type libsaturnOracleRandomEvent struct {
 	File     string `json:"file"`
 	Line     int    `json:"line"`
 	Function string `json:"function"`
+	PlayerNo int `json:"player_no"`
+	HelperIndex int `json:"helper_index"`
+	StateNo int32 `json:"state_no"`
+	StateTime int32 `json:"state_time"`
 }
 
 var (
@@ -86,6 +90,7 @@ var (
 	libsaturnOracleRandomEncoder *json.Encoder
 	libsaturnOracleRandomEnabled bool
 	libsaturnOracleRandomOrdinal uint64
+	libsaturnOracleRandomOwner *Char
 	libsaturnOracleFile      *os.File
 	libsaturnOracleWriter    *bufio.Writer
 	libsaturnOracleEncoder   *json.Encoder
@@ -124,11 +129,18 @@ func libsaturnOracleRecordRandom(value int32) {
 		}
 	}
 	libsaturnOracleRandomOrdinal++
+	playerNo, helperIndex, stateNo, stateTime := -1, -1, int32(-1), int32(-1)
+	if c := libsaturnOracleRandomOwner; c != nil {
+		playerNo, helperIndex = c.playerNo, c.helperIndex
+		stateNo, stateTime = c.ss.no, c.ss.time
+	}
 	event := libsaturnOracleRandomEvent{
 		Frame: libsaturnOracleFrameNo,
 		Ordinal: libsaturnOracleRandomOrdinal,
 		Value: value,
 		File: file, Line: line, Function: function,
+		PlayerNo: playerNo, HelperIndex: helperIndex,
+		StateNo: stateNo, StateTime: stateTime,
 	}
 	if err := libsaturnOracleRandomEncoder.Encode(&event); err != nil {
 		panic(err)
@@ -290,6 +302,7 @@ func libsaturnOracleBeginMatch(s *System) error {
 	}
 	libsaturnOracleRandomEnabled = false
 	libsaturnOracleRandomOrdinal = 0
+	libsaturnOracleRandomOwner = nil
 	if path := os.Getenv("LIBSATURN_IKEMEN_ORACLE_RNG_EVENTS"); path != "" {
 		f, err := os.Create(path)
 		if err != nil {
