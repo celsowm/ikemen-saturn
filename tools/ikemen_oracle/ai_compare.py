@@ -18,11 +18,13 @@ try:
     from .diff import load_jsonl
     from .run_saturn import cpu_levels
     from .rng_audit import audit_checkpoints, compare_draws
+    from .rng_events import load_and_audit
 except ImportError:
     from ai_probe import summarize
     from diff import load_jsonl
     from run_saturn import cpu_levels
     from rng_audit import audit_checkpoints, compare_draws
+    from rng_events import load_and_audit
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_SCENARIO = (
@@ -121,6 +123,8 @@ def main() -> int:
     parser.add_argument("--trace-bin", type=Path, default=None)
     parser.add_argument("--out", type=Path,
                         default=ROOT / "build/ikemen_oracle/ai_comparison")
+    parser.add_argument("--rng-events", action="store_true",
+                        help="capture attributed GO Random() calls (opt-in)")
     parser.add_argument("--reuse-traces", action="store_true",
                         help="compare existing traces, do not launch either engine")
     args = parser.parse_args()
@@ -132,8 +136,9 @@ def main() -> int:
     args.out.mkdir(parents=True, exist_ok=True)
     up_path = args.out / "upstream_ai.jsonl"
     sat_path = args.out / "saturn_ai.jsonl"
+    events_path = args.out / "upstream_rng_events.jsonl"
     if not args.reuse_traces:
-        for file in (up_path, sat_path):
+        for file in (up_path, sat_path, events_path):
             file.unlink(missing_ok=True)
         upstream_command = [
             sys.executable, str(ROOT / "tools/ikemen_oracle/run.py"),
@@ -141,6 +146,8 @@ def main() -> int:
             str(args.ikemen_dir.resolve()), "--trace", str(up_path),
             "--install",
         ]
+        if args.rng_events:
+            upstream_command += ["--rng-events", str(events_path)]
         sat_command = [
             sys.executable, str(ROOT / "tools/ikemen_oracle/run_saturn.py"),
             str(args.scenario.resolve()), "--trace", str(sat_path),
@@ -162,6 +169,8 @@ def main() -> int:
     report = compare_ai(original, native, players[0])
     report.update({"scenario": scenario["name"], "seed": scenario["seed"],
                    "ai_level": levels[players[0]]})
+    if args.rng_events:
+        report["upstream_rng_events"] = load_and_audit(original, events_path)
     outfile = args.out / "comparison.json"
     outfile.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     print(
@@ -171,6 +180,11 @@ def main() -> int:
         "upstream/native attack frames; NOT full AI parity."
     )
     print(f"report: {outfile}")
+    if args.rng_events:
+        events = report["upstream_rng_events"]
+        print(f"Upstream original Random(): {events['event_count']} "
+              f"attributed calls, {events['verified_intervals']} "
+              "checkpoint intervals reconciled")
     draws = report["random_debug"]["draw_count_comparison"]
     if draws["available"]:
         print("Park-Miller RNG diagnostic: "
