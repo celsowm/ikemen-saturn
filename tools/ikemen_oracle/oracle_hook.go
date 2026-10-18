@@ -73,6 +73,7 @@ type libsaturnOracleFrame struct {
 }
 
 type libsaturnOracleRandomEvent struct {
+	Schema   int    `json:"schema"`
 	Frame    int32  `json:"frame"`
 	Ordinal  uint64 `json:"ordinal"`
 	Value    int32  `json:"value"`
@@ -194,6 +195,7 @@ func libsaturnOracleRecordRandom(value int32) {
 		stateNo, stateTime = c.ss.no, c.ss.time
 	}
 	event := libsaturnOracleRandomEvent{
+		Schema: libsaturnOracleSchema,
 		Frame: libsaturnOracleFrameNo,
 		Ordinal: libsaturnOracleRandomOrdinal,
 		Value: value,
