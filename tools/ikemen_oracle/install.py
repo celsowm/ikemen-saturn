@@ -68,6 +68,8 @@ PATCHED_BYTECODE = (
     "\t\t\tsys.bcStack.PushI(Rand(0, 999))\n"
     f"\t\t\t{BEGIN_MARKER}\n"
     "\t\t\tlibsaturnOracleRandomOwner = previousOwner\n"
+    "\t\t\tlibsaturnOracleCurrentExpression = libsaturnOracleExpression{}\n"
+    "\t\t\tlibsaturnOracleExpressionResolution = \"unresolved\"\n"
     f"\t\t\t{END_MARKER}\n"
 )
 
