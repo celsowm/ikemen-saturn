@@ -143,7 +143,100 @@ int main() {
     ik_fight_controls_t crouch{};
     OK(ik_zss_ai_tick(&neutral_fight, 1, 8, &random_a, &crouch));
     OK(crouch.has_state_request && crouch.requested_state == 400);
-    neutral_fight.round_state = 3u;
+    /* Source-informed CPU defense: verify both parry and held-back guard
+     * without changing the human P1 command stream. */
+    attacker->state = 0;
+    attacker->ctrl = attacker->on_ground = 1;
+    attacker->cur_state_type = IK_CNS_STATE_STAND;
+    attacker->cur_move_type = IK_CNS_MOVE_IDLE;
+    attacker->x = 140;
+    victim->x = 120;
+    attacker->y = victim->y = 180;
+    attacker->in_guard_dist = 1;
+    victim->cur_move_type = IK_CNS_MOVE_ATTACK;
+    victim->cur_state_type = IK_CNS_STATE_STAND;
+    victim->state_time = 4;
+    int saw_parry = 0, saw_guard = 0;
+    for (int n = 0; n < 80; ++n) {
+        ik_fight_controls_t c{};
+        (void)ik_zss_ai_tick(&neutral_fight, 1, 8, &random_a, &c);
+        if (c.has_state_request && c.requested_state == 1300) saw_parry = 1;
+        if (c.back && !c.has_state_request) saw_guard = 1;
+    }
+    OK(saw_parry && saw_guard);
+
+    /* AI anti-air Upper: opponent movement and power select the variants. */
+    victim->cur_move_type = IK_CNS_MOVE_IDLE;
+    victim->cur_state_type = IK_CNS_STATE_AIR;
+    victim->y = 120;
+    attacker->in_guard_dist = 0;
+    attacker->power = 0;
+    victim->vx_q8 = -IK_CNS_Q8_ONE;
+    victim->facing = 1;
+    int saw_weak_upper = 0, saw_strong_upper = 0, saw_fast_upper = 0;
+    for (int n = 0; n < 80; ++n) {
+        ik_fight_controls_t c{};
+        (void)ik_zss_ai_tick(&neutral_fight, 1, 8, &random_a, &c);
+        if (c.has_state_request && c.requested_state == 1100)
+            saw_weak_upper = 1;
+    }
+    victim->vx_q8 = IK_CNS_Q8_ONE;
+    for (int n = 0; n < 80; ++n) {
+        ik_fight_controls_t c{};
+        (void)ik_zss_ai_tick(&neutral_fight, 1, 8, &random_a, &c);
+        if (c.has_state_request && c.requested_state == 1110)
+            saw_strong_upper = 1;
+    }
+    attacker->power = 600;
+    for (int n = 0; n < 80; ++n) {
+        ik_fight_controls_t c{};
+        (void)ik_zss_ai_tick(&neutral_fight, 1, 8, &random_a, &c);
+        if (c.has_state_request && c.requested_state == 1120)
+            saw_fast_upper = 1;
+    }
+    OK(saw_weak_upper && saw_strong_upper && saw_fast_upper);
+
+    /* CPU confirms a real contact AFTER hitpause, even with ctrl=0. */
+    attacker->ctrl = 0;
+    attacker->power = 0;
+    attacker->state = 200;
+    attacker->cur_move_type = IK_CNS_MOVE_ATTACK;
+    attacker->move_hit = attacker->move_contact = 1;
+    attacker->move_contact_time = 2;
+    attacker->hit_pause = 0;
+    victim->cur_move_type = IK_CNS_MOVE_HIT;
+    victim->cur_state_type = IK_CNS_STATE_STAND;
+    victim->hitstun = 14;
+    victim->x = 110;  /* body distance 30 */
+    int saw_chain = 0;
+    for (int n = 0; n < 40; ++n) {
+        ik_fight_controls_t c{};
+        (void)ik_zss_ai_tick(&neutral_fight, 1, 8, &random_a, &c);
+        if (c.has_state_request && c.requested_state == 410) saw_chain = 1;
+    }
+    OK(saw_chain);
+    attacker->state = 210;
+    victim->x = 85;  /* distance 55: strong Palm cancel */
+    ik_fight_controls_t palm{};
+    OK(ik_zss_ai_tick(&neutral_fight, 1, 8, &random_a, &palm));
+    OK(palm.has_state_request && palm.requested_state == 1010);
+    attacker->move_contact_time = 4;  /* expired: no cancel */
+    ik_fight_controls_t expired{};
+    OK(!ik_zss_ai_tick(&neutral_fight, 1, 8, &random_a, &expired));
+    attacker->move_contact_time = 2;
+    attacker->power = 1200;
+    victim->hp = 200;
+    victim->x = 120;
+    int saw_finisher = 0;
+    for (int n = 0; n < 40; ++n) {
+        ik_fight_controls_t c{};
+        (void)ik_zss_ai_tick(&neutral_fight, 1, 8, &random_a, &c);
+        if (c.has_state_request && c.requested_state == 3050)
+            saw_finisher = 1;
+    }
+    OK(saw_finisher);
+
+        neutral_fight.round_state = 3u;
     ik_fight_controls_t outro{};
     OK(!ik_zss_ai_tick(&neutral_fight, 1, 8, &random_a, &outro));
 
