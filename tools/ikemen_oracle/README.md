@@ -407,3 +407,22 @@ This labels original RNG consumption precisely, but does not yet identify
 each specific `AI.zss` expression/line within the bytecode interpreter;
 that requires an interpreter expression/source-map hook. It also does not
 make the global GO and local Saturn RNG streams equivalent.
+
+### Mapping Random() to original expressions
+
+The opt-in GO instrumentation also wraps the pinned compiler's
+`typedExp` path. It registers the **original source expression text**,
+compiler source filename and expression end-line (not an exact token
+column), keyed by its complete compiled bytecode. When the `OC_random`
+opcode executes, the oracle looks up the enclosing bytecode signature.
+An event is `unique` only if exactly one registered expression matches;
+otherwise it is `ambiguous` or `unresolved`. Redirected or concatenated
+runtime expressions may not match their original compiled signature.
+
+The `upstream_rng_events` report groups uniquely mapped source
+expressions and provides the first observed matches with character and
+state context. A unique mapping identifies the **compiled expression**
+that contains the random opcode, not necessarily a separate location
+for each `random` token when the expression has several. The original
+GO engine remains entirely external to the Saturn firmware, and this
+does not imply decision parity.
