@@ -280,7 +280,9 @@ int main() {
        (crouch_medium.requested_state != 200 &&
         crouch_medium.requested_state != 240 &&
         crouch_medium.requested_state != 440));
-    OK(crouch_seed == 1622650073u);
+    /* No crouching fallback poke: native then evaluates the separate
+     * walking probability, consuming one additional RNG value. */
+    OK(crouch_seed == 984943658u);
     victim->cur_state_type = IK_CNS_STATE_STAND;
 
     /* Poke state selection is dependent on INDEPENDENT random draws,
