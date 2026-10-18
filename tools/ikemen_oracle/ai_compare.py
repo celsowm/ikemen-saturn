@@ -19,12 +19,14 @@ try:
     from .run_saturn import cpu_levels
     from .rng_audit import audit_checkpoints, compare_draws
     from .rng_events import load_and_audit
+    from .first_divergence import first_divergence_window
 except ImportError:
     from ai_probe import summarize
     from diff import load_jsonl
     from run_saturn import cpu_levels
     from rng_audit import audit_checkpoints, compare_draws
     from rng_events import load_and_audit
+    from first_divergence import first_divergence_window
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_SCENARIO = (
@@ -199,8 +201,12 @@ def main() -> int:
     report = compare_ai(original, native, players[0])
     report.update({"scenario": scenario["name"], "seed": scenario["seed"],
                    "ai_level": levels[players[0]]})
+    go_events = None
     if args.rng_events:
         report["upstream_rng_events"] = load_and_audit(original, events_path)
+        go_events = load_jsonl(events_path)
+    report["first_divergence_context"] = first_divergence_window(
+        original, native, players[0], go_events)
     outfile = args.out / "comparison.json"
     outfile.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     print(
@@ -210,6 +216,20 @@ def main() -> int:
         "upstream/native attack frames; NOT full AI parity."
     )
     print(f"report: {outfile}")
+    first = report["first_divergence_context"]
+    if first["available"]:
+        print(f"First mismatch: frame {first['first_mismatch_frame']}, "
+              f"context [{first['window_start']}, "
+              f"{first['window_end_exclusive']})")
+        row = next(row for row in first["frames"]
+                   if row["frame"] == first["first_mismatch_frame"])
+        print("First mismatch states: "
+              f"Go={row['go_cpu']['state']}, Saturn={row['saturn_cpu']['state']}; "
+              f"observed GO AI.zss rolls={row['go_ai_zss_random_calls']}")
+        if first["has_attributed_go_events"]:
+            print("Original AI.zss predicates evaluated at first mismatch:",
+                  [(e["end_line"], e["random_0_999"])
+                   for e in row["go_ai_zss_predicates_evaluated"]])
     mem = report["native_memory_debug"]
     if mem is not None:
         print("Native ZSS memory: "

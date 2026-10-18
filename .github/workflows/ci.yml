@@ -44,6 +44,7 @@ jobs:
         run: |
           python tests/tools/test_ikemen_rng_audit.py
           python tests/tools/test_ikemen_rng_events.py
+          python tests/tools/test_ikemen_first_divergence.py
           python tests/tools/test_ikemen_ai_compare.py
           python tests/tools/test_ikemen_oracle.py
 

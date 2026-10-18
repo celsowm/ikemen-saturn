@@ -437,3 +437,16 @@ complete post-frame series, reports how many frames have active
 get-up cooldown, a hitstun opportunity and a jump declaration, and
 **explicitly disclaims original-Go AI parity**. The ordinary CPU smoke
 test checks the memory schema on the real frame driver.
+
+## First divergent CPU frame with original source evidence
+
+After `ai_compare.py --rng-events`, the `comparison.json` contains
+`first_divergence_context`: two frames before and after the **first**
+state mismatch, including both fighters' states/positions, global GO and
+local Saturn RNG checkpoints, the count of GO random calls, and the
+`AI.zss` expressions/rolls actually **evaluated** in GO during those
+frames. The output is deliberately bounded, and the CLI prints the first
+mismatch and the line numbers with observed rolls. This diagnostic
+does not assert that a predicate passed, that it caused the move, or
+that local/global RNG streams align. No source-attribution fields
+are inferred if the optional RNG-event sidecar is absent.
