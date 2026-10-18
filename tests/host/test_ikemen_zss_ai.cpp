@@ -108,6 +108,40 @@ int main() {
     ik_zss_ai_memory_step(&memory_fight, 1, nullptr);
     OK(mem.gurt == 0u && mem.aij == 0u);
 
+    /* The local AI_JI opportunity suppresses *neutral* light/medium
+     * choices while the opponent has remaining hitstun. Clearing the
+     * opportunity must immediately restore the ordinary jab branch. */
+    ik_zss_ai_memory_t chase_memory{};
+    ik_fight_t chase_fight{};
+    chase_fight.round_state = 2u;
+    ik_fighter_t* hunter = &chase_fight.fighters[1];
+    ik_fighter_t* target = &chase_fight.fighters[0];
+    hunter->hp = target->hp = 1000;
+    hunter->state = 0;
+    hunter->facing = -1;
+    hunter->x = 150;
+    hunter->on_ground = hunter->ctrl = 1;
+    hunter->cur_state_type = IK_CNS_STATE_STAND;
+    hunter->cur_move_type = IK_CNS_MOVE_IDLE;
+    target->x = 110; /* facing-relative body distance 40 */
+    target->cur_state_type = IK_CNS_STATE_STAND;
+    target->cur_move_type = IK_CNS_MOVE_IDLE;
+    target->hitstun = 12;
+    target->ctrl = 0;
+    uint32_t chase_seed = 1u;
+    ik_fight_controls_t chase{};
+    (void)ik_zss_ai_tick_memory(
+        &chase_fight, 1u, 8u, &chase_seed, &chase_memory, &chase);
+    OK(chase_memory.ai_ji == 12u);
+    OK(!chase.has_state_request || chase.requested_state != 200);
+    target->ctrl = 1;
+    target->hitstun = 0;
+    ik_fight_controls_t regained{};
+    OK(ik_zss_ai_tick_memory(
+        &chase_fight, 1u, 8u, &chase_seed, &chase_memory, &regained));
+    OK(chase_memory.ai_ji == 0u);
+    OK(regained.has_state_request && regained.requested_state == 200);
+
     static ik_frame_ctx_t ctx{};
     static ik_cns_asset_t cns{};
     static const ik_frame_table_t frames{};
