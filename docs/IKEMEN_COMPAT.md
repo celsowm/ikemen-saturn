@@ -291,8 +291,9 @@ walking/running, stopping at close range, and grounded light punches.
 The original source's airborne Strong Knee cancel takes priority. Connecting
 P2 restores human command control.
 
-This is NOT full AI or original random-stream parity. The per-player local
-LCG is reproducible on host/SH-2 but not Ikemen GO's RNG. Motion prediction,
+This is NOT full AI or original random-stream parity. The native generator
+uses pinned Go's Park-Miller arithmetic and `Rand(0,999)` scaling, but retains
+independent per-player streams and non-upstream consumption order. Motion prediction,
 AI_JI, opponent memory maps, combos, supers, throws, guard strategies, air
 recovery and most script decisions are still missing. Original neutral
 movement clauses are guarded by source checks at asset generation. Host tests
@@ -308,8 +309,8 @@ meter-finisher cancels. Real combat data (move contact age, hitpause, target
 hitstun, life/power, state and distance) drives these decisions.
 
 This remains a bounded native subset and **not** upstream Ikemen AI parity.
-Motion-history maps, juggle queries, AI_JI, all original probabilistic
-evaluation ordering and RNG are deferred. Source predicate patterns are
+Motion-history maps, juggle queries, AI_JI and original probabilistic
+evaluation order/global RNG consumption are deferred. Source predicate patterns are
 checked at generation time, and host unit tests cover the added decisions.
 
 ## Independent AI trace comparison (2026-10-18)
@@ -335,3 +336,22 @@ direction fallback, like AI.zss. Otherwise its intended 25-30px spacing
 oscillates indefinitely without any attacks. Host unit tests now exercise
 attacks directly from State 20; the 360-frame CPU smoke must observe actual
 attack frames.
+
+
+## Original Park-Miller CPU RNG primitive (2026-10-18)
+
+Replaced the earlier per-player LCG with a native port of the pinned
+Ikemen GO `src/common.go` `Random()`: Schrage Park-Miller with multiplier
+16807, modulus 2147483647 and zero seed handling. The **ZSS `random`**
+trigger in `src/bytecode.go` is `Rand(0, 999)`, which divides the
+31-bit output by 2147484. It is *not* modulo 1000.
+The two exported C functions `ik_zss_ai_rng_next` and
+`ik_zss_ai_random_trigger` have fixed golden vectors and their exact
+upstream source patterns are checked by the Python test suite.
+
+The host oracle runner now seeds the standalone CPU from the scenario
+seed, with a per-player offset, instead of an unrelated 32-bit XOR seed.
+**This does not establish AI parity**: upstream shares an engine-global
+PRNG with command processing and all other simulation logic; our native
+CPU consumes only the selected translated AI predicates, often in a
+different order. There is no equivalent global engine stream yet.

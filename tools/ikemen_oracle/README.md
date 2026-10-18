@@ -335,3 +335,14 @@ backend can remove that startup dependency without changing the trace schema.
 The first Saturn runner intentionally uses idle controls. It establishes the
 trace contract and exposes baseline divergences. Replay/input-stream injection
 is the next layer for authored attacks, throws and controller edge cases.
+
+## CPU random trigger fidelity
+
+`ik_zss_ai_rng_next()` mirrors the pinned upstream `Random()` Park-Miller
+(16807) algorithm and `ik_zss_ai_random_trigger()` mirrors the bytecode's
+`Rand(0,999)` integer scaling (not `%1000`). The host CPU uses scenario
+seed + player index, with independent per-player state, and the source
+guards/golden vectors test the primitive. Upstream GO still uses one global
+random stream shared among many systems, and native AI only evaluates its
+implemented predicates: comparison reports remain **diagnostic**, not
+RNG-consumption or whole-fight AI-parity certificates.

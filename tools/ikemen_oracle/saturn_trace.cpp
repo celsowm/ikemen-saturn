@@ -420,9 +420,9 @@ int main(int argc, char** argv) {
         return 3;
     }
 
-    /* The scenario's seed is the local CPU seed only, NOT the upstream
-     * global RNG stream. Character AI is activated after the intro, so all
-     * ordinary scripted scenarios keep their existing input handling. */
+    /* The scenario's seed initializes the standalone Park-Miller CPU stream,
+     * NOT the upstream shared random stream or call order. This happens
+     * before the intro, with AI decisions gated on active RoundState. */
     for (int p = 0; p < 2; ++p) {
         if (ai_levels[p] > 0) {
             if (!ik_frame_set_zss_ai_level(
@@ -431,9 +431,11 @@ int main(int argc, char** argv) {
                 std::fclose(out);
                 return 3;
             }
+            /* Seed Park-Miller directly from this scenario's seed.
+             * Separate per-player streams remain distinct from GO's single
+             * game-global stream; p is a deterministic local offset. */
             ctx.zss_ai_rng[p] =
-                static_cast<uint32_t>(seed) ^
-                (UINT32_C(0x9E3779B9) + static_cast<uint32_t>(p));
+                static_cast<uint32_t>(seed) + static_cast<uint32_t>(p);
         }
     }
 

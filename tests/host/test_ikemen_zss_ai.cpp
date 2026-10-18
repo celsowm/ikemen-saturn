@@ -9,6 +9,39 @@
 #define OK(x) do { if (!(x)) { std::fprintf(stderr, "FAIL %s:%d: %s\n", __FILE__, __LINE__, #x); std::exit(1); } } while (0)
 
 int main() {
+    /* Exact golden Park-Miller vector for Go's pinned common.go Random().
+     * The OC_random trigger is Rand(0,999), NOT raw %1000. */
+    uint32_t golden_seed = 1u;
+    const int32_t expected_next[] = {
+        16807, 282475249, 1622650073, 984943658, 1144108930,
+        470211272, 101027544, 1457850878, 1458777923, 2007237709
+    };
+    const int32_t expected_trigger[] = {
+        0, 131, 755, 458, 532, 218, 47, 678, 679, 934
+    };
+    OK(ik_zss_ai_rng_next(nullptr) == 0);
+    OK(ik_zss_ai_random_trigger(nullptr) == 0);
+    for (unsigned i = 0; i < 10u; ++i) {
+        const int32_t value = ik_zss_ai_rng_next(&golden_seed);
+        OK(value == expected_next[i] && golden_seed == (uint32_t)value);
+    }
+    golden_seed = 1u;
+    for (unsigned i = 0; i < 10u; ++i) {
+        OK(ik_zss_ai_random_trigger(&golden_seed) ==
+           expected_trigger[i]);
+    }
+    OK(golden_seed == 2007237709u);
+    uint32_t zero_seed = 0u;
+    OK(ik_zss_ai_rng_next(&zero_seed) == 2147483646);
+    uint32_t max_seed = UINT32_C(2147483647);
+    OK(ik_zss_ai_rng_next(&max_seed) == 2147483646);
+    uint32_t neg_seed = UINT32_C(0xFFFFFFFF);
+    OK(ik_zss_ai_rng_next(&neg_seed) == 2147466840);
+    uint32_t independent_a = 1u, independent_b = 1u;
+    OK(ik_zss_ai_rng_next(&independent_a) == 16807);
+    OK(independent_b == 1u);
+    OK(ik_zss_ai_rng_next(&independent_b) == 16807);
+
     ik_fight_t fight{};
     fight.round_state = 2;
     ik_fighter_t* f = &fight.fighters[1];

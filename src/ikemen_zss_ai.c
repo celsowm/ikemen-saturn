@@ -14,13 +14,39 @@ int ik_zss_ai_request(const ik_fight_t* fight, uint8_t player,
     return 1;
 }
 
-/* Bounded source-informed subset of AI.zss neutral movement and grounded
- * lights. Its RNG and evaluation order are NOT upstream Ikemen GO's.
- * Source drift of the translated movement branches fails asset generation.
- */
+/* Pinned Ikemen GO src/common.go Random(), with Schrage's 31-bit
+ * Park-Miller calculation. The uint32_t state stores Go's int32 seed bits.
+ * A 64-bit intermediate and explicit 32-bit wrap reproduce Go arithmetic,
+ * including signed initial seeds; positive 1..IMax-1 is the normal cycle.
+ * This does NOT reproduce the engine-global random-call schedule. */
+int32_t ik_zss_ai_rng_next(uint32_t* state) {
+    if (!state) return 0;
+    const int64_t seed = (*state & UINT32_C(0x80000000))
+        ? (int64_t)*state - INT64_C(4294967296) : (int64_t)*state;
+    const int64_t w = seed / INT64_C(127773);
+    const int64_t raw =
+        (seed - w * INT64_C(127773)) * INT64_C(16807) -
+        w * INT64_C(2836);
+    const uint32_t wrapped = (uint32_t)raw;
+    int64_t next = (wrapped & UINT32_C(0x80000000))
+        ? (int64_t)wrapped - INT64_C(4294967296) : (int64_t)wrapped;
+    if (next <= 0) {
+        next += INT64_C(2147483647) - (next == 0 ? 1 : 0);
+    }
+    *state = (uint32_t)next;
+    return (int32_t)next;
+}
+
+/* Pinned src/bytecode.go OC_random evaluates Rand(0, 999), not
+ * Random()%1000. Integer division by IMax/1000 + 1 (=2147484) matches
+ * the upstream inclusive ranged RNG, without floating-point drift. */
+int32_t ik_zss_ai_random_trigger(uint32_t* state) {
+    if (!state) return 0;
+    return ik_zss_ai_rng_next(state) / INT32_C(2147484);
+}
+
 static uint16_t ai_roll(uint32_t* rng) {
-    *rng = *rng * UINT32_C(1664525) + UINT32_C(1013904223);
-    return (uint16_t)((*rng >> 8) % 1000u);
+    return (uint16_t)ik_zss_ai_random_trigger(rng);
 }
 static uint16_t ai_threshold(uint8_t level, uint16_t base) {
     return (uint16_t)(((uint32_t)base * level * level) / 48u);

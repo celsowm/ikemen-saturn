@@ -63,3 +63,26 @@ def validate_ai_combat(path: Path) -> None:
             raise ValueError(
                 f"{path}: ZSS AI combat source changed at {clause[:48]!r}; "
                 "refusing stale native defensive/cancel decisions")
+
+
+# The native decision stream uses these *exact* pinned Go RNG primitives.
+# This guard detects source changes; it does not assert game-wide call parity.
+def validate_go_rng(common_go: Path, bytecode_go: Path) -> None:
+    common = common_go.read_text(encoding="utf-8")
+    bytecode = bytecode_go.read_text(encoding="utf-8")
+    expected = (
+        "w := sys.randseed / 127773",
+        "sys.randseed = (sys.randseed-w*127773)*16807 - w*2836",
+        "if sys.randseed <= 0 {",
+        "sys.randseed += IMax - Btoi(sys.randseed == 0)",
+        "return min + Random()/(IMax/(max-min+1)+1)",
+    )
+    compact = re.sub(r"\\s+", "", common)
+    for clause in expected:
+        if re.sub(r"\\s+", "", clause) not in compact:
+            raise ValueError(f"{common_go}: upstream Random/Rand changed at {clause!r}")
+    if re.search(
+        r"case\\s+OC_random\\s*:\\s*sys\\.bcStack\\.PushI\\(Rand\\(0,\\s*999\\)\\)",
+        bytecode,
+    ) is None:
+        raise ValueError(f"{bytecode_go}: upstream random trigger changed")
