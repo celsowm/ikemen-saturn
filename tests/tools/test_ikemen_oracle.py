@@ -76,6 +76,19 @@ func (cl *CommandList) InputUpdate(char *Char, controller int) bool {
             "}\n"
         )
         bytecode_go.write_text(bytecode_source, encoding="utf-8")
+        compiler_go = src / "compiler.go"
+        compiler_source = (
+            "package main\n"
+            "func (c *CharCompiler) typedExp(ef expFunc, in *string,\n"
+            "\tvt ValueType) (BytecodeExp, error) {\n"
+            "\tc.token = c.tokenizer(in)\n"
+            "\tvar be BytecodeExp\n"
+            "\treturn be, nil\n"
+            "}\n\n"
+            "func (c *CharCompiler) argExpression(in *string, vt ValueType) (BytecodeExp, error) {\n"
+            "\treturn nil, nil\n}\n"
+        )
+        compiler_go.write_text(compiler_source, encoding="utf-8")
 
         hook = Path(td) / "oracle_hook.go"
         hook.write_text("package main\n", encoding="utf-8")
@@ -90,6 +103,10 @@ func (cl *CommandList) InputUpdate(char *Char, controller int) bool {
         assert (src / "libsaturn_oracle.go").is_file()
         patched_common = common_go.read_text(encoding="utf-8")
         patched_bytecode = bytecode_go.read_text(encoding="utf-8")
+        patched_compiler = compiler_go.read_text(encoding="utf-8")
+        assert patched_compiler.count("libsaturnOracleRegisterExpression(") == 1
+        assert patched_compiler.count("originalExpression := *in") == 1
+        assert patched_bytecode.count("libsaturnOracleLookupExpression(be, i - 1)") == 1
         assert patched_common.count("libsaturnOracleRecordRandom(sys.randseed)") == 1
         assert patched_bytecode.count("libsaturnOracleRandomOwner = c") == 1
         assert patched_bytecode.count("libsaturnOracleRandomOwner = previousOwner") == 1
@@ -104,12 +121,14 @@ func (cl *CommandList) InputUpdate(char *Char, controller int) bool {
         assert patched_input2.count(END_MARKER) == 1
         assert common_go.read_text(encoding="utf-8") == patched_common
         assert bytecode_go.read_text(encoding="utf-8") == patched_bytecode
+        assert compiler_go.read_text(encoding="utf-8") == patched_compiler
 
         uninstall(root)
         assert system_go.read_text(encoding="utf-8") == source
         assert input_go.read_text(encoding="utf-8") == input_source
         assert common_go.read_text(encoding="utf-8") == common_source
         assert bytecode_go.read_text(encoding="utf-8") == bytecode_source
+        assert compiler_go.read_text(encoding="utf-8") == compiler_source
         assert not (src / "libsaturn_oracle.go").exists()
 
 
