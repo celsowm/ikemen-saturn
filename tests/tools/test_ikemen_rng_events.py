@@ -38,7 +38,7 @@ assert result["event_count"] == 3
 with TemporaryDirectory() as tmp:
     event_path = Path(tmp) / "random.jsonl"
     event_path.write_text(
-        "".join(json.dumps({"schema": 1, **row}) + "\\n" for row in events),
+        "".join(json.dumps({"schema": 1, **row}) + "\n" for row in events),
         encoding="utf-8",
     )
     assert load_and_audit(frames, event_path)["event_count"] == 3
