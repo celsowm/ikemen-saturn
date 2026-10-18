@@ -265,12 +265,12 @@ int main() {
      * at <=425 gate (which has its own additional <45 condition). */
     attacker->x = 150;
     victim->x = 100;
-    uint32_t medium_seed = 1u; /* rolls: 0, 131, 755 */
+    uint32_t medium_seed = 1u; /* heavy 0, poke 131, 755, 458 */
     ik_fight_controls_t stand_medium{};
     OK(ik_zss_ai_tick(&neutral_fight, 1, 8,
                        &medium_seed, &stand_medium));
     OK(stand_medium.has_state_request && stand_medium.requested_state == 440);
-    OK(medium_seed == 1622650073u);
+    OK(medium_seed == 984943658u);
     victim->cur_state_type = IK_CNS_STATE_CROUCH;
     uint32_t crouch_seed = 1u;
     ik_fight_controls_t crouch_medium{};
@@ -282,30 +282,30 @@ int main() {
         crouch_medium.requested_state != 440));
     /* No crouching fallback poke: native then evaluates the separate
      * walking probability, consuming one additional RNG value. */
-    OK(crouch_seed == 984943658u);
+    OK(crouch_seed == 1144108930u);
     victim->cur_state_type = IK_CNS_STATE_STAND;
 
-    /* Poke state selection is dependent on INDEPENDENT random draws,
-     * and the conditional third draw occurs only in the 45..50px zone. */
-    uint32_t poke210_seed = 7u; /* 0, 920; 920%4 == 0 */
+    /* Heavy's unused RNG draw precedes independent poke draws.
+     * Poke subconditions short-circuit the third modulo by distance. */
+    uint32_t poke210_seed = 8u; /* 0, 52, 44; 44%4 == 0 */
     ik_fight_controls_t poke210{};
     OK(ik_zss_ai_tick(&neutral_fight, 1, 8,
                        &poke210_seed, &poke210));
     OK(poke210.has_state_request && poke210.requested_state == 210);
-    OK(poke210_seed == 1977326743u);
-    uint32_t poke240_seed = 6u; /* 0, 789, 533; 533%4 == 1 */
+    OK(poke210_seed == 96298702u);
+    uint32_t poke240_seed = 2u; /* 0, 263, 511, 917; 917%4 == 1 */
     ik_fight_controls_t poke240{};
     OK(ik_zss_ai_tick(&neutral_fight, 1, 8,
                        &poke240_seed, &poke240));
     OK(poke240.has_state_request && poke240.requested_state == 240);
-    OK(poke240_seed == 1145965850u);
+    OK(poke240_seed == 1969887316u);
     victim->x = 95; /* 55px: third random must NOT be evaluated */
     uint32_t far_poke_seed = 1u;
     ik_fight_controls_t far_poke{};
     OK(ik_zss_ai_tick(&neutral_fight, 1, 8,
                        &far_poke_seed, &far_poke));
     OK(far_poke.has_state_request && far_poke.requested_state == 440);
-    OK(far_poke_seed == 282475249u);
+    OK(far_poke_seed == 1622650073u);
     victim->x = 89; /* 61px: no poke draw and no move */
     uint32_t out_of_poke_seed = 1u;
     ik_fight_controls_t no_poke{};

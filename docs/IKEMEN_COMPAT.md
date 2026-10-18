@@ -493,3 +493,14 @@ conditions are not ported. Host tests check the two-call Upper →
 anti-air-normal RNG sequence, 5040 suppression, the first
 backdash roll, RNG rejection and insufficient back-edge space.
 The GO AI parity suite remains diagnostic, not an equality gate.
+
+### A discarded random draw still matters
+
+For a grounded opponent 45–59px away, the original AI.zss first
+evaluates the `random <= 425 * AILevel²/48` heavy predicate, even
+though its inner `att == 240 && distance < 45` prevents the attack.
+The native port now consumes that original random call *before* the
+source-ordered poke expressions; at 60px the heavy predicate is false
+and must not consume it. The host golden seed tests cover the extra
+draw and short-circuit order. This still does not reproduce draws made
+elsewhere in the upstream GO engine.

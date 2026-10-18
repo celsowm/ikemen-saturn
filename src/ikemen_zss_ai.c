@@ -274,10 +274,14 @@ int ik_zss_ai_tick_memory(const ik_fight_t* fight, uint8_t player,
     }
 
     /* AI.zss 203-214: grounded heavy chooses 240, but its INNER
-     * p2BodyDist x < 45 gate forbids 240 at 45..60px. The prior
-     * native branch erroneously ignored this gate and fired early.
-     * At this range, native movement decisions must continue to the
-     * separate poke family, not invent a heavy attack. */
+     * p2BodyDist x < 45 gate forbids 240 at 45..60px. IMPORTANT: the
+     * OUTER random<=425 expression is still evaluated at 45..<60,
+     * even when the following selection cannot fire. Keep this
+     * otherwise-unused draw in source order before the poke lottery. */
+    if (memory->ai_ji == 0u && grounded && !foe_hit &&
+        dist >= 45 && dist < 60) {
+        (void)ai_roll(rng);
+    }
 
     /* AI.zss 230-242: medium-range poke lottery. Each random opcode
      * gets an independent original Rand(0,999) value. In the second
