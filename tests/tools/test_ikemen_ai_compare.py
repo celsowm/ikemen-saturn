@@ -64,14 +64,18 @@ assert report["observed_attacks_on_both_sides"]
 assert report["ai_parity_verified"] is False
 assert report["random_debug"]["native_cpu_first"] is None
 assert report["random_debug"]["same_random_stream"] is False
-for i, row in enumerate(native):
-    row["native_ai_rng"] = [None, (i + 1) * 16807]
-up[0]["rand_seed"] = 1
-up[-1]["rand_seed"] = 77
+for i, (row, value) in enumerate(zip(
+        native, (16807, 282475249, 1622650073))):
+    row["native_ai_rng"] = [None, value]
+for row, value in zip(up, (1, 16807, 282475249)):
+    row["rand_seed"] = value
 snapshots = compare_ai(up, native, 1)
 assert snapshots["random_debug"]["native_cpu_first"] == 16807
-assert snapshots["random_debug"]["native_cpu_last"] == 50421
-assert snapshots["random_debug"]["upstream_global_last"] == 77
+assert snapshots["random_debug"]["native_cpu_last"] == 1622650073
+assert snapshots["random_debug"]["upstream_global_last"] == 282475249
+assert snapshots["random_debug"]["upstream_global_draw_audit"]["draws_by_frame"] == [None, 1, 1]
+assert snapshots["random_debug"]["native_cpu_draw_audit"]["draws_by_frame"] == [None, 1, 1]
+assert snapshots["random_debug"]["draw_count_comparison"]["different_draw_count_frames"] == 0
 native[1].pop("native_ai_rng")
 try:
     compare_ai(up, native, 1)
@@ -79,7 +83,7 @@ except ValueError:
     pass
 else:
     raise AssertionError("incomplete native random trace accepted")
-native[1]["native_ai_rng"] = [None, 33614]
+native[1]["native_ai_rng"] = [None, 282475249]
 assert report["upstream"]["state_histogram"]["200"] == 2
 for a, b in ((up, []), (up, native[:2])):
     try:
