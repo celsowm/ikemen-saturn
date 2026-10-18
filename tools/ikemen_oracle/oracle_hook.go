@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"sync"
 	"strings"
 )
 
@@ -82,9 +83,25 @@ type libsaturnOracleRandomEvent struct {
 	HelperIndex int `json:"helper_index"`
 	StateNo int32 `json:"state_no"`
 	StateTime int32 `json:"state_time"`
+	ExprResolution string `json:"expr_resolution"`
+	ExprFile string `json:"expr_file,omitempty"`
+	ExprEndLine int `json:"expr_end_line,omitempty"`
+	ExprStateNo int32 `json:"expr_state_no,omitempty"`
+	ExprText string `json:"expr_text,omitempty"`
+}
+
+type libsaturnOracleExpression struct {
+	file string
+	endLine int
+	stateNo int32
+	text string
 }
 
 var (
+	libsaturnOracleExpressionMu sync.Mutex
+	libsaturnOracleExpressions = make(map[string][]libsaturnOracleExpression)
+	libsaturnOracleCurrentExpression libsaturnOracleExpression
+	libsaturnOracleExpressionResolution string
 	libsaturnOracleRandomFile    *os.File
 	libsaturnOracleRandomWriter  *bufio.Writer
 	libsaturnOracleRandomEncoder *json.Encoder
@@ -102,6 +119,48 @@ var (
 	libsaturnOracleStarted    bool
 	libsaturnOracleSetupDone  bool
 )
+
+// Convert a bytecode slice to a stable *exact* key. Content matching is
+// independent of whether the compiler moves/reallocates backing slices.
+func libsaturnOracleBytecodeKey(be BytecodeExp) string {
+	b := make([]byte, len(be))
+	for i, op := range be { b[i] = byte(op) }
+	return string(b)
+}
+
+// Executed while the pinned compiler constructs each bytecode expression.
+// Duplicates across characters or states are kept distinct, unless identical
+// source locations and contents. Ambiguity is never hidden at runtime.
+func libsaturnOracleRegisterExpression(file string, endLine int, stateNo int32, text string, be BytecodeExp) {
+	if os.Getenv("LIBSATURN_IKEMEN_ORACLE_RNG_EVENTS") == "" || len(be) == 0 { return }
+	if len(text) > 320 { text = text[:320] }
+	e := libsaturnOracleExpression{file, endLine, stateNo, text}
+	key := libsaturnOracleBytecodeKey(be)
+	libsaturnOracleExpressionMu.Lock()
+	defer libsaturnOracleExpressionMu.Unlock()
+	for _, other := range libsaturnOracleExpressions[key] {
+		if other == e { return }
+	}
+	libsaturnOracleExpressions[key] = append(libsaturnOracleExpressions[key], e)
+}
+
+// Called in the original OC_random case. A strict single-key lookup avoids
+// inventing a source line when multiple compiled expressions are identical.
+func libsaturnOracleLookupExpression(be BytecodeExp, opcodeIndex int) {
+	libsaturnOracleCurrentExpression = libsaturnOracleExpression{}
+	libsaturnOracleExpressionResolution = "unresolved"
+	if !libsaturnOracleRandomEnabled || opcodeIndex < 0 || opcodeIndex >= len(be) { return }
+	key := libsaturnOracleBytecodeKey(be)
+	libsaturnOracleExpressionMu.Lock()
+	candidates := libsaturnOracleExpressions[key]
+	if len(candidates) == 1 {
+		libsaturnOracleCurrentExpression = candidates[0]
+		libsaturnOracleExpressionResolution = "unique"
+	} else if len(candidates) > 1 {
+		libsaturnOracleExpressionResolution = "ambiguous"
+	}
+	libsaturnOracleExpressionMu.Unlock()
+}
 
 // Called from the pinned common.go Random(), after it updates sys.randseed.
 // Pure observation, activated only by the RNG_EVENTS env var. We record the
@@ -141,6 +200,11 @@ func libsaturnOracleRecordRandom(value int32) {
 		File: file, Line: line, Function: function,
 		PlayerNo: playerNo, HelperIndex: helperIndex,
 		StateNo: stateNo, StateTime: stateTime,
+		ExprResolution: libsaturnOracleExpressionResolution,
+		ExprFile: libsaturnOracleCurrentExpression.file,
+		ExprEndLine: libsaturnOracleCurrentExpression.endLine,
+		ExprStateNo: libsaturnOracleCurrentExpression.stateNo,
+		ExprText: libsaturnOracleCurrentExpression.text,
 	}
 	if err := libsaturnOracleRandomEncoder.Encode(&event); err != nil {
 		panic(err)
@@ -303,6 +367,8 @@ func libsaturnOracleBeginMatch(s *System) error {
 	libsaturnOracleRandomEnabled = false
 	libsaturnOracleRandomOrdinal = 0
 	libsaturnOracleRandomOwner = nil
+	libsaturnOracleCurrentExpression = libsaturnOracleExpression{}
+	libsaturnOracleExpressionResolution = "unresolved"
 	if path := os.Getenv("LIBSATURN_IKEMEN_ORACLE_RNG_EVENTS"); path != "" {
 		f, err := os.Create(path)
 		if err != nil {
