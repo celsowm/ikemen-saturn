@@ -27,6 +27,7 @@ def audit_events(frames: list[dict], events: list[dict]) -> dict:
     contexts: Counter[str] = Counter()
     expression_status: Counter[str] = Counter()
     unique_expressions: Counter[str] = Counter()
+    original_ai_expressions: Counter[str] = Counter()
     previous_frame = -1
     previous_ordinal = 0
     per_frame: list[list[dict]] = [[] for _ in frames]
@@ -62,6 +63,8 @@ def audit_events(frames: list[dict], events: list[dict]) -> dict:
                 not isinstance(expr_text, str) or not expr_text):
                 raise ValueError("uniquely resolved expression lacks original source")
             unique_expressions[f"{expr_file}:{expr_end_line}: {expr_text[:90]}"] += 1
+            if Path(expr_file).name.casefold() == "ai.zss":
+                original_ai_expressions[f"{expr_file}:{expr_end_line}: {expr_text[:110]}"] += 1
         previous_frame, previous_ordinal = frame, ordinal
         counts[frame] += 1
         files[file] += 1
@@ -97,6 +100,8 @@ def audit_events(frames: list[dict], events: list[dict]) -> dict:
         "by_player_state": dict(contexts.most_common()),
         "expression_resolution": dict(expression_status.most_common()),
         "unique_source_expressions": dict(unique_expressions.most_common(25)),
+        "original_ai_zss_expressions": dict(original_ai_expressions.most_common(30)),
+        "original_ai_zss_resolved_draws": sum(original_ai_expressions.values()),
         "uniquely_resolved_calls": expression_status["unique"],
         "unresolved_or_ambiguous_calls": expression_status["unresolved"] + expression_status["ambiguous"],
         "first_16_events": events[:16],
@@ -108,6 +113,11 @@ def audit_events(frames: list[dict], events: list[dict]) -> dict:
         ][:12],
         "first_12_unique_expressions": [
             event for event in events if event["expr_resolution"] == "unique"
+        ][:12],
+        "first_12_ai_zss_random_draws": [
+            event for event in events
+            if (event["expr_resolution"] == "unique" and
+                Path(event["expr_file"]).name.casefold() == "ai.zss")
         ][:12],
         "all_saved_intervals_reconciled": True,
         "ai_decision_parity_verified": False,
