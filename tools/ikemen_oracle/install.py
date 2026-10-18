@@ -32,10 +32,36 @@ PATCHED_RANDOM = (
     f"\t{END_MARKER}\n" + RANDOM_ANCHOR
 )
 
+COMPILE_CAPTURE_ANCHOR = (
+    "func (c *CharCompiler) typedExp(ef expFunc, in *string,\n"
+    "\tvt ValueType) (BytecodeExp, error) {\n"
+    "\tc.token = c.tokenizer(in)\n"
+)
+COMPILE_CAPTURE_PATCH = (
+    "func (c *CharCompiler) typedExp(ef expFunc, in *string,\n"
+    "\tvt ValueType) (BytecodeExp, error) {\n"
+    f"\t{BEGIN_MARKER}\n"
+    "\toriginalExpression := *in\n"
+    f"\t{END_MARKER}\n"
+    "\tc.token = c.tokenizer(in)\n"
+)
+COMPILE_RETURN_ANCHOR = (
+    "\treturn be, nil\n"
+    "}\n\n"
+    "func (c *CharCompiler) argExpression"
+)
+COMPILE_RETURN_PATCH = (
+    f"\t{BEGIN_MARKER}\n"
+    "\tlibsaturnOracleRegisterExpression(c.currentFile, c.i, c.stateNo, originalExpression, be)\n"
+    f"\t{END_MARKER}\n"
+    + COMPILE_RETURN_ANCHOR
+)
+
 BYTECODE_ANCHOR = "\t\tcase OC_random:\n\t\t\tsys.bcStack.PushI(Rand(0, 999))\n"
 PATCHED_BYTECODE = (
     "\t\tcase OC_random:\n"
     f"\t\t\t{BEGIN_MARKER}\n"
+    "\t\t\tlibsaturnOracleLookupExpression(be, i - 1)\n"
     "\t\t\tpreviousOwner := libsaturnOracleRandomOwner\n"
     "\t\t\tlibsaturnOracleRandomOwner = c\n"
     f"\t\t\t{END_MARKER}\n"
@@ -83,6 +109,7 @@ def install(root: Path, source_hook: Path) -> None:
     input_go = root / "src" / "input.go"
     common_go = root / "src" / "common.go"
     bytecode_go = root / "src" / "bytecode.go"
+    compiler_go = root / "src" / "compiler.go"
     hook_dst = root / "src" / "libsaturn_oracle.go"
     if not system_go.is_file():
         raise SystemExit(f"Ikemen GO system.go not found: {system_go}")
@@ -97,6 +124,12 @@ def install(root: Path, source_hook: Path) -> None:
     if bytecode_text.count(BYTECODE_ANCHOR) != 1:
         raise SystemExit("Ikemen GO OC_random opcode changed; refusing unsafe patch")
 
+    if not compiler_go.is_file():
+        raise SystemExit(f"Ikemen GO compiler.go not found: {compiler_go}")
+    compiler_text = remove_marked_blocks(compiler_go.read_text(encoding="utf-8"))
+    if (compiler_text.count(COMPILE_CAPTURE_ANCHOR) != 1 or
+            compiler_text.count(COMPILE_RETURN_ANCHOR) != 1):
+        raise SystemExit("Ikemen GO typedExp compiler changed; refusing unsafe patch")
     common_text = remove_marked_blocks(common_go.read_text(encoding="utf-8"))
     if common_text.count(RANDOM_ANCHOR) != 1:
         raise SystemExit("Ikemen GO Random() anchor changed; refusing unsafe patch")
@@ -123,6 +156,11 @@ def install(root: Path, source_hook: Path) -> None:
         bytecode_text.replace(BYTECODE_ANCHOR, PATCHED_BYTECODE, 1),
         encoding="utf-8",
     )
+    compiler_go.write_text(
+        compiler_text.replace(COMPILE_CAPTURE_ANCHOR, COMPILE_CAPTURE_PATCH, 1)
+                     .replace(COMPILE_RETURN_ANCHOR, COMPILE_RETURN_PATCH, 1),
+        encoding="utf-8",
+    )
     shutil.copyfile(source_hook, hook_dst)
     print(f"installed oracle hook in {root}")
 
@@ -131,6 +169,7 @@ def uninstall(root: Path) -> None:
     input_go = root / "src" / "input.go"
     common_go = root / "src" / "common.go"
     bytecode_go = root / "src" / "bytecode.go"
+    compiler_go = root / "src" / "compiler.go"
     hook_dst = root / "src" / "libsaturn_oracle.go"
     if system_go.is_file():
         text = system_go.read_text(encoding="utf-8")
@@ -146,6 +185,11 @@ def uninstall(root: Path) -> None:
     if bytecode_go.is_file():
         text = bytecode_go.read_text(encoding="utf-8")
         bytecode_go.write_text(remove_marked_blocks(text), encoding="utf-8")
+    if compiler_go.is_file():
+        compiler_go.write_text(
+            remove_marked_blocks(compiler_go.read_text(encoding="utf-8")),
+            encoding="utf-8",
+        )
     if hook_dst.exists():
         hook_dst.unlink()
     print(f"removed oracle hook from {root}")
