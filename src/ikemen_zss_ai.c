@@ -229,6 +229,42 @@ int ik_zss_ai_tick(const ik_fight_t* fight, uint8_t player,
         return 1;
     }
 
+    /* AI.zss lines 498-523: narrowly lowered jump declaration.
+     * The original emits an RNG value before checking the wider state,
+     * distance and edge predicates. In native we only evaluate that roll
+     * for eligible 80..90px grounded neutral encounters, because the
+     * global GO random call schedule and the gurt/AI_JI maps are missing.
+     * At a safe distance the original jump requires either the opponent
+     * attacking (level > 6), or our front edge < 50px plus a 375-scaled
+     * roll. The latter is an intentionally narrower source-backed case.
+     * Both paths preserve the original Rand(0,999) draw even if an
+     * attacking opponent grants the unconditional level>6 alternative.
+     * Native requests actual CNS State 40; it does not invent a jump arc.
+     */
+    if (f->on_ground && f->ctrl && 
+        (f->state == 0 || f->state == 20) &&
+        f->cur_state_type == IK_CNS_STATE_STAND &&
+        f->cur_move_type != IK_CNS_MOVE_HIT &&
+        !foe_hit && grounded && dist >= 80 && dist <= 90 &&
+        f->prev_state != 5120) {
+        const int bounds_known = f->xmin_q8 < f->xmax_q8 &&
+            f->x_q8 >= f->xmin_q8 && f->x_q8 <= f->xmax_q8;
+        const int front_edge = (int)((f->facing >= 0
+            ? f->xmax_q8 - f->x_q8 : f->x_q8 - f->xmin_q8) /
+            IK_CNS_Q8_ONE) - f->push_front;
+        const int close_to_front_edge = bounds_known && front_edge < 50;
+        if (close_to_front_edge || (foe_attacking && level > 6u)) {
+            const uint16_t roll = ai_roll(rng);
+            if ((close_to_front_edge &&
+                 roll < ai_threshold(level, 375u)) ||
+                (foe_attacking && level > 6u)) {
+                ai_state(out, 40);
+                out->forward = 1u;
+                return 1;
+            }
+        }
+    }
+
     /* The original AI.zss evaluates neutral attacks even when the character
      * is walking in State 20. Walking direction is a fallback only. Evaluating
      * it first trapped the CPU in a 25-30px spacing oscillation forever. */

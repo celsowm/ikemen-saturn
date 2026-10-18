@@ -32,6 +32,28 @@ NEUTRAL_CLAUSES = [
 ]
 
 
+# Pinned original State -1 jump declaration and cancellation fragments.
+# The native lowering deliberately accepts only the conservative neutral
+# 80..90px case and does not claim the complete AIJ/gurt/AI_JI state machine.
+JUMP_CLAUSES = [
+    'ifstatetype!=a&&(((!map(gurt))&&(random<(375*(ailevelf**2/48.0))||p2movetype=a&&ailevelf>6)',
+    '(p2bodydistx=[70,90+(floor(velx*.4)*5)]||frontedgedist<30)&&p2movetype!=h',
+    'p2bodydistx<80&&frontedgebodydist>60&&!$nojug',
+    'if$aij&&(ctrl||stateno=20||stateno=100){changestate{value:40}}',
+]
+
+
+def validate_ai_jump(path: Path) -> None:
+    source = path.read_text(encoding="utf-8-sig")
+    compact = "".join(line.split("#", 1)[0] for line in source.splitlines())
+    compact = re.sub(r"\s+", "", compact).lower()
+    for clause in JUMP_CLAUSES:
+        if compact.count(clause) != 1:
+            raise ValueError(
+                f"{path}: ZSS AI jump source changed at {clause[:48]!r}; "
+                "refusing stale native jumping rule")
+
+
 def validate_ai_neutral(path: Path) -> None:
     source = path.read_text(encoding="utf-8-sig")
     compact = "".join(line.split("#", 1)[0] for line in source.splitlines())

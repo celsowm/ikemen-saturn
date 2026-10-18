@@ -410,3 +410,21 @@ get-up behavior and the engine-global RNG schedule are **not**
 reproduced; these are bounded improvements, not whole-AI parity.
 Host tests pin throw selection, forbidden hitstun throw, ranged light,
 medium heavy and exact first-draw seed advancement.
+
+## Native KFM ZSS conditional jump declaration (2026-10-18)
+
+The upstream Go oracle identified 331 random draws in the main
+`AI.zss` jump condition ending at line 507. The native CPU now lowers
+a deliberately **narrow** 80–90px grounded neutral case of that
+decision: if the opponent is attacking at AI level 7–8, the jump
+is allowed independent of the RNG threshold (but still consumes
+the first random roll), or if the character is near the forward
+stage edge the jump is gated by the original strict
+`random < 375 * AILevel² / 48` predicate. The request uses real
+CNS State 40 and forwards movement rather than inventing a
+new jump physics routine. The rule refuses an invalid/unknown stage
+boundary and follows the original source guards for jump and
+cancellation. Current implementation does **not** implement all
+get-up, AI_JI, hitDefAttr, AIJ persistence, arbitrary distances
+or global RNG consumption order. Tests cover edge/AI-level gating,
+RNG call order, no jump inside 80px and source drift.

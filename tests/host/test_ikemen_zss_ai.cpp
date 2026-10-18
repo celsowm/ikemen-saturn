@@ -203,6 +203,57 @@ int main() {
     OK(medium_seed == 16807u);
     victim->cur_state_type = IK_CNS_STATE_STAND;
 
+    /* AI.zss State -1 jump decision around lines 498-523.
+     * Opponent attacking at 85px and AI level 8 permits jump even if
+     * the random branch failed. It MUST still consume that RNG draw. */
+    attacker->state = 0;
+    attacker->prev_state = 0;
+    attacker->ctrl = attacker->on_ground = 1;
+    attacker->cur_state_type = IK_CNS_STATE_STAND;
+    attacker->cur_move_type = IK_CNS_MOVE_IDLE;
+    attacker->x = 140;
+    victim->x = 55;
+    victim->cur_state_type = IK_CNS_STATE_STAND;
+    victim->cur_move_type = IK_CNS_MOVE_ATTACK;
+    uint32_t jump_seed = 282475249u; /* next roll=755; gate 500 fails */
+    ik_fight_controls_t threat_jump{};
+    OK(ik_zss_ai_tick(&neutral_fight, 1, 8, &jump_seed, &threat_jump));
+    OK(threat_jump.has_state_request && threat_jump.requested_state == 40);
+    OK(threat_jump.forward && jump_seed == 1622650073u);
+    /* Below level 7 that alternative is forbidden when away from edges. */
+    uint32_t low_level_seed = 1u;
+    ik_fight_controls_t low_level_jump{};
+    OK(!ik_zss_ai_tick(&neutral_fight, 1, 6,
+                       &low_level_seed, &low_level_jump));
+    OK(low_level_seed == 1u);
+    /* Edge-driven jump is random gated and uses the source's strict <.
+     * A 755 roll rejects it, while seed 1 produces zero and requests 40. */
+    victim->cur_move_type = IK_CNS_MOVE_IDLE;
+    attacker->x_q8 = 140 * IK_CNS_Q8_ONE;
+    attacker->xmin_q8 = 120 * IK_CNS_Q8_ONE;
+    attacker->xmax_q8 = 305 * IK_CNS_Q8_ONE;
+    uint32_t edge_seed = 1u;
+    ik_fight_controls_t edge_jump{};
+    OK(ik_zss_ai_tick(&neutral_fight, 1, 8, &edge_seed, &edge_jump));
+    OK(edge_jump.has_state_request && edge_jump.requested_state == 40);
+    OK(edge_seed == 16807u);
+    uint32_t rejected_seed = 282475249u;
+    ik_fight_controls_t rejected_jump{};
+    (void)ik_zss_ai_tick(&neutral_fight, 1, 8, &rejected_seed,
+                        &rejected_jump);
+    OK(!rejected_jump.has_state_request ||
+       rejected_jump.requested_state != 40);
+    OK(rejected_seed == 1622650073u);
+    /* The original jump cancel expression disallows close neutral
+     * attempts; at 60px the new branch must not steal an attack. */
+    victim->x = 80;
+    uint32_t near_seed = 1u;
+    ik_fight_controls_t near_jump{};
+    (void)ik_zss_ai_tick(&neutral_fight, 1, 8, &near_seed, &near_jump);
+    OK(!near_jump.has_state_request || near_jump.requested_state != 40);
+    /* Restore legacy uninitialized bounds used by earlier fixtures. */
+    attacker->x_q8 = attacker->xmin_q8 = attacker->xmax_q8 = 0;
+
     attacker->state = 100;
     attacker->x = 110;
     victim->x = 90;
