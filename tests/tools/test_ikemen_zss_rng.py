@@ -17,6 +17,25 @@ with TemporaryDirectory() as temp:
         assert "upstream Random/Rand changed" in str(exc)
     else:
         raise AssertionError("unreviewed Go RNG multiplier accepted")
+    # A locally instrumented GO checkout must preserve the original RNG
+    # contract even though the hook wraps the bytecode instruction.
+    from tools.ikemen_oracle.install import (
+        RANDOM_ANCHOR, PATCHED_RANDOM, BYTECODE_ANCHOR, PATCHED_BYTECODE,
+    )
+    restored_common = Path(temp) / "instrumented_common.go"
+    restored_bytecode = Path(temp) / "instrumented_bytecode.go"
+    restored_common.write_text(
+        original.replace(RANDOM_ANCHOR, PATCHED_RANDOM, 1),
+        encoding="utf-8",
+    )
+    bytecode_original = (root / "bytecode.go").read_text(encoding="utf-8")
+    assert bytecode_original.count(BYTECODE_ANCHOR) == 1
+    restored_bytecode.write_text(
+        bytecode_original.replace(BYTECODE_ANCHOR, PATCHED_BYTECODE, 1),
+        encoding="utf-8",
+    )
+    validate_go_rng(restored_common, restored_bytecode)
+
     bad_bc = Path(temp) / "bytecode.go"
     bytecode = (root / "bytecode.go").read_text(encoding="utf-8")
     assert "sys.bcStack.PushI(Rand(0, 999))" in bytecode
