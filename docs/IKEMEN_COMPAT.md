@@ -381,3 +381,15 @@ previous saved checkpoint. Explicit AI-probe CI uploads those raw
 events. A state/character attribution is not a claim that the specific
 source-level `AI.zss` predicate has been located yet, nor proof of
 native decision parity.
+
+## Compiled expression source mapping for original AI (2026-10-18)
+
+The optional upstream RNG hook now registers each compiled expression's
+original text, source file and end-line, and looks up the complete
+bytecode fingerprint at each `OC_random` execution. Events explicitly
+distinguish **unique**, **ambiguous** and **unresolved** mappings.
+The source is a compiler expression location, not necessarily the
+individual random token's column; nested/flattened bytecode may fail
+to resolve. These records let us identify actual executed AI.zss
+conditions without guessing from state numbers. The result is an
+upstream observational tool, not a complete Saturn translation.
