@@ -423,9 +423,14 @@ int main() {
      * crouching targets within 35px; 40px is not a legal request. */
     victim->x = 112; /* 28px facing-relative, inside the crouch gate */
     victim->cur_state_type = IK_CNS_STATE_CROUCH;
+    /* Close throw is correctly checked first. Force its 413 threshold
+     * to fail (first Rand(0,999)=469) so the inner 35px light gate
+     * can be exercised independently of previous test RNG history. */
+    uint32_t crouch_jab_seed = 60000u;
     ik_fight_controls_t crouch{};
-    OK(ik_zss_ai_tick(&neutral_fight, 1, 8, &random_a, &crouch));
+    OK(ik_zss_ai_tick(&neutral_fight, 1, 8, &crouch_jab_seed, &crouch));
     OK(crouch.has_state_request && crouch.requested_state == 400);
+    OK(crouch_jab_seed == 1008420000u);
 
     /* CPU needs to attack from State 20 before applying AIw walk direction;
      * otherwise a 30px spacing preference prevents combat indefinitely. */
