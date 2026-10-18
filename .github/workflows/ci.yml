@@ -161,6 +161,10 @@ jobs:
           assert result["first_12_bytecode_events"], "no interpreter RNG calls recorded"
           print("GO Random call sites:", result["by_file"])
           print("Random player/states:", result["by_player_state"])
+          print("Resolved source expressions:", result["expression_resolution"])
+          print("Observed AI.zss expression calls:", result["original_ai_zss_expressions"])
+          if result["original_ai_zss_resolved_draws"] == 0:
+              print("No unique AI.zss expression resolved; examine sidecar, do not infer parity")
           PY
       - name: Upload AI observation traces
         if: always() && (inputs.zss_ai_probe || contains(github.event.head_commit.message, '[zss-ai-probe]'))
