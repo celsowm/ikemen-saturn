@@ -32,7 +32,7 @@ The 821 human recovery path is ported; AI random recovery remains deferred.
 1027 and 1028 now have source-checked native wall-impact, F72 FightFX,
 common SysSnd(7,0), wall-bounce and descending animation logic.
 The ZSS oracle has not yet validated full gameplay parity.
-Unported states keep classic-CNS fallback. Autonomous AI and full ZSS
+Unported states keep classic-CNS fallback. Full autonomous AI (beyond the bounded neutral CPU slice) and ZSS
 per-state gameplay still need porting; KFM-vs-ZSS oracle parity is not
 established.
 
@@ -82,8 +82,11 @@ scripts\run-emulator.ps1 -Frames 700 -PadScript scripts\pads\ikemen_kick.pad `
     -Screenshot 380:build\shots\idle.png
 ```
 
-Controls: D-pad move/crouch/jump, X/Y punches, A/B kicks, START taunt; plug in a
-second pad to control P2.
+Controls: D-pad move/crouch/jump, X/Y punches, A/B kicks, START taunt.
+Without a second pad, P2 runs the native ZSS CPU neutral subset (walk,
+run, stop and standing/crouching light attacks). Connecting the second pad
+restores human P2 input. This is **not full AI or upstream RNG parity**.
+Oracle/host runners keep P2 idle by default unless CPU is opted into.
 
 ## Test
 

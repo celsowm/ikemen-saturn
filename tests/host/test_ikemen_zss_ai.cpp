@@ -96,6 +96,77 @@ int main() {
     ik_frame_step(&real_ctx, &real_fight, &neutral, nullptr);
     OK(cpu->state == 1055);
     OK(real_ctx.zss_ai_level[0] == 0u);
+
+    ik_fight_t neutral_fight{};
+    neutral_fight.round_state = 2u;
+    ik_fighter_t* attacker = &neutral_fight.fighters[1];
+    ik_fighter_t* victim = &neutral_fight.fighters[0];
+    attacker->hp = victim->hp = 1000;
+    attacker->facing = -1;
+    attacker->on_ground = attacker->ctrl = 1;
+    attacker->cur_state_type = IK_CNS_STATE_STAND;
+    attacker->cur_move_type = IK_CNS_MOVE_IDLE;
+    attacker->state = 0;
+    attacker->x = 240;
+    victim->x = 30;
+    victim->cur_state_type = IK_CNS_STATE_STAND;
+    victim->cur_move_type = IK_CNS_MOVE_IDLE;
+    uint32_t random_a = 1u, random_b = 1u;
+    int saw_run = 0;
+    for (int frame = 0; frame < 24; ++frame) {
+        ik_fight_controls_t a{}, b{};
+        int ra = ik_zss_ai_tick(&neutral_fight, 1, 8, &random_a, &a);
+        int rb = ik_zss_ai_tick(&neutral_fight, 1, 8, &random_b, &b);
+        OK(ra == rb && a.has_state_request == b.has_state_request);
+        OK(a.requested_state == b.requested_state);
+        if (a.has_state_request && a.requested_state == 100) saw_run = 1;
+    }
+    OK(saw_run && random_a == random_b);
+    uint32_t before = random_a;
+    ik_fight_controls_t disabled{};
+    OK(!ik_zss_ai_tick(&neutral_fight, 1, 0, &random_a, &disabled));
+    OK(random_a == before);
+
+    attacker->state = 100;
+    attacker->x = 110;
+    victim->x = 90;
+    ik_fight_controls_t stop{};
+    OK(ik_zss_ai_tick(&neutral_fight, 1, 8, &random_a, &stop));
+    OK(stop.has_state_request && stop.requested_state == 0);
+    attacker->state = 0;
+    attacker->x = 140;
+    victim->x = 100;
+    ik_fight_controls_t jab{};
+    OK(ik_zss_ai_tick(&neutral_fight, 1, 8, &random_a, &jab));
+    OK(jab.has_state_request && jab.requested_state == 200);
+    victim->cur_state_type = IK_CNS_STATE_CROUCH;
+    ik_fight_controls_t crouch{};
+    OK(ik_zss_ai_tick(&neutral_fight, 1, 8, &random_a, &crouch));
+    OK(crouch.has_state_request && crouch.requested_state == 400);
+    neutral_fight.round_state = 3u;
+    ik_fight_controls_t outro{};
+    OK(!ik_zss_ai_tick(&neutral_fight, 1, 8, &random_a, &outro));
+
+    /* Real frame driver with generated CNS/AIR: unplugged CPU attacks. */
+    static ik_frame_ctx_t cpu_ctx{};
+    static ik_fight_t cpu_fight{};
+    OK(ik_frame_ctx_init(&cpu_ctx, &cpu_fight, zss));
+    OK(ik_frame_set_zss_ai_level(&cpu_ctx, 1, 8));
+    cpu_fight.round_state = 2u;
+    cpu_fight.fighters[0].x = 120;
+    cpu_fight.fighters[0].x_q8 = 120 * IK_CNS_Q8_ONE;
+    cpu_fight.fighters[1].x = 170;
+    cpu_fight.fighters[1].x_q8 = 170 * IK_CNS_Q8_ONE;
+    cpu_fight.fighters[0].facing = 1;
+    cpu_fight.fighters[1].facing = -1;
+    int saw_attack = 0;
+    for (int frame = 0; frame < 150; ++frame) {
+        ik_frame_step(&cpu_ctx, &cpu_fight, &neutral, nullptr);
+        if (cpu_fight.fighters[1].state == 200 ||
+            cpu_fight.fighters[1].state == 400) saw_attack = 1;
+    }
+    OK(saw_attack);
+    std::puts("[test] reproducible native CPU neutral decisions and attacks OK");
     std::puts("[test] source-checked opt-in native ZSS CPU knee cancel OK");
     return 0;
 }

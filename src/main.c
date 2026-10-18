@@ -1312,6 +1312,9 @@ int main(void) {
             have_p2 = 1;
         }
 
+        /* Unplugged P2 uses native ZSS CPU; pad 2 restores human control. */
+        (void)ik_frame_set_zss_ai_level(
+            &g_frame, 1u, have_p2 ? 0u : 8u);
         ik_frame_step(
             &g_frame, &fight, &pad1, have_p2 ? &pad2 : 0);
         spawn_effect_events(&fight);

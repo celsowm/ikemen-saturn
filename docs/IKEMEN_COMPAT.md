@@ -283,3 +283,19 @@ scripted scenarios.
 See `docs/ARCHITECTURE.md` "Still deferred" and the plan: round flow
 (win poses never run), defence/fall-defence scaling, `[Statedef -3]` sounds,
 sound banks, explods/projectiles/helpers (entity runtime), HUD power bar.
+
+## Native CPU neutral slice (2026-10-18)
+
+With P2 unplugged the console now enables a bounded ZSS CPU: neutral
+walking/running, stopping at close range, and grounded light punches.
+The original source's airborne Strong Knee cancel takes priority. Connecting
+P2 restores human command control.
+
+This is NOT full AI or original random-stream parity. The per-player local
+LCG is reproducible on host/SH-2 but not Ikemen GO's RNG. Motion prediction,
+AI_JI, opponent memory maps, combos, supers, throws, guard strategies, air
+recovery and most script decisions are still missing. Original neutral
+movement clauses are guarded by source checks at asset generation. Host tests
+exercise deterministic decisions and dispatch through generated CNS/AIR;
+the existing 66 classic and 27 mixed scripted oracle gates remain separate
+from any claim of autonomous CPU parity.

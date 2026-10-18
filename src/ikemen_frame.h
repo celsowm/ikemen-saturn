@@ -57,6 +57,8 @@ typedef struct ik_frame_ctx {
     ik_entity_handle_t players[2];
     /* AI is off by default, independent for P1/P2. */
     uint8_t zss_ai_level[2];
+    /* Independent reproducible local CPU random streams. */
+    uint32_t zss_ai_rng[2];
 } ik_frame_ctx_t;
 
 /* Initializes a fight with independent CNS (including life, constants,
@@ -74,7 +76,8 @@ void ik_frame_sync_players(ik_frame_ctx_t* ctx, const ik_fight_t* fight);
 
 /* Enable source-checked ZSS AI-only decisions for a character bound to
  * KFM ZSS. 0 restores human input, levels 1..8 enable limited CPU logic.
- * No autonomous neutral RNG/movement is available yet. Returns 0 on error. */
+ * Also enables a seeded movement/grounded-light subset, not original RNG
+ * or full ZSS AI parity. Returns 0 on error. */
 int ik_frame_set_zss_ai_level(ik_frame_ctx_t* ctx,
                               uint8_t player, uint8_t level);
 

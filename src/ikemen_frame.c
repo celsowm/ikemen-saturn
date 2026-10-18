@@ -154,6 +154,7 @@ int ik_frame_ctx_init(
         }
         ik_command_state_init(&ctx->command_states[player]);
         ctx->zss_ai_level[player] = 0u;
+        ctx->zss_ai_rng[player] = 1u + player;
     }
     return 1;
 }
@@ -170,14 +171,11 @@ int ik_frame_set_zss_ai_level(
 
 /* Scripted CPU logic is intentionally distinct from human CMD evaluation. */
 static void ai_controls(
-    const ik_frame_ctx_t* ctx, const ik_fight_t* fight, uint8_t player,
+    ik_frame_ctx_t* ctx, const ik_fight_t* fight, uint8_t player,
     ik_fight_controls_t* out
 ) {
-    int16_t dest = 0;
-    if (ik_zss_ai_request(fight, player, ctx->zss_ai_level[player], &dest)) {
-        out->has_state_request = 1u;
-        out->requested_state = dest;
-    }
+    (void)ik_zss_ai_tick(fight, player, ctx->zss_ai_level[player],
+                         &ctx->zss_ai_rng[player], out);
 }
 
 static int command_pause_end_buffer(
