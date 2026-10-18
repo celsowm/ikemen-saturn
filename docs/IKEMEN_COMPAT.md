@@ -327,3 +327,11 @@ mismatch, state histograms, action/attack and transition counts. This
 is *not* a gate for oracle parity because original RNG and AI decision
 evaluation order remain different. CI covers native CPU activity; run
 the GO comparison explicitly when investigating autonomous behavior.
+
+### CPU walk-to-attack regression (2026-10-18)
+
+Native State 20 must evaluate neutral attack options **before** its walking
+direction fallback, like AI.zss. Otherwise its intended 25-30px spacing
+oscillates indefinitely without any attacks. Host unit tests now exercise
+attacks directly from State 20; the 360-frame CPU smoke must observe actual
+attack frames.

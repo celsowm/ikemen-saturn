@@ -143,6 +143,23 @@ int main() {
     ik_fight_controls_t crouch{};
     OK(ik_zss_ai_tick(&neutral_fight, 1, 8, &random_a, &crouch));
     OK(crouch.has_state_request && crouch.requested_state == 400);
+
+    /* CPU needs to attack from State 20 before applying AIw walk direction;
+     * otherwise a 30px spacing preference prevents combat indefinitely. */
+    attacker->state = 20;
+    attacker->ctrl = 1;
+    victim->cur_state_type = IK_CNS_STATE_STAND;
+    victim->cur_move_type = IK_CNS_MOVE_IDLE;
+    attacker->x = 150;
+    victim->x = 120;
+    int walk_attack = 0;
+    for (int i = 0; i < 80; ++i) {
+        ik_fight_controls_t c{};
+        (void)ik_zss_ai_tick(&neutral_fight, 1, 8, &random_a, &c);
+        if (c.has_state_request && c.requested_state == 200)
+            walk_attack = 1;
+    }
+    OK(walk_attack);
     /* Source-informed CPU defense: verify both parry and held-back guard
      * without changing the human P1 command stream. */
     attacker->state = 0;

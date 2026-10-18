@@ -161,16 +161,6 @@ int ik_zss_ai_tick(const ik_fight_t* fight, uint8_t player,
         return 1;
     }
 
-    if (f->state == 20) {
-        if (direction == 0) {
-            ai_state(out, 0);
-        } else {
-            /* Hybrid common state 20 uses direction buttons, not map(AIw). */
-            out->forward = (uint8_t)(direction > 0);
-            out->back = (uint8_t)(direction < 0);
-        }
-        return 1;
-    }
     if (!f->ctrl || !f->on_ground ||
         f->cur_state_type != IK_CNS_STATE_STAND ||
         f->cur_move_type == IK_CNS_MOVE_HIT) return 0;
@@ -183,6 +173,20 @@ int ik_zss_ai_tick(const ik_fight_t* fight, uint8_t player,
         ai_state(out, foe->cur_state_type == IK_CNS_STATE_CROUCH ? 400 : 200);
         return 1;
     }
+
+    /* The original AI.zss evaluates neutral attacks even when the character
+     * is walking in State 20. Walking direction is a fallback only. Evaluating
+     * it first trapped the CPU in a 25-30px spacing oscillation forever. */
+    if (f->state == 20) {
+        if (direction == 0) {
+            ai_state(out, 0);
+        } else {
+            out->forward = (uint8_t)(direction > 0);
+            out->back = (uint8_t)(direction < 0);
+        }
+        return 1;
+    }
+
     /* Original run probability when the foe is far and not attacking.
      * The hitfall/5300 chase alternative is not yet handled. */
     if (dist >= 120 && (!foe_attacking || back_edge < 40) &&
