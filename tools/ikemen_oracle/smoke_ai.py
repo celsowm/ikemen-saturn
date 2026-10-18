@@ -15,9 +15,11 @@ import sys
 try:
     from .diff import load_jsonl
     from .run_saturn import ROOT
+    from .ai_probe import summarize
 except ImportError:
     from diff import load_jsonl
     from run_saturn import ROOT
+    from ai_probe import summarize
 
 
 def main() -> int:
@@ -29,7 +31,7 @@ def main() -> int:
     )
     args = parser.parse_args()
     scenario = json.loads(args.scenario.read_text(encoding="utf-8"))
-    trace = ROOT / "build/ikemen_oracle/native_ai_smoke.jsonl"
+    trace = ROOT / "build/ikemen_oracle/native_ai_smoke/trace.jsonl"
     subprocess.run([
         sys.executable, str(ROOT / "tools/ikemen_oracle/run_saturn.py"),
         str(args.scenario.resolve()), "--trace", str(trace),
@@ -38,7 +40,6 @@ def main() -> int:
     rows = load_jsonl(trace)
     if len(rows) != int(scenario["frames"]):
         raise AssertionError("native AI frame count mismatch")
-    from tools.ikemen_oracle.ai_probe import summarize
     stats = summarize(rows, 1)
     # Running/walking/attacking are all real autonomous decisions; having
     # only idle frames is the same disconnected-CPU failure as before.
