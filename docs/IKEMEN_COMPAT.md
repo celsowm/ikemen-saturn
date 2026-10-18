@@ -299,3 +299,15 @@ movement clauses are guarded by source checks at asset generation. Host tests
 exercise deterministic decisions and dispatch through generated CNS/AIR;
 the existing 66 classic and 27 mixed scripted oracle gates remain separate
 from any claim of autonomous CPU parity.
+
+## Native defense, anti-air and hit-confirm CPU (2026-10-18)
+
+The opt-in CPU now includes close parry and guarded back input, anti-air
+Kung Fu Upper (1100/1110/1120), and contact-confirmed normal-to-special /
+meter-finisher cancels. Real combat data (move contact age, hitpause, target
+hitstun, life/power, state and distance) drives these decisions.
+
+This remains a bounded native subset and **not** upstream Ikemen AI parity.
+Motion-history maps, juggle queries, AI_JI, all original probabilistic
+evaluation ordering and RNG are deferred. Source predicate patterns are
+checked at generation time, and host unit tests cover the added decisions.

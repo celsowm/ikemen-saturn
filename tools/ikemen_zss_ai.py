@@ -38,3 +38,28 @@ def validate_ai_neutral(path: Path) -> None:
             raise ValueError(
                 f"{path}: ZSS AI neutral source changed at {clause[:45]!r}; "
                 "refusing stale movement/attack slice")
+
+
+# Validate exact source predicates that the bounded combat slice is based on.
+# Guards are not claims of whole-body ZSS / random-stream parity.
+COMBAT_CLAUSES = [
+    'ifp2bodydistx=[-15,30+floor($trvelx*.4)*10+floor(p2,const(size.attack.dist)*.5)]&&p2bodydisty=[-50+(floor(p2,vely*.6)*-10),0]&&random<=(335*(ailevelf**2/48.0))&&p2movetype=a&&ailevel>4{changestate{value:cond(p2statetype!=c,1300,1320)}}',
+    'if(p2movetype=a&&prevstateno!=[1300,1350]&&stateno!=[1300,1350]&&inguarddist&&random<=(700*(ailevelf**2/48.0))',
+    'ifp2statetype=a&&p2bodydistx=[5*($hitfall)-20,(30+floor($trvelx*.4)*20)]',
+    'ifpower>=500&&p2,alive&&random%3=1{letversion=1120;',
+    '}elseifmovecontact=[1,3]&&hitpausetime=0&&statetype!=a{',
+    'ifp2bodydistx<85&&movehit&&$lights&&!$nojug&&random<(600*(ailevelf**2/48.0))',
+    'if($heavy||$lights&&(!$grounded&&p2bodydisty<-10&p2bodydistx>55||p2bodydistx>55))&&(movehit)&&($hitfall||$grounded||$cc>11)&&random<(800*(ailevelf**2/48.0))',
+    'if($sc||($heavy&&(p2,life<350)||$lights))&&movehit&&jugglepoints(p2,id)>1&&random<(700*(ailevelf**2/48.0))'
+]
+
+
+def validate_ai_combat(path: Path) -> None:
+    source = path.read_text(encoding="utf-8-sig")
+    compact = "".join(line.split("#", 1)[0] for line in source.splitlines())
+    compact = re.sub(r"\s+", "", compact).lower()
+    for clause in COMBAT_CLAUSES:
+        if compact.count(clause) != 1:
+            raise ValueError(
+                f"{path}: ZSS AI combat source changed at {clause[:48]!r}; "
+                "refusing stale native defensive/cancel decisions")

@@ -116,3 +116,11 @@ The `host` preset uses the native compiler and only the installed LibSaturn
 
 Code: MIT (`LICENSE`). No upstream asset is committed; see `NOTICE.md` for the
 data this build fetches and the terms that apply to discs built from it.
+
+### Bounded ZSS CPU defense and cancels
+
+The unplugged P2 CPU now also tries close parries, guarded back input,
+anti-air Kung Fu Upper and hit-confirmed normal/special/super cancels.
+These decisions reuse authored attack states and are not a claim of
+frame-by-frame Ikemen GO autonomous AI equivalence. See
+`docs/IKEMEN_COMPAT.md` for the still-missing AI predicates and RNG.

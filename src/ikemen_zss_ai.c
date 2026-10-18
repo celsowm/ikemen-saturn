@@ -62,6 +62,43 @@ int ik_zss_ai_tick(const ik_fight_t* fight, uint8_t player,
                          foe->cur_state_type == IK_CNS_STATE_CROUCH;
     const int foe_attacking = foe->cur_move_type == IK_CNS_MOVE_ATTACK;
     const int foe_hit = foe->cur_move_type == IK_CNS_MOVE_HIT;
+    const int delta_y = (int)foe->y - f->y;
+    const int neutral_ctrl = f->ctrl || f->state == 20 || f->state == 100;
+
+    /* AI.zss post-contact branches. This bounded lowering uses the runtime's
+     * actual hitstun and contact age in place of AI_JI, CC and juggle maps.
+     * We do not claim matching upstream RNG or per-frame call ordering. */
+    if (f->cur_state_type != IK_CNS_STATE_AIR &&
+        f->move_contact && f->move_hit && foe->hp > 0 &&
+        f->move_contact_time >= 1u && f->move_contact_time <= 3u &&
+        f->hit_pause == 0u && foe->hitstun > 0u) {
+        const int light = f->state == 200 || f->state == 230 ||
+                          f->state == 400 || f->state == 430;
+        const int heavy = f->state == 210 || f->state == 240 ||
+                          f->state == 410;
+        /* Super-finisher against a vulnerable opponent. */
+        if ((light || (heavy && foe->hp < 350)) &&
+            grounded && f->power >= 1000 &&
+            dist >= -5 && dist <= 80 &&
+            ai_roll(rng) < ai_threshold(level, 700u)) {
+            ai_state(out, dist <= 25 ? 3050 : 3000);
+            return 1;
+        }
+        /* Palm from midrange, Zankou at close range. */
+        if (heavy && grounded && foe->hitstun > 9u &&
+            dist >= 0 && dist <= 120 &&
+            ai_roll(rng) < ai_threshold(level, 800u)) {
+            ai_state(out, dist < 40 ? 1400 : dist < 85 ? 1010 : 1000);
+            return 1;
+        }
+        /* Light-to-heavy confirm after the original hitpause. */
+        if (light && grounded && foe->hitstun > 8u &&
+            dist > 0 && dist < 60 &&
+            ai_roll(rng) < ai_threshold(level, 600u)) {
+            ai_state(out, dist < 35 ? 410 : 210);
+            return 1;
+        }
+    }
 
     if (f->state == 100) {
         /* Original run-stop distance and cross-up checks. */
@@ -82,6 +119,48 @@ int ik_zss_ai_tick(const ik_fight_t* fight, uint8_t player,
          (foe->cur_state_type != IK_CNS_STATE_LIEDOWN && dist < 30))) {
         direction = -1;
     }
+    /* The AI.zss defensive block has a close parry option and a broader
+     * guarding option. Using back delegates to the existing shared guard
+     * state machine rather than inventing a second autoblock mechanism. */
+    if (f->on_ground && neutral_ctrl &&
+        f->cur_state_type == IK_CNS_STATE_STAND &&
+        !foe_hit && foe_attacking && foe->state_time > 1u &&
+        foe->cur_state_type != IK_CNS_STATE_LIEDOWN &&
+        dist >= -20 && dist <= 75 &&
+        f->state != 1300 && f->state != 1320 &&
+        f->state != 1310 && f->state != 1330) {
+        if (level > 4u && dist <= 30 && delta_y >= -50 &&
+            delta_y <= 0 && ai_roll(rng) <= ai_threshold(level, 335u)) {
+            ai_state(out, foe->cur_state_type == IK_CNS_STATE_CROUCH
+                         ? 1320 : 1300);
+            return 1;
+        }
+        if (f->in_guard_dist &&
+            ai_roll(rng) <= ai_threshold(level, 700u)) {
+            out->back = 1u;
+            return 1;
+        }
+    }
+
+    /* Source anti-air Upper family. Predictive opponent velocity history
+     * is deferred; use conservative body and height ranges instead. */
+    if (f->on_ground && neutral_ctrl &&
+        f->cur_state_type == IK_CNS_STATE_STAND &&
+        foe->cur_state_type == IK_CNS_STATE_AIR &&
+        foe->state != 5040 && !foe_hit &&
+        dist >= -20 && dist <= 50 &&
+        delta_y >= -90 && delta_y <= -25 &&
+        ai_roll(rng) <= ai_threshold(level, 450u)) {
+        int16_t upper = 1100;
+        if (f->power >= 500 && ai_roll(rng) % 3u == 1u) {
+            upper = 1120;
+        } else if ((int64_t)foe->vx_q8 * foe->facing > 0) {
+            upper = 1110;
+        }
+        ai_state(out, upper);
+        return 1;
+    }
+
     if (f->state == 20) {
         if (direction == 0) {
             ai_state(out, 0);

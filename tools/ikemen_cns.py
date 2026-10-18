@@ -4216,9 +4216,13 @@ def emit(
             raise ValueError("character-zss and hits-zss must be provided together")
         from tools.ikemen_zss_character_states import compile_zss_overrides
         zss_overrides = compile_zss_overrides(character_zss, hits_zss)
-        from tools.ikemen_zss_ai import validate_ai_followup, validate_ai_neutral
-        validate_ai_followup(character_zss.with_name("AI.zss"))
-        validate_ai_neutral(character_zss.with_name("AI.zss"))
+        from tools.ikemen_zss_ai import (validate_ai_followup,
+                                          validate_ai_neutral,
+                                          validate_ai_combat)
+        ai_source = character_zss.with_name("AI.zss")
+        validate_ai_followup(ai_source)
+        validate_ai_neutral(ai_source)
+        validate_ai_combat(ai_source)
         outside = sorted(set(zss_overrides) - set(selected))
         if outside:
             raise ValueError(f"ZSS override states not selected: {outside}")

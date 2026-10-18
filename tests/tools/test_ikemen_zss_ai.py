@@ -4,11 +4,12 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from tools.ikemen_zss_ai import (EXPECTED, validate_ai_followup,
-                                 validate_ai_neutral)
+                                 validate_ai_neutral, validate_ai_combat)
 
 source = Path(".external/Ikemen-GO-Screenpack/chars/kfm_zss/AI.zss")
 validate_ai_followup(source)
 validate_ai_neutral(source)
+validate_ai_combat(source)
 assert EXPECTED.endswith("changestate{value:1075}}}")
 with TemporaryDirectory() as temp:
     content = source.read_text(encoding="utf-8-sig")
@@ -45,3 +46,22 @@ with TemporaryDirectory() as temp:
         else:
             raise AssertionError(f"AI source drift accepted: {old}")
 print("KFM ZSS AI neutral source guards OK")
+
+with TemporaryDirectory() as temp:
+    content = source.read_text(encoding="utf-8-sig")
+    for old, new in (
+        ("random <= (335 * (aiLevelF ** 2 / 48.0))",
+         "random <= (336 * (aiLevelF ** 2 / 48.0))"),
+        ("moveContact = [1, 3]", "moveContact = [1, 4]"),
+        ("let version = 1120;", "let version = 1121;"),
+    ):
+        assert old in content
+        changed = Path(temp) / "AI.zss"
+        changed.write_text(content.replace(old, new, 1), encoding="utf-8")
+        try:
+            validate_ai_combat(changed)
+        except ValueError as exc:
+            assert "ZSS AI combat source changed" in str(exc)
+        else:
+            raise AssertionError(f"AI combat source drift missed: {old}")
+print("KFM ZSS AI combat source guards OK")
