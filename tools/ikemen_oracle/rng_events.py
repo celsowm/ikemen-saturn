@@ -25,6 +25,8 @@ def audit_events(frames: list[dict], events: list[dict]) -> dict:
     counts = [0] * len(frames)
     files: Counter[str] = Counter()
     contexts: Counter[str] = Counter()
+    expression_status: Counter[str] = Counter()
+    unique_expressions: Counter[str] = Counter()
     previous_frame = -1
     previous_ordinal = 0
     per_frame: list[list[dict]] = [[] for _ in frames]
@@ -48,9 +50,22 @@ def audit_events(frames: list[dict], events: list[dict]) -> dict:
             raise ValueError("RNG event is missing player attribution")
         if type(state) is not int:
             raise ValueError("RNG event is missing state attribution")
+        resolution = event.get("expr_resolution")
+        if resolution not in ("unique", "ambiguous", "unresolved"):
+            raise ValueError("RNG event has invalid expression resolution")
+        if resolution == "unique":
+            expr_file = event.get("expr_file")
+            expr_end_line = event.get("expr_end_line")
+            expr_text = event.get("expr_text")
+            if (not isinstance(expr_file, str) or not expr_file or
+                type(expr_end_line) is not int or expr_end_line <= 0 or
+                not isinstance(expr_text, str) or not expr_text):
+                raise ValueError("uniquely resolved expression lacks original source")
+            unique_expressions[f"{expr_file}:{expr_end_line}: {expr_text[:90]}"] += 1
         previous_frame, previous_ordinal = frame, ordinal
         counts[frame] += 1
         files[file] += 1
+        expression_status[resolution] += 1
         contexts[f"p{player + 1 if player >= 0 else 'global'}:{state}"] += 1
         per_frame[frame].append(event)
 
@@ -80,12 +95,19 @@ def audit_events(frames: list[dict], events: list[dict]) -> dict:
         "unverified_first_frame": True,
         "by_file": dict(files.most_common()),
         "by_player_state": dict(contexts.most_common()),
+        "expression_resolution": dict(expression_status.most_common()),
+        "unique_source_expressions": dict(unique_expressions.most_common(25)),
+        "uniquely_resolved_calls": expression_status["unique"],
+        "unresolved_or_ambiguous_calls": expression_status["unresolved"] + expression_status["ambiguous"],
         "first_16_events": events[:16],
         "first_12_bytecode_events": [
             event for event in events if event["file"] == "bytecode.go"
         ][:12],
         "first_12_cpu_events": [
             event for event in events if event["player_no"] >= 0
+        ][:12],
+        "first_12_unique_expressions": [
+            event for event in events if event["expr_resolution"] == "unique"
         ][:12],
         "all_saved_intervals_reconciled": True,
         "ai_decision_parity_verified": False,
