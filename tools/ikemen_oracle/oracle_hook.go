@@ -132,7 +132,7 @@ func libsaturnOracleBytecodeKey(be BytecodeExp) string {
 // Duplicates across characters or states are kept distinct, unless identical
 // source locations and contents. Ambiguity is never hidden at runtime.
 func libsaturnOracleRegisterExpression(file string, endLine int, stateNo int32, text string, be BytecodeExp) {
-	if os.Getenv("LIBSATURN_IKEMEN_ORACLE_RNG_EVENTS") == "" || len(be) == 0 { return }
+	if os.Getenv("LIBSATURN_IKEMEN_ORACLE_RNG_EVENTS") == "" || len(be) == 0 || file == "" || endLine <= 0 || strings.TrimSpace(text) == "" { return }
 	if len(text) > 320 { text = text[:320] }
 	e := libsaturnOracleExpression{file, endLine, stateNo, text}
 	key := libsaturnOracleBytecodeKey(be)
