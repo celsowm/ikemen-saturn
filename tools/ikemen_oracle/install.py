@@ -25,6 +25,13 @@ AFTER_ACTION = """		// Update game state
 		s.action()
 """
 
+RANDOM_ANCHOR = "\treturn sys.randseed\n}\n"
+PATCHED_RANDOM = (
+    f"\t{BEGIN_MARKER}\n"
+    "\tlibsaturnOracleRecordRandom(sys.randseed)\n"
+    f"\t{END_MARKER}\n" + RANDOM_ANCHOR
+)
+
 INPUT_ANCHOR = """	// Convert bool slice back to named inputs
 """
 
@@ -61,11 +68,18 @@ def remove_marked_blocks(text: str) -> str:
 def install(root: Path, source_hook: Path) -> None:
     system_go = root / "src" / "system.go"
     input_go = root / "src" / "input.go"
+    common_go = root / "src" / "common.go"
     hook_dst = root / "src" / "libsaturn_oracle.go"
     if not system_go.is_file():
         raise SystemExit(f"Ikemen GO system.go not found: {system_go}")
     if not input_go.is_file():
         raise SystemExit(f"Ikemen GO input.go not found: {input_go}")
+    if not common_go.is_file():
+        raise SystemExit(f"Ikemen GO common.go not found: {common_go}")
+
+    common_text = remove_marked_blocks(common_go.read_text(encoding="utf-8"))
+    if common_text.count(RANDOM_ANCHOR) != 1:
+        raise SystemExit("Ikemen GO Random() anchor changed; refusing unsafe patch")
 
     text = remove_marked_blocks(system_go.read_text(encoding="utf-8"))
     if BEFORE_SETUP not in text:
@@ -75,19 +89,23 @@ def install(root: Path, source_hook: Path) -> None:
 
     text = text.replace(BEFORE_SETUP, PATCHED_SETUP, 1)
     text = text.replace(AFTER_ACTION, PATCHED_ACTION, 1)
-    system_go.write_text(text, encoding="utf-8")
-
     input_text = remove_marked_blocks(input_go.read_text(encoding="utf-8"))
     if INPUT_ANCHOR not in input_text:
         raise SystemExit("Ikemen GO input anchor changed; refusing unsafe patch")
     input_text = input_text.replace(INPUT_ANCHOR, PATCHED_INPUT, 1)
+    system_go.write_text(text, encoding="utf-8")
     input_go.write_text(input_text, encoding="utf-8")
+    common_go.write_text(
+        common_text.replace(RANDOM_ANCHOR, PATCHED_RANDOM, 1),
+        encoding="utf-8",
+    )
     shutil.copyfile(source_hook, hook_dst)
     print(f"installed oracle hook in {root}")
 
 def uninstall(root: Path) -> None:
     system_go = root / "src" / "system.go"
     input_go = root / "src" / "input.go"
+    common_go = root / "src" / "common.go"
     hook_dst = root / "src" / "libsaturn_oracle.go"
     if system_go.is_file():
         text = system_go.read_text(encoding="utf-8")
@@ -97,6 +115,9 @@ def uninstall(root: Path) -> None:
         text = input_go.read_text(encoding="utf-8")
         text = remove_marked_blocks(text)
         input_go.write_text(text, encoding="utf-8")
+    if common_go.is_file():
+        text = common_go.read_text(encoding="utf-8")
+        common_go.write_text(remove_marked_blocks(text), encoding="utf-8")
     if hook_dst.exists():
         hook_dst.unlink()
     print(f"removed oracle hook from {root}")
