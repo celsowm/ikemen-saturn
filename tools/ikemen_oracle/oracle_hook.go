@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 )
@@ -69,7 +71,21 @@ type libsaturnOracleFrame struct {
 	Projectiles []libsaturnOracleProjectile  `json:"projectiles"`
 }
 
+type libsaturnOracleRandomEvent struct {
+	Frame    int32  `json:"frame"`
+	Ordinal  uint64 `json:"ordinal"`
+	Value    int32  `json:"value"`
+	File     string `json:"file"`
+	Line     int    `json:"line"`
+	Function string `json:"function"`
+}
+
 var (
+	libsaturnOracleRandomFile    *os.File
+	libsaturnOracleRandomWriter  *bufio.Writer
+	libsaturnOracleRandomEncoder *json.Encoder
+	libsaturnOracleRandomEnabled bool
+	libsaturnOracleRandomOrdinal uint64
 	libsaturnOracleFile      *os.File
 	libsaturnOracleWriter    *bufio.Writer
 	libsaturnOracleEncoder   *json.Encoder
@@ -81,6 +97,43 @@ var (
 	libsaturnOracleStarted    bool
 	libsaturnOracleSetupDone  bool
 )
+
+// Called from the pinned common.go Random(), after it updates sys.randseed.
+// Pure observation, activated only by the RNG_EVENTS env var. We record the
+// caller of Random/Rand, not the instrumentation function itself.
+func libsaturnOracleRecordRandom(value int32) {
+	if !libsaturnOracleRandomEnabled || libsaturnOracleDone ||
+		!libsaturnOracleActive() {
+		return
+	}
+	file, line, function := "unknown", 0, "unknown"
+	var pcs [12]uintptr
+	n := runtime.Callers(2, pcs[:])
+	frames := runtime.CallersFrames(pcs[:n])
+	for {
+		f, more := frames.Next()
+		if !strings.HasSuffix(f.Function, ".Random") &&
+			!strings.HasSuffix(f.Function, ".Rand") &&
+			!strings.HasSuffix(f.Function, ".RandF32") &&
+			!strings.HasSuffix(f.Function, ".RandI") {
+			file, line, function = filepath.Base(f.File), f.Line, f.Function
+			break
+		}
+		if !more {
+			break
+		}
+	}
+	libsaturnOracleRandomOrdinal++
+	event := libsaturnOracleRandomEvent{
+		Frame: libsaturnOracleFrameNo,
+		Ordinal: libsaturnOracleRandomOrdinal,
+		Value: value,
+		File: file, Line: line, Function: function,
+	}
+	if err := libsaturnOracleRandomEncoder.Encode(&event); err != nil {
+		panic(err)
+	}
+}
 
 // Scenario `setup`: "p1_life=1,p2_power=1000" style overrides applied once,
 // right before the first scripted tick (both sides start from full life and
@@ -229,6 +282,23 @@ func libsaturnOracleBeginMatch(s *System) error {
 			libsaturnOracleIntEnv("LIBSATURN_IKEMEN_ORACLE_MAX_FRAMES", -1)
 		libsaturnOracleRoundState =
 			libsaturnOracleIntEnv("LIBSATURN_IKEMEN_ORACLE_ROUND_STATE", 2)
+	}
+	if libsaturnOracleRandomFile != nil {
+		_ = libsaturnOracleRandomWriter.Flush()
+		_ = libsaturnOracleRandomFile.Close()
+		libsaturnOracleRandomFile = nil
+	}
+	libsaturnOracleRandomEnabled = false
+	libsaturnOracleRandomOrdinal = 0
+	if path := os.Getenv("LIBSATURN_IKEMEN_ORACLE_RNG_EVENTS"); path != "" {
+		f, err := os.Create(path)
+		if err != nil {
+			return err
+		}
+		libsaturnOracleRandomFile = f
+		libsaturnOracleRandomWriter = bufio.NewWriterSize(f, 256*1024)
+		libsaturnOracleRandomEncoder = json.NewEncoder(libsaturnOracleRandomWriter)
+		libsaturnOracleRandomEnabled = true
 	}
 	s.randseed = libsaturnOracleIntEnv(
 		"LIBSATURN_IKEMEN_ORACLE_SEED", 1)
@@ -429,6 +499,11 @@ func libsaturnOracleCaptureFrame(s *System) bool {
 	if err := libsaturnOracleWriter.Flush(); err != nil {
 		panic(err)
 	}
+	if libsaturnOracleRandomEnabled {
+		if err := libsaturnOracleRandomWriter.Flush(); err != nil {
+			panic(err)
+		}
+	}
 
 	libsaturnOracleFrameNo++
 	if libsaturnOracleMaxFrames >= 0 &&
@@ -440,6 +515,12 @@ func libsaturnOracleCaptureFrame(s *System) bool {
 		if libsaturnOracleFile != nil {
 			_ = libsaturnOracleFile.Close()
 			libsaturnOracleFile = nil
+		}
+		libsaturnOracleRandomEnabled = false
+		if libsaturnOracleRandomFile != nil {
+			_ = libsaturnOracleRandomWriter.Flush()
+			_ = libsaturnOracleRandomFile.Close()
+			libsaturnOracleRandomFile = nil
 		}
 		return true
 	}
