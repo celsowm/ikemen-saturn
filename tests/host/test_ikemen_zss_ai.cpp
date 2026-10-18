@@ -220,6 +220,18 @@ int main() {
     OK(ik_zss_ai_tick(&neutral_fight, 1, 8, &jump_seed, &threat_jump));
     OK(threat_jump.has_state_request && threat_jump.requested_state == 40);
     OK(threat_jump.forward && jump_seed == 1622650073u);
+    /* Original State -1 also permits jump from walking State 20 when Ctrl
+     * is disabled; the native dispatcher must not drop that decision. */
+    attacker->state = 20;
+    attacker->ctrl = 0;
+    uint32_t walking_jump_seed = 1u;
+    ik_fight_controls_t walking_jump{};
+    OK(ik_zss_ai_tick(&neutral_fight, 1, 8,
+                       &walking_jump_seed, &walking_jump));
+    OK(walking_jump.has_state_request && walking_jump.requested_state == 40);
+    OK(walking_jump_seed == 16807u);
+    attacker->state = 0;
+    attacker->ctrl = 1;
     /* Below level 7 that alternative is forbidden when away from edges. */
     uint32_t low_level_seed = 1u;
     ik_fight_controls_t low_level_jump{};
