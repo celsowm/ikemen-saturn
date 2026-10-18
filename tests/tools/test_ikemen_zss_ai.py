@@ -63,6 +63,10 @@ with TemporaryDirectory() as temp:
          "random <= (336 * (aiLevelF ** 2 / 48.0))"),
         ("moveContact = [1, 3]", "moveContact = [1, 4]"),
         ("let version = 1120;", "let version = 1121;"),
+        ("random <= (420 * (aiLevelF ** 2 / 48.0))",
+         "random <= (421 * (aiLevelF ** 2 / 48.0))"),
+        ("random <= (296 * (aiLevelF ** 2 / 48.0))",
+         "random <= (297 * (aiLevelF ** 2 / 48.0))"),
     ):
         assert old in content
         changed = Path(temp) / "AI.zss"

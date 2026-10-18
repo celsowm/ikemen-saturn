@@ -473,3 +473,23 @@ uses the pinned Park–Miller `Rand(0,999)`, with short-circuit count
 tested. The normal light gate also respects the inner 45px limit
 and crouch 35px limit. This is a source-correct behavioral increment
 without a claim of original global RNG parity or identical decisions.
+
+## Original anti-air normal and bounded backdash (2026-10-18)
+
+The pinned GO `AI.zss` trace shows 56 bytecode RNG calls in the
+anti-air-normal predicate (state 410, lines 155-158) and 40 in
+the backdash predicate (state 105, lines 539-542).
+The native CPU now attempts state 410 after a failed upper special
+in a conservatively bounded airborne-foe scenario using the original
+inclusive 420×AILevel²/48 threshold. It also considers state 105
+against a nearby attacking opponent where there is >40px of room
+behind the character, using the original inclusive 296-scaled
+random threshold. Both use the existing compiled CNS states.
+
+This is **not** exact AI.zss execution-order fidelity: the entire GO
+global RNG stream, predictive velocity and juggle maps remain absent.
+The original backdash get-up alternative and nuanced cancel
+conditions are not ported. Host tests check the two-call Upper →
+anti-air-normal RNG sequence, 5040 suppression, the first
+backdash roll, RNG rejection and insufficient back-edge space.
+The GO AI parity suite remains diagnostic, not an equality gate.

@@ -229,6 +229,23 @@ int ik_zss_ai_tick_memory(const ik_fight_t* fight, uint8_t player,
         return 1;
     }
 
+    /* AI.zss lines 155-158: anti-air normal in the ground neutral block.
+     * Evaluate it only when the earlier Upper special was not selected;
+     * unlike the Upper, its source roll uses the inclusive 420 factor.
+     * No-juggle and opponent vertical-velocity prediction are only
+     * conservatively approximated by a live airborne foe not in 5040.
+     * This routes through the existing 410 CNS StateDef. */
+    if (f->on_ground && neutral_ctrl &&
+        f->cur_state_type == IK_CNS_STATE_STAND &&
+        foe->cur_state_type == IK_CNS_STATE_AIR &&
+        foe->state != 5040 && !foe_hit &&
+        dist >= 0 && dist < 45 &&
+        delta_y >= -70 && delta_y <= -20 &&
+        ai_roll(rng) <= ai_threshold(level, 420u)) {
+        ai_state(out, 410);
+        return 1;
+    }
+
     /* Original State -1 neutral block also runs in State 20 without Ctrl;
      * it may attack or declare a jump while the walk state owns input. */
     if ((!f->ctrl && f->state != 20) || !f->on_ground ||
@@ -317,6 +334,20 @@ int ik_zss_ai_tick_memory(const ik_fight_t* fight, uint8_t player,
                 return 1;
             }
         }
+    }
+
+    /* AI.zss lines 539-542: reactive backward dash after earlier
+     * anti-air/attack/jump decisions. This bounded translation handles
+     * the first opponent-attack branch, not the opponent's get-up branch.
+     * The source uses an inclusive 296-scaled random threshold and requires
+     * >40px free behind the fighter. CNS state 105 owns its physics. */
+    if (f->on_ground && (f->ctrl || f->state == 20) &&
+        f->cur_state_type != IK_CNS_STATE_AIR &&
+        !foe_hit && foe_attacking && dist >= 0 && dist < 55 &&
+        back_edge > 40 &&
+        ai_roll(rng) <= ai_threshold(level, 296u)) {
+        ai_state(out, 105);
+        return 1;
     }
 
     /* The original AI.zss evaluates neutral attacks even when the character

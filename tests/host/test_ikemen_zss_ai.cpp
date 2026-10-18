@@ -491,6 +491,68 @@ int main() {
     }
     OK(saw_weak_upper && saw_strong_upper && saw_fast_upper);
 
+    /* Go AI.zss anti-air normal (line 156): an unsuccessful Upper roll
+     * is followed by its own inclusive 420-scaled random draw.
+     * Seed 282475249 -> 755 (Upper fails), then 458 (normal succeeds). */
+    attacker->state = 0;
+    attacker->ctrl = attacker->on_ground = 1;
+    attacker->cur_state_type = IK_CNS_STATE_STAND;
+    attacker->cur_move_type = IK_CNS_MOVE_IDLE;
+    attacker->x = 140;
+    attacker->y = 180;
+    victim->x = 110;
+    victim->y = 135;
+    victim->state = 0;
+    victim->cur_state_type = IK_CNS_STATE_AIR;
+    victim->cur_move_type = IK_CNS_MOVE_IDLE;
+    attacker->power = 0;
+    uint32_t anti_normal_seed = 282475249u;
+    ik_fight_controls_t anti_normal{};
+    OK(ik_zss_ai_tick(&neutral_fight, 1, 8, &anti_normal_seed,
+                      &anti_normal));
+    OK(anti_normal.has_state_request && anti_normal.requested_state == 410);
+    OK(anti_normal_seed == 984943658u);
+    victim->state = 5040;
+    uint32_t no_juggle_seed = 282475249u;
+    ik_fight_controls_t no_juggle{};
+    (void)ik_zss_ai_tick(&neutral_fight, 1, 8, &no_juggle_seed, &no_juggle);
+    OK(!no_juggle.has_state_request || no_juggle.requested_state != 410);
+
+    /* AI.zss line 540: when a foe attacks from close range, use the
+     * original 296 chance to enter the existing backdash CNS State 105.
+     * Avoid the earlier Upper/normal path using the opponent's height. */
+    victim->state = 0;
+    victim->cur_move_type = IK_CNS_MOVE_ATTACK;
+    victim->state_time = 0; /* parry/guard block requires >1 */
+    victim->y = 80;
+    victim->x = 115; /* 25px in front */
+    attacker->x_q8 = 140 * IK_CNS_Q8_ONE;
+    attacker->xmin_q8 = 15 * IK_CNS_Q8_ONE;
+    attacker->xmax_q8 = 305 * IK_CNS_Q8_ONE;
+    uint32_t dash_seed = 1u;
+    ik_fight_controls_t dash{};
+    OK(ik_zss_ai_tick(&neutral_fight, 1, 8, &dash_seed, &dash));
+    OK(dash.has_state_request && dash.requested_state == 105);
+    OK(dash_seed == 16807u);
+    uint32_t dash_rejected_seed = 282475249u;
+    ik_fight_controls_t dash_rejected{};
+    (void)ik_zss_ai_tick(&neutral_fight, 1, 8, &dash_rejected_seed,
+                         &dash_rejected);
+    OK(!dash_rejected.has_state_request ||
+       dash_rejected.requested_state != 105);
+    OK(dash_rejected_seed == 1622650073u);
+    attacker->xmax_q8 = 170 * IK_CNS_Q8_ONE; /* 30px back: no dash */
+    uint32_t dash_no_space_seed = 1u;
+    ik_fight_controls_t dash_no_space{};
+    (void)ik_zss_ai_tick(&neutral_fight, 1, 8, &dash_no_space_seed,
+                         &dash_no_space);
+    OK(!dash_no_space.has_state_request ||
+       dash_no_space.requested_state != 105);
+    attacker->x_q8 = attacker->xmin_q8 = attacker->xmax_q8 = 0;
+    victim->y = 180;
+    victim->cur_move_type = IK_CNS_MOVE_IDLE;
+    victim->cur_state_type = IK_CNS_STATE_STAND;
+
     /* CPU confirms a real contact AFTER hitpause, even with ctrl=0. */
     attacker->ctrl = 0;
     attacker->power = 0;

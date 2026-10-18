@@ -113,6 +113,8 @@ COMBAT_CLAUSES = [
     'ifp2bodydistx=[-15,30+floor($trvelx*.4)*10+floor(p2,const(size.attack.dist)*.5)]&&p2bodydisty=[-50+(floor(p2,vely*.6)*-10),0]&&random<=(335*(ailevelf**2/48.0))&&p2movetype=a&&ailevel>4{changestate{value:cond(p2statetype!=c,1300,1320)}}',
     'if(p2movetype=a&&prevstateno!=[1300,1350]&&stateno!=[1300,1350]&&inguarddist&&random<=(700*(ailevelf**2/48.0))',
     'ifp2statetype=a&&p2bodydistx=[5*($hitfall)-20,(30+floor($trvelx*.4)*20)]',
+    'ifrandom<=(420*(ailevelf**2/48.0))&&p2bodydistx<45&&p2bodydisty=[-70+(floor(p2,vely*.4)*-5),-20]&&!$nojug&&jugglepoints(p2,id)=0{changestate{value:410}}',
+    'ifstatetype!=a&&(ctrl||stateno=20)&&random<=(296*(ailevelf**2/48.0))&&backedgebodydist>40&&(p2movetype=a&&p2bodydistx<55||p2bodydistx<20&&p2,anim=5120&&p2,backedgebodydist>60){changestate{value:105;ctrl:0}}',
     'ifpower>=500&&p2,alive&&random%3=1{letversion=1120;',
     '}elseifmovecontact=[1,3]&&hitpausetime=0&&statetype!=a{',
     'ifp2bodydistx<85&&movehit&&$lights&&!$nojug&&random<(600*(ailevelf**2/48.0))',
