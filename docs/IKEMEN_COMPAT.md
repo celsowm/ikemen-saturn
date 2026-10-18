@@ -367,3 +367,17 @@ is marked unresolved. The first frame has no prior post-frame seed.
 This is a diagnostic for identifying missing RNG consumption, not a
 claim that global or per-decision streams match. Source-only CI protects
 the audit even when building the consumer's LibSaturn package is delayed.
+
+## Source-attributed GO random calls (2026-10-18)
+
+The optional `--rng-events` AI diagnostic instruments the pinned Go
+`Random()` function and the `OC_random` bytecode opcode through an
+idempotent, uninstallable source patch. A sidecar now identifies the
+consuming file/function/line and (for interpreter calls) the root/helper,
+state number and state time. The analyzer validates every complete
+post-frame Park-Miller interval against the upstream frame checkpoint
+and rejects missing or fabricated events. Only frame 0 lacks its own
+previous saved checkpoint. Explicit AI-probe CI uploads those raw
+events. A state/character attribution is not a claim that the specific
+source-level `AI.zss` predicate has been located yet, nor proof of
+native decision parity.

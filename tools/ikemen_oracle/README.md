@@ -374,3 +374,36 @@ diagnostic and does not weaken any scripted combat oracle gate.
 The independent `RNG audit and tools` GitHub CI job tests these routines
 without fetching the large LibSaturn package. Full firmware builds and
 the native CPU smoke retain their original separate CI job.
+
+## Exact Go Random() call-site provenance (opt-in)
+
+The oracle installer now patches the pinned `src/common.go` `Random()`
+return and annotates the `OC_random` interpreter operation. These changes
+are **reversible** with `python tools/ikemen_oracle/install.py --uninstall`
+and checked against exact original source anchors, with idempotent reinstall.
+Ordinary scripted test runs leave the sidecar disabled.
+
+To capture original calls individually, including the consuming file,
+function, source line, character side, helper index, state and state time:
+
+```sh
+python tools/ikemen_oracle/ai_compare.py --rng-events
+```
+
+The `build/ikemen_oracle/ai_comparison/upstream_rng_events.jsonl` sidecar
+records one object per random draw with `frame`, `ordinal`, `value`,
+`file`, `line`, `function`, `player_no`, `helper_index`,
+`state_no` and `state_time`. `player_no=-1` indicates that no
+interpreter character context exists. `comparison.json` adds
+`upstream_rng_events` with histogram by file and player/state and first
+events, plus **strict verification of every interval after frame 0**
+against the GO post-frame seed. The initial frame is explicitly excluded
+from replay verification, because it has no previous recorded seed.
+An incomplete or corrupted call trace fails instead of passing silently.
+
+The `[zss-ai-probe]` or `zss_ai_probe` workflow now executes this
+real GO-versus-native diagnostic and uploads the raw events and summary.
+This labels original RNG consumption precisely, but does not yet identify
+each specific `AI.zss` expression/line within the bytecode interpreter;
+that requires an interpreter expression/source-map hook. It also does not
+make the global GO and local Saturn RNG streams equivalent.

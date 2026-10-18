@@ -43,7 +43,9 @@ jobs:
           PYTHONPATH: .
         run: |
           python tests/tools/test_ikemen_rng_audit.py
+          python tests/tools/test_ikemen_rng_events.py
           python tests/tools/test_ikemen_ai_compare.py
+          python tests/tools/test_ikemen_oracle.py
 
   build:
     name: Host tests and firmware disc
@@ -138,20 +140,35 @@ jobs:
             xvfb-run -a python tools/ikemen_oracle/suite.py \
               --keep-going --trace-bin build/host/ikemen_oracle_trace
           fi
-      - name: Observe upstream KFM ZSS AI
+      - name: Observe upstream KFM ZSS AI and per-call RNG
         if: inputs.zss_ai_probe || contains(github.event.head_commit.message, '[zss-ai-probe]')
         env:
           GOEXPERIMENT: arenas
+          LIBSATURN_PREFIX: ${{ steps.libsaturn.outputs.prefix }}
         run: |
-          xvfb-run -a python tools/ikemen_oracle/ai_probe.py \
-            --out build/ikemen_oracle/ai_probe
+          cmake --preset host
+          cmake --build --preset host
+          xvfb-run -a python tools/ikemen_oracle/ai_compare.py \
+            --rng-events \
+            --out build/ikemen_oracle/ai_comparison
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path("build/ikemen_oracle/ai_comparison/comparison.json").read_text())
+          result = report["upstream_rng_events"]
+          assert result["all_saved_intervals_reconciled"]
+          assert result["event_count"] > 0, "no GO random calls recorded"
+          assert result["first_12_bytecode_events"], "no interpreter RNG calls recorded"
+          print("GO Random call sites:", result["by_file"])
+          print("Random player/states:", result["by_player_state"])
+          PY
       - name: Upload AI observation traces
         if: always() && (inputs.zss_ai_probe || contains(github.event.head_commit.message, '[zss-ai-probe]'))
         uses: actions/upload-artifact@v4
         with:
           name: ikemen-zss-ai-observation
           if-no-files-found: warn
-          path: build/ikemen_oracle/ai_probe/**
+          path: build/ikemen_oracle/ai_comparison/**
       - name: Upload ZSS parity diagnostics
         if: always() && (inputs.zss_oracle || contains(github.event.head_commit.message, '[zss-oracle]'))
         uses: actions/upload-artifact@v4

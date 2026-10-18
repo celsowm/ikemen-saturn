@@ -31,7 +31,7 @@ assert result["by_player_state"]["p2:200"] == 2
 assert result["by_player_state"]["pglobal:-1"] == 1
 assert len(result["first_12_cpu_events"]) == 2
 assert not result["ai_decision_parity_verified"]
-assert audit_events(frames, []) == {} if False else True
+
 
 def must_reject(bad_frames, bad_events):
     try:
