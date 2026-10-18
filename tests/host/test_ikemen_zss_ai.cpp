@@ -160,6 +160,49 @@ int main() {
     OK(!ik_zss_ai_tick(&neutral_fight, 1, 0, &random_a, &disabled));
     OK(random_a == before);
 
+    /* GO AI.zss close throw: source-guarded <=310*level^2/48.
+     * With seed 1 the first Rand(0,999)=0. This must enter the actual
+     * throw state 800 and advance the pinned Park-Miller stream once. */
+    attacker->state = 0;
+    attacker->x = 140;
+    victim->x = 125;
+    victim->cur_move_type = IK_CNS_MOVE_IDLE;
+    victim->cur_state_type = IK_CNS_STATE_STAND;
+    attacker->move_contact = 0;
+    uint32_t throw_seed = 1u;
+    ik_fight_controls_t throw_start{};
+    OK(ik_zss_ai_tick(&neutral_fight, 1, 8, &throw_seed, &throw_start));
+    OK(throw_start.has_state_request && throw_start.requested_state == 800);
+    OK(throw_seed == 16807u);
+    victim->cur_move_type = IK_CNS_MOVE_HIT;
+    uint32_t blocked_throw_seed = 1u;
+    ik_fight_controls_t blocked_throw{};
+    (void)ik_zss_ai_tick(&neutral_fight, 1, 8,
+                         &blocked_throw_seed, &blocked_throw);
+    OK(!blocked_throw.has_state_request || blocked_throw.requested_state != 800);
+    OK(blocked_throw_seed == 1u);
+    victim->cur_move_type = IK_CNS_MOVE_IDLE;
+
+    /* At 50px, standing neutral extends the script's light reach to 55;
+     * against a croucher, the preceding light subset does not reach and
+     * the original medium-range heavy family can choose state 240. */
+    attacker->x = 150;
+    victim->x = 100;
+    uint32_t medium_seed = 1u;
+    ik_fight_controls_t stand_medium{};
+    OK(ik_zss_ai_tick(&neutral_fight, 1, 8,
+                       &medium_seed, &stand_medium));
+    OK(stand_medium.has_state_request && stand_medium.requested_state == 200);
+    OK(medium_seed == 1u);
+    victim->cur_state_type = IK_CNS_STATE_CROUCH;
+    ik_fight_controls_t crouch_medium{};
+    OK(ik_zss_ai_tick(&neutral_fight, 1, 8,
+                       &medium_seed, &crouch_medium));
+    OK(crouch_medium.has_state_request &&
+       crouch_medium.requested_state == 240);
+    OK(medium_seed == 16807u);
+    victim->cur_state_type = IK_CNS_STATE_STAND;
+
     attacker->state = 100;
     attacker->x = 110;
     victim->x = 90;

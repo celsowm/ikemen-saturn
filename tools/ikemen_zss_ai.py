@@ -25,7 +25,10 @@ NEUTRAL_CLAUSES = [
     'ifmap(aiw)=0&&stateno=20{printtoconsole{text:"changestate{value:0}"}changestate{value:0;ctrl:1}}',
     'ifstatetype!=a&&(ctrl||stateno=20)&&stateno!=100&&random<=(396*(ailevelf**2/48.0))&&(p2movetype!=a||backedgebodydist<40)&&(p2bodydistx>=cond($hitfall||p2stateno=5300,10,120)){changestate{value:100}}',
     'ifstateno=100&&(p2bodydistx<40-20*(!$grounded)&&p2stateno!=5040||p2bodydistx<-65||roundstate!=2){changestate{value:0;ctrl:1}}',
-    'letatt=cond(p2bodydisty<-40||p2statetype=s,200,400);'
+    'letatt=cond(p2bodydisty<-40||p2statetype=s,200,400);',
+    # The real GO trace attributed 56 draws to the close throw expression.
+    'ifrandom<=(310*(ailevelf**2/48.0))&&statetype=s&&stateno!=100&&(p2movetype!=h||p2stateno=[120,131])&&(map(ai_ji)<2)&&p2bodydistx<30&&$grounded{changestate{value:800}}',
+    'ifp2bodydistx<60+(floor($trvelx*.4)*5)&&!$ai_ji&&(!$nojug||p2bodydisty>-10)&&(!map(gurt)||p2bodydistx>35)&&random<=(425*(ailevelf**2/48.0))&&(p2stateno!=[1025,1028]||p2movetype!=h)',
 ]
 
 

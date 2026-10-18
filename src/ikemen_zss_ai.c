@@ -145,6 +145,23 @@ int ik_zss_ai_tick(const ik_fight_t* fight, uint8_t player,
          (foe->cur_state_type != IK_CNS_STATE_LIEDOWN && dist < 30))) {
         direction = -1;
     }
+    /* AI.zss lines 162-165: neutral close throw, before blocking and
+     * the normal-attack family. The original uses map(AI_JI)<2; native
+     * CPU lacks that persistent map, so do not throw while a previous
+     * attack still reports contact. The current grounded/root, positive
+     * distance, and idle/hit predicates make this an intentionally bounded
+     * subset, not a 1:1 translation of the global State -1 loop.
+     * The 310 gate is inclusive, exactly like the pinned ZSS predicate. */
+    if (f->on_ground && neutral_ctrl &&
+        f->cur_state_type == IK_CNS_STATE_STAND &&
+        f->state != 100 && !f->move_contact &&
+        grounded && !foe_hit &&
+        dist >= 0 && dist < 30 &&
+        ai_roll(rng) <= ai_threshold(level, 310u)) {
+        ai_state(out, 800);
+        return 1;
+    }
+
     /* The AI.zss defensive block has a close parry option and a broader
      * guarding option. Using back delegates to the existing shared guard
      * state machine rather than inventing a second autoblock mechanism. */
@@ -194,9 +211,21 @@ int ik_zss_ai_tick(const ik_fight_t* fight, uint8_t player,
     /* Grounded, non-juggle subset of the original light-attack clause.
      * Remaining AI_JI, get-up map, predicted velocity and juggle predicates
      * are deferred. At short range preserve the level-scaled random gate. */
-    if (grounded && !foe_hit && dist > -15 && dist < 45 &&
+    if (grounded && !foe_hit && dist > -15 &&
+        dist < (foe->cur_state_type == IK_CNS_STATE_CROUCH ? 45 : 55) &&
         (dist > 25 || ai_roll(rng) <= ai_threshold(level, 225u))) {
         ai_state(out, foe->cur_state_type == IK_CNS_STATE_CROUCH ? 400 : 200);
+        return 1;
+    }
+
+    /* AI.zss lines 206-214: the grounded heavy attack at medium range.
+     * The source runs this after the light family; only the interval
+     * where our light subset did not attack is considered here.
+     * $AI_JI, gurt, and predictive trvelx are not yet modeled.
+     * With a grounded foe the script chooses state 240 in this range. */
+    if (grounded && !foe_hit && dist >= 45 && dist < 60 &&
+        ai_roll(rng) <= ai_threshold(level, 425u)) {
+        ai_state(out, 240);
         return 1;
     }
 

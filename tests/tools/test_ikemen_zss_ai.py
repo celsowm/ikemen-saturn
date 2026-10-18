@@ -35,6 +35,10 @@ with TemporaryDirectory() as temp:
         ("p2BodyDist x = [25, 120]", "p2BodyDist x = [25, 125]"),
         ("if map(AIw) = 0 && stateNo = 20",
          "if map(AIw) = 1 && stateNo = 20"),
+        ("random <= (310 * (aiLevelF ** 2 / 48.0))",
+         "random <= (311 * (aiLevelF ** 2 / 48.0))"),
+        ("random <= (425 * (aiLevelF ** 2 / 48.0))",
+         "random <= (426 * (aiLevelF ** 2 / 48.0))"),
     ):
         assert old in content
         changed = Path(temp) / "AI.zss"

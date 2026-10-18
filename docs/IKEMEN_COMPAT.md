@@ -393,3 +393,20 @@ individual random token's column; nested/flattened bytecode may fail
 to resolve. These records let us identify actual executed AI.zss
 conditions without guessing from state numbers. The result is an
 upstream observational tool, not a complete Saturn translation.
+
+## Bounded native close throw and grounded heavy openers (2026-10-18)
+
+The real pinned GO AI probe recorded **56 `OC_random` evaluations** in
+the original throw expression (AI.zss lines 162–165). The native CPU
+now executes a source-guarded, inclusive 310×level²/48 random-gated
+close throw request (state 800) in eligible grounded neutral contexts,
+without replacing the real Saturn frame driver or CNS throw logic.
+The native neutral light family now permits stand opponents up to
+55 pixels (as in the original outer light predicate), and a
+source-guarded medium-range crouch opening can request heavy
+state 240 using the original inclusive 425×level²/48 gate.
+The AI_JI map, predictive trvelx, arbitrary throw crossing,
+get-up behavior and the engine-global RNG schedule are **not**
+reproduced; these are bounded improvements, not whole-AI parity.
+Host tests pin throw selection, forbidden hitstun throw, ranged light,
+medium heavy and exact first-draw seed advancement.
