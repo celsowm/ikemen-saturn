@@ -223,9 +223,13 @@ int main() {
     /* Below level 7 that alternative is forbidden when away from edges. */
     uint32_t low_level_seed = 1u;
     ik_fight_controls_t low_level_jump{};
-    OK(!ik_zss_ai_tick(&neutral_fight, 1, 6,
-                       &low_level_seed, &low_level_jump));
-    OK(low_level_seed == 1u);
+    (void)ik_zss_ai_tick(&neutral_fight, 1, 6,
+                       &low_level_seed, &low_level_jump);
+    OK(!low_level_jump.has_state_request ||
+       low_level_jump.requested_state != 40);
+    /* The old walking fallback may still draw its own RNG and choose
+     * State 20: lack of jump is the contract, not global RNG silence. */
+    OK(low_level_seed == 16807u);
     /* Edge-driven jump is random gated and uses the source's strict <.
      * A 755 roll rejects it, while seed 1 produces zero and requests 40. */
     victim->cur_move_type = IK_CNS_MOVE_IDLE;
@@ -243,7 +247,9 @@ int main() {
                         &rejected_jump);
     OK(!rejected_jump.has_state_request ||
        rejected_jump.requested_state != 40);
-    OK(rejected_seed == 1622650073u);
+    /* Jump rejection consumes the first draw; the existing walk
+     * fallback then evaluates its own random gate. */
+    OK(rejected_seed == 984943658u);
     /* The original jump cancel expression disallows close neutral
      * attempts; at 60px the new branch must not steal an attack. */
     victim->x = 80;
