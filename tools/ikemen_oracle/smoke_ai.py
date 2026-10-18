@@ -48,6 +48,17 @@ def main() -> int:
         raise AssertionError("missing native CPU random checkpoints")
     if len({seed[1] for seed in checkpoints}) < 2:
         raise AssertionError("CPU Park-Miller RNG never advanced")
+    memories = [frame.get("native_ai_memory") for frame in rows]
+    if any(not isinstance(mem, list) or len(mem) != 2 or
+           mem[0] is not None or not isinstance(mem[1], dict) or
+           type(mem[1].get("gurt")) is not int or
+           not 0 <= mem[1]["gurt"] <= 10 or
+           type(mem[1].get("ai_ji")) is not int or
+           not 0 <= mem[1]["ai_ji"] <= 65535 or
+           type(mem[1].get("aij")) is not int or
+           mem[1]["aij"] not in (0, 1)
+           for mem in memories):
+        raise AssertionError("missing or invalid native AI memory checkpoints")
     # Running/walking/attacking are all real autonomous decisions; having
     # only idle frames is the same disconnected-CPU failure as before.
     if not any(s in stats["state_histogram"] for s in

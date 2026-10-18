@@ -69,6 +69,35 @@ def compare_ai(upstream: list[dict], saturn: list[dict], player: int) -> dict:
         if any(not isinstance(value, list) or len(value) != 2 or
                type(value[player]) is not int for value in checkpoints):
             raise ValueError("per-frame native AI RNG checkpoints missing")
+    memories = [frame.get("native_ai_memory") for frame in saturn]
+    native_memory = None
+    if any(value is not None for value in memories):
+        if any(not isinstance(value, list) or len(value) != 2 or
+               not isinstance(value[player], dict) or
+               any(type(value[player].get(key)) is not int for key in
+                   ("gurt", "ai_ji", "aij")) or
+               not 0 <= value[player]["gurt"] <= 10 or
+               not 0 <= value[player]["ai_ji"] <= 65535 or
+               value[player]["aij"] not in (0, 1)
+               for value in memories):
+            raise ValueError("per-frame native ZSS AI memory checkpoints missing")
+        native_memory = {
+            "scope": "native CPU only; no equivalent GO map observations",
+            "gurt_positive_frames": sum(v[player]["gurt"] > 0 for v in memories),
+            "ai_ji_positive_frames": sum(v[player]["ai_ji"] > 0 for v in memories),
+            "aij_declared_frames": sum(v[player]["aij"] == 1 for v in memories),
+            "first": memories[0][player],
+            "last": memories[-1][player],
+            "first_12_gurt_frames": [
+                i for i, v in enumerate(memories) if v[player]["gurt"] > 0
+            ][:12],
+            "first_12_ai_ji_frames": [
+                i for i, v in enumerate(memories) if v[player]["ai_ji"] > 0
+            ][:12],
+            "first_12_aij_frames": [
+                i for i, v in enumerate(memories) if v[player]["aij"] == 1
+            ][:12],
+        }
     rng_first = checkpoints[0][player] if checkpoints[0] else None
     rng_last = checkpoints[-1][player] if checkpoints[-1] else None
 
@@ -103,6 +132,7 @@ def compare_ai(upstream: list[dict], saturn: list[dict], player: int) -> dict:
         "observed_attacks_on_both_sides":
             u["observed_attacks"] and s["observed_attacks"],
         "ai_parity_verified": False,
+        "native_memory_debug": native_memory,
         "random_debug": {
             "upstream_global_first": upstream[0].get("rand_seed"),
             "upstream_global_last": upstream[-1].get("rand_seed"),
@@ -180,6 +210,12 @@ def main() -> int:
         "upstream/native attack frames; NOT full AI parity."
     )
     print(f"report: {outfile}")
+    mem = report["native_memory_debug"]
+    if mem is not None:
+        print("Native ZSS memory: "
+              f"gurt>0 on {mem['gurt_positive_frames']} frames; "
+              f"AI_JI>0 on {mem['ai_ji_positive_frames']} frames; "
+              f"AIJ declaration on {mem['aij_declared_frames']} frames")
     if args.rng_events:
         events = report["upstream_rng_events"]
         print(f"Upstream original Random(): {events['event_count']} "

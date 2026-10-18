@@ -69,7 +69,17 @@ for i, (row, value) in enumerate(zip(
     row["native_ai_rng"] = [None, value]
 for row, value in zip(up, (1, 16807, 282475249)):
     row["rand_seed"] = value
+for i, row in enumerate(native):
+    row["native_ai_memory"] = [
+        None, {"gurt": max(0, 2 - i),
+               "ai_ji": 5 if i == 1 else 0,
+               "aij": 1 if i == 2 else 0},
+    ]
 snapshots = compare_ai(up, native, 1)
+assert snapshots["native_memory_debug"]["gurt_positive_frames"] == 2
+assert snapshots["native_memory_debug"]["ai_ji_positive_frames"] == 1
+assert snapshots["native_memory_debug"]["aij_declared_frames"] == 1
+assert snapshots["native_memory_debug"]["first_12_aij_frames"] == [2]
 assert snapshots["random_debug"]["native_cpu_first"] == 16807
 assert snapshots["random_debug"]["native_cpu_last"] == 1622650073
 assert snapshots["random_debug"]["upstream_global_last"] == 282475249
@@ -84,6 +94,16 @@ except ValueError:
 else:
     raise AssertionError("incomplete native random trace accepted")
 native[1]["native_ai_rng"] = [None, 282475249]
+native[1].pop("native_ai_memory")
+try:
+    compare_ai(up, native, 1)
+except ValueError as exc:
+    assert "AI memory checkpoints" in str(exc)
+else:
+    raise AssertionError("incomplete native AI memory checkpoints accepted")
+native[1]["native_ai_memory"] = [
+    None, {"gurt": 1, "ai_ji": 5, "aij": 0}
+]
 assert report["upstream"]["state_histogram"]["200"] == 2
 for a, b in ((up, []), (up, native[:2])):
     try:

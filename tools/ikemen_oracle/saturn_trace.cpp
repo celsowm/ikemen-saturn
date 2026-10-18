@@ -280,6 +280,22 @@ static void emit_frame(
             }
         }
         std::fputc(']', out);
+        /* Native-only post-frame memory, never change scripted JSON rows. */
+        std::fputs(",\"native_ai_memory\":[", out);
+        for (int p = 0; p < 2; ++p) {
+            if (p) std::fputc(',', out);
+            if (ctx->zss_ai_level[p]) {
+                const auto& mem = ctx->zss_ai_memory[p];
+                std::fprintf(out,
+                    "{\"gurt\":%u,\"ai_ji\":%u,\"aij\":%u}",
+                    static_cast<unsigned>(mem.gurt),
+                    static_cast<unsigned>(mem.ai_ji),
+                    static_cast<unsigned>(mem.aij));
+            } else {
+                std::fputs("null", out);
+            }
+        }
+        std::fputc(']', out);
     }
     std::fputs("}\n", out);
 }

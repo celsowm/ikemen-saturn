@@ -426,3 +426,14 @@ that contains the random opcode, not necessarily a separate location
 for each `random` token when the expression has several. The original
 GO engine remains entirely external to the Saturn firmware, and this
 does not imply decision parity.
+
+## Native ZSS CPU memory diagnostics
+
+CPU traces now include `native_ai_memory` per frame, with one element for
+each player (`null` for a human-controlled player). This exposes the
+native-only `gurt`, `ai_ji` and `aij` bookkeeping without changing
+the existing scripted oracle trace schema. `ai_compare.py` verifies a
+complete post-frame series, reports how many frames have active
+get-up cooldown, a hitstun opportunity and a jump declaration, and
+**explicitly disclaims original-Go AI parity**. The ordinary CPU smoke
+test checks the memory schema on the real frame driver.
