@@ -419,6 +419,9 @@ int main() {
     ik_fight_controls_t jab{};
     OK(ik_zss_ai_tick(&neutral_fight, 1, 8, &random_a, &jab));
     OK(jab.has_state_request && jab.requested_state == 200);
+    /* The original source's inner 400-state acceptance requires
+     * crouching targets within 35px; 40px is not a legal request. */
+    victim->x = 112; /* 28px facing-relative, inside the crouch gate */
     victim->cur_state_type = IK_CNS_STATE_CROUCH;
     ik_fight_controls_t crouch{};
     OK(ik_zss_ai_tick(&neutral_fight, 1, 8, &random_a, &crouch));
