@@ -36,6 +36,9 @@ assert result["all_saved_intervals_reconciled"]
 assert result["by_file"]["bytecode.go"] == 2
 assert result["by_player_state"]["p2:200"] == 2
 assert result["uniquely_resolved_calls"] == 2
+assert result["original_ai_zss_resolved_draws"] == 2
+assert result["original_ai_zss_expressions"]
+assert len(result["first_12_ai_zss_random_draws"]) == 2
 assert result["unresolved_or_ambiguous_calls"] == 1
 assert result["unique_source_expressions"]
 assert len(result["first_12_unique_expressions"]) == 2
