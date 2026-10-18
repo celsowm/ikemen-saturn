@@ -70,6 +70,16 @@ def validate_ai_combat(path: Path) -> None:
 def validate_go_rng(common_go: Path, bytecode_go: Path) -> None:
     common = common_go.read_text(encoding="utf-8")
     bytecode = bytecode_go.read_text(encoding="utf-8")
+    # A local GO oracle checkout may be instrumented by install.py.
+    # Discard only fenced oracle-owned source injections when verifying the
+    # unchanged original Random()/Rand()/OC_random definitions.
+    oracle_block = re.compile(
+        r"^[ \t]*// LIBSATURN_ORACLE_BEGIN\n"
+        r".*?^[ \t]*// LIBSATURN_ORACLE_END\n",
+        flags=re.MULTILINE | re.DOTALL,
+    )
+    common = oracle_block.sub("", common)
+    bytecode = oracle_block.sub("", bytecode)
     expected = (
         "w := sys.randseed / 127773",
         "sys.randseed = (sys.randseed-w*127773)*16807 - w*2836",
