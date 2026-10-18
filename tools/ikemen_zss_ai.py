@@ -77,12 +77,12 @@ def validate_go_rng(common_go: Path, bytecode_go: Path) -> None:
         "sys.randseed += IMax - Btoi(sys.randseed == 0)",
         "return min + Random()/(IMax/(max-min+1)+1)",
     )
-    compact = re.sub(r"\\s+", "", common)
+    compact = re.sub(r"\s+", "", common)
     for clause in expected:
-        if re.sub(r"\\s+", "", clause) not in compact:
+        if re.sub(r"\s+", "", clause) not in compact:
             raise ValueError(f"{common_go}: upstream Random/Rand changed at {clause!r}")
     if re.search(
-        r"case\\s+OC_random\\s*:\\s*sys\\.bcStack\\.PushI\\(Rand\\(0,\\s*999\\)\\)",
+        r"case\s+OC_random\s*:\s*sys\.bcStack\.PushI\(Rand\(0,\s*999\)\)",
         bytecode,
     ) is None:
         raise ValueError(f"{bytecode_go}: upstream random trigger changed")
