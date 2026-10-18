@@ -123,6 +123,10 @@ def main() -> int:
         default=Path("build/ikemen_oracle/ikemen.jsonl"),
     )
     parser.add_argument(
+        "--rng-events", type=Path, default=None,
+        help="write optional upstream Random() call-site events as JSONL",
+    )
+    parser.add_argument(
         "--install",
         action="store_true",
         help="install/update the source hook before running",
@@ -137,6 +141,9 @@ def main() -> int:
     tool_dir = Path(__file__).resolve().parent
     ikemen_dir = args.ikemen_dir.resolve()
     trace = args.trace.resolve()
+    rng_events = args.rng_events.resolve() if args.rng_events else None
+    if rng_events is not None and rng_events == trace:
+        parser.error("--rng-events must be separate from --trace")
     scenario = load_scenario(args.scenario)
 
     if args.install:
@@ -158,6 +165,9 @@ def main() -> int:
         )
 
     trace.parent.mkdir(parents=True, exist_ok=True)
+    if rng_events is not None:
+        rng_events.parent.mkdir(parents=True, exist_ok=True)
+        rng_events.unlink(missing_ok=True)
     timeline = trace.parent / "inputs.txt"
     write_timeline(timeline, scenario)
     env = os.environ.copy()
@@ -171,6 +181,10 @@ def main() -> int:
     )
     env["LIBSATURN_IKEMEN_ORACLE_INPUTS"] = str(timeline)
     env["LIBSATURN_IKEMEN_ORACLE_SETUP"] = setup_string(scenario)
+    if rng_events is not None:
+        env["LIBSATURN_IKEMEN_ORACLE_RNG_EVENTS"] = str(rng_events)
+    else:
+        env.pop("LIBSATURN_IKEMEN_ORACLE_RNG_EVENTS", None)
     apply_upstream_build_env(env)
 
     cmd = build_command(scenario)
@@ -180,6 +194,7 @@ def main() -> int:
             "cwd": str(ikemen_dir),
             "command": cmd,
             "trace": str(trace),
+            "rng_events": str(rng_events) if rng_events else None,
             "seed": int(scenario["seed"]),
             "frames": int(scenario["frames"]),
             "inputs": str(timeline),
@@ -215,6 +230,10 @@ def main() -> int:
             f"oracle trace has {frame_count} frames, expected {expected}"
         )
     print(f"oracle trace: {trace} ({frame_count} frames)")
+    if rng_events is not None:
+        if not rng_events.is_file():
+            raise SystemExit("Random call-site sidecar was not produced")
+        print(f"oracle random events: {rng_events}")
     return 0
 
 if __name__ == "__main__":
