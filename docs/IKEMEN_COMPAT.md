@@ -504,3 +504,15 @@ source-ordered poke expressions; at 60px the heavy predicate is false
 and must not consume it. The host golden seed tests cover the extra
 draw and short-circuit order. This still does not reproduce draws made
 elsewhere in the upstream GO engine.
+
+## GO State -1 evaluated-but-discarded random calls during walking
+
+The attributed original `AI.zss` trace confirmed that the
+anti-air-normal predicate (line 156) and the close-throw predicate
+(line 162) consume **independent Random() values before** their
+subsequent geometry checks. In the narrow walking State 20 / grounded
+opponent / 45–60px case, the native CPU now consumes those two values
+in source order, ahead of the existing heavy/poke RNG logic, without
+generating an invalid attack. Host regression pins the four-draw
+Park–Miller sequence at 50px and the zero-draw boundary at 61px.
+Other conditions and the engine-global RNG remain non-parity areas.

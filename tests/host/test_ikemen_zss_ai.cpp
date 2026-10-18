@@ -432,6 +432,35 @@ int main() {
     OK(crouch.has_state_request && crouch.requested_state == 400);
     OK(crouch_jab_seed == 1008420000u);
 
+    /* Real GO State -1 evaluates anti-air-normal and throw random
+     * predicates before rejecting them on a grounded 50px opponent.
+     * When walking, these discarded rolls must precede the following
+     * heavy (also discarded) and poke gates: four RNG transitions. */
+    attacker->state = 20;
+    attacker->ctrl = 0;
+    attacker->on_ground = 1;
+    attacker->cur_state_type = IK_CNS_STATE_STAND;
+    attacker->cur_move_type = IK_CNS_MOVE_IDLE;
+    attacker->move_contact = 0;
+    attacker->x = 150;
+    victim->x = 100;
+    victim->cur_state_type = IK_CNS_STATE_STAND;
+    victim->cur_move_type = IK_CNS_MOVE_IDLE;
+    uint32_t walk_roll_seed = 1u;
+    ik_fight_controls_t walk_roll{};
+    OK(ik_zss_ai_tick(&neutral_fight, 1, 8,
+                       &walk_roll_seed, &walk_roll));
+    OK(walk_roll_seed == 984943658u);
+    OK(!walk_roll.has_state_request && walk_roll.forward);
+    /* At 61px the original heavy/poke range branches and our bounded
+     * extra two-roll case are all false; State20 holds direction. */
+    victim->x = 89;
+    uint32_t outside_seed = 1u;
+    ik_fight_controls_t outside_walk{};
+    OK(ik_zss_ai_tick(&neutral_fight, 1, 8,
+                       &outside_seed, &outside_walk));
+    OK(outside_seed == 1u && outside_walk.forward);
+
     /* CPU needs to attack from State 20 before applying AIw walk direction;
      * otherwise a 30px spacing preference prevents combat indefinitely. */
     attacker->state = 20;

@@ -160,6 +160,21 @@ int ik_zss_ai_tick_memory(const ik_fight_t* fight, uint8_t player,
         }
         return 0;
     }
+    /* AI.zss lines 155-165: both anti-air-normal and throw
+     * evaluate their Random() expressions BEFORE checking range/height.
+     * In the pinned GO trace, this happens even with a grounded opponent
+     * 45..60px away while walking. The narrow State 20 shadow consumes
+     * those two otherwise-skipped values before heavy/poke decisions.
+     * It does not invent a normal or throw action and deliberately avoids
+     * claiming that the entire State -1 expression order is implemented.
+     * The real anti-air/throw branches elsewhere handle eligible moves. */
+    if (f->state == 20 && f->on_ground &&
+        f->cur_state_type == IK_CNS_STATE_STAND &&
+        grounded && !foe_hit && dist >= 45 && dist <= 60) {
+        (void)ai_roll(rng);  /* line 156: random <= 420-scaled */
+        (void)ai_roll(rng);  /* line 162: random <= 310-scaled */
+    }
+
     /* AI.zss AIw map: forward unless the foe is attacking/very close;
      * retreat only with sufficient space behind the player. AI_JI omitted. */
     int direction = (!foe_attacking || dist > 25 ||
