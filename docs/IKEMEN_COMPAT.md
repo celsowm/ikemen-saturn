@@ -355,3 +355,15 @@ seed, with a per-player offset, instead of an unrelated 32-bit XOR seed.
 PRNG with command processing and all other simulation logic; our native
 CPU consumes only the selected translated AI predicates, often in a
 different order. There is no equivalent global engine stream yet.
+
+## Post-frame RNG draw accounting
+
+Added bounded replay of the pinned Park-Miller primitive between upstream
+`rand_seed` checkpoints and native CPU `native_ai_rng` checkpoints.
+`ai_compare.py` now reports both per-frame draw counts and the first
+differences, while distinguishing **upstream-global** from **local-CPU**
+scope. Each interval with more than 4096 draws (or non-reachable seeds)
+is marked unresolved. The first frame has no prior post-frame seed.
+This is a diagnostic for identifying missing RNG consumption, not a
+claim that global or per-decision streams match. Source-only CI protects
+the audit even when building the consumer's LibSaturn package is delayed.

@@ -17,10 +17,12 @@ try:
     from .ai_probe import summarize
     from .diff import load_jsonl
     from .run_saturn import cpu_levels
+    from .rng_audit import audit_checkpoints, compare_draws
 except ImportError:
     from ai_probe import summarize
     from diff import load_jsonl
     from run_saturn import cpu_levels
+    from rng_audit import audit_checkpoints, compare_draws
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_SCENARIO = (
@@ -67,6 +69,20 @@ def compare_ai(upstream: list[dict], saturn: list[dict], player: int) -> dict:
             raise ValueError("per-frame native AI RNG checkpoints missing")
     rng_first = checkpoints[0][player] if checkpoints[0] else None
     rng_last = checkpoints[-1][player] if checkpoints[-1] else None
+
+    # The original global RNG and native-local RNG have different owners.
+    # Derive call counts from consecutive post-frame seeds, never align the
+    # raw seed values or pretend an equal draw count means decision parity.
+    upstream_seeds = [frame.get("rand_seed") for frame in upstream]
+    upstream_rng = None
+    native_rng = None
+    if all(seed is not None for seed in upstream_seeds):
+        upstream_rng = audit_checkpoints(upstream_seeds)
+    elif any(seed is not None for seed in upstream_seeds):
+        raise ValueError("partial upstream global RNG checkpoints")
+    if all(value is not None for value in checkpoints):
+        native_rng = audit_checkpoints([value[player] for value in checkpoints])
+    rng_draw_comparison = compare_draws(upstream_rng, native_rng)
     return {
         "schema": 1,
         "comparison": "diagnostic only; not AI RNG or frame parity",
@@ -91,6 +107,9 @@ def compare_ai(upstream: list[dict], saturn: list[dict], player: int) -> dict:
             "native_cpu_first": rng_first,
             "native_cpu_last": rng_last,
             "same_random_stream": False,
+            "upstream_global_draw_audit": upstream_rng,
+            "native_cpu_draw_audit": native_rng,
+            "draw_count_comparison": rng_draw_comparison,
         },
     }
 
@@ -152,6 +171,12 @@ def main() -> int:
         "upstream/native attack frames; NOT full AI parity."
     )
     print(f"report: {outfile}")
+    draws = report["random_debug"]["draw_count_comparison"]
+    if draws["available"]:
+        print("Park-Miller RNG diagnostic: "
+              f"{draws['different_draw_count_frames']} frames with different "
+              "global GO vs local Saturn AI draw counts "
+              "(NOT equivalent streams)")
     if not report["observed_attacks_on_both_sides"]:
         print("Warning: attacks were not observed on both sides; "
               "inspect source trace and scenario before drawing conclusions.")

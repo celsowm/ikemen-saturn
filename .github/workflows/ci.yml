@@ -30,6 +30,21 @@ env:
   LIBSATURN_REF: main
 
 jobs:
+  rng_audit:
+    name: RNG audit and tools
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Verify RNG and oracle diagnostic contracts
+        env:
+          PYTHONPATH: .
+        run: |
+          python tests/tools/test_ikemen_rng_audit.py
+          python tests/tools/test_ikemen_ai_compare.py
+
   build:
     name: Host tests and firmware disc
     runs-on: ubuntu-latest

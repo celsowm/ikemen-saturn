@@ -355,3 +355,22 @@ The strict CPU-disabled oracle schema is unchanged. The AI comparison
 report separately labels native-local and upstream-global start/end seeds;
 they are **not comparable streams**, even though the next-number
 primitive is the same.
+
+## Auditing global versus native RNG draw counts
+
+Each frame is recorded **after** its engine advances. With consecutive
+positive Park-Miller checkpoints, `rng_audit.py` reconstructs the number
+of calls to `Random()` since the previous frame by replaying at most 4096
+steps. Unresolvable gaps are reported by frame instead of inventing counts;
+the first frame has no prior post-frame checkpoint and is excluded.
+
+`ai_compare.py` saves the original global and native-local
+`draws_by_frame` series in `comparison.json`, plus the first differences.
+The GO stream contains draws from **the entire engine**, while the
+Saturn stream currently covers **ZSS CPU only**. Similar counts cannot
+establish common RNG order or exact AI parity. The comparison is
+diagnostic and does not weaken any scripted combat oracle gate.
+
+The independent `RNG audit and tools` GitHub CI job tests these routines
+without fetching the large LibSaturn package. Full firmware builds and
+the native CPU smoke retain their original separate CI job.
