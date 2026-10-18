@@ -50,7 +50,16 @@ def main() -> int:
         def fighter(frame: dict, player: int) -> dict:
             return next(c for c in frame["chars"] if
                         c["player_no"] == player and c["helper_index"] == 0)
+        def sample(idx: int) -> list[dict]:
+            return [
+                {key: fighter(rows[idx], p)[key] for key in
+                 ("state_no", "pos", "vel", "facing", "ctrl",
+                  "state_type", "move_type")}
+                for p in (0, 1)
+            ]
         diagnostics = {
+            "timeline": {str(i): sample(i) for i in
+                         (0, 16, 17, 46, 119, len(rows) - 1)},
             "state_histogram": stats["state_histogram"],
             "transitions": stats["state_transitions"][:24],
             "initial": [(fighter(rows[0], p)["state_no"],
