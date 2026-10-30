@@ -21,7 +21,11 @@ from tools.ikemen_cns import parse_zss_states
 from tools.ikemen_zss_character_states import CHARACTER_STATES, HIT_STATES
 
 ROOT = sys.path[0]
-CHAR_DIR = Path(sys.path[0]) / ".external" / "Ikemen-GO-Screenpack" / "chars" / "kfm_zaxis"
+# cmake/IkemenAssets.cmake pins this checkout as the lowering source of
+# truth. chars/kfm_zaxis is a newer 3-axis development copy and is NOT the
+# port target.
+CHAR_DIR = (Path(sys.path[0]) / ".external" / "Ikemen-GO-Screenpack"
+            / "chars" / "kfm_zss")
 
 FILES = ("kfm.zss", "hits.zss")
 LABELS = ("native", "remaining")

@@ -3114,6 +3114,79 @@ def _common_ctrl(
     }
 
 
+LOCOMOTION_STATES = (20, 100)
+
+
+def locomotion_row_patch(number: int) -> dict:
+    """State-row overrides for the shared walk/run lowering.
+
+    States 20 and 100 omit movetype and ctrl in every KFM StateDef; upstream
+    carries the previous values over on entry. The Saturn runtime stores
+    control as a static per-state value, so the verified lowering pins
+    ctrl = 1 (walk and run always stay controllable) and movetype = idle
+    (their only entry paths are control-owning movement states). State 100
+    additionally asserts NoWalk/NoAutoTurn, which the runtime models as the
+    state's static assert flags.
+    """
+    if number == 20:
+        return {"move_type": "IK_CNS_MOVE_IDLE", "ctrl": 1}
+    if number == 100:
+        return {
+            "move_type": "IK_CNS_MOVE_IDLE",
+            "ctrl": 1,
+            "assert_special_flags": (
+                "IK_CNS_STATE_ASSERT_NO_WALK | "
+                "IK_CNS_STATE_ASSERT_NO_AUTO_TURN"
+            ),
+        }
+    raise ValueError(f"state {number}: no shared locomotion row patch")
+
+
+def locomotion_ctrl_rows(number: int, const: dict[str, int]) -> list[dict]:
+    """Controller rows for the walk (20) and run (100) locomotion states.
+
+    Shared by the common1 compilation and the source-checked ZSS overrides so
+    both paths emit identical rows; the ZSS bodies differ from common1 only by
+    AI-only guards, which stay inert for the human path.
+    """
+    if number == 20:
+        return [
+            _common_ctrl(
+                20, "IK_CNS_CTRL_VEL_SET",
+                "IK_CNS_TRIGGER_COMMAND_ACTIVE",
+                "IK_CNS_COMMAND_HOLD_BACK", 0,
+                const["walk_back_q8"], 0,
+                "IK_CNS_CTRL_AXIS_X | IK_CNS_CTRL_LOCAL_X",
+            ),
+            _common_ctrl(
+                20, "IK_CNS_CTRL_VEL_SET",
+                "IK_CNS_TRIGGER_COMMAND_ACTIVE",
+                "IK_CNS_COMMAND_HOLD_FWD", 0,
+                const["walk_fwd_q8"], 0,
+                "IK_CNS_CTRL_AXIS_X | IK_CNS_CTRL_LOCAL_X",
+            ),
+            _common_ctrl(
+                20, "IK_CNS_CTRL_CHANGE_ANIM_BY_VX",
+                "IK_CNS_TRIGGER_ALWAYS", 0, 0, -1, 20,
+            ),
+        ]
+    if number == 100:
+        return [
+            _common_ctrl(
+                100, "IK_CNS_CTRL_VEL_SET",
+                "IK_CNS_TRIGGER_ALWAYS", 0, 0,
+                const["run_fwd_x_q8"], 0,
+                "IK_CNS_CTRL_AXIS_X | IK_CNS_CTRL_LOCAL_X",
+            ),
+            _common_ctrl(
+                100, "IK_CNS_CTRL_CHANGE_STATE",
+                "IK_CNS_TRIGGER_COMMAND_INACTIVE",
+                "IK_CNS_COMMAND_HOLD_FWD", 0, 0, 0,
+            ),
+        ]
+    raise ValueError(f"state {number}: no shared locomotion controller lowering")
+
+
 def compile_common_states(
     path: Path,
     selected: list[int],
@@ -3273,28 +3346,10 @@ def compile_common_states(
                 "IK_CNS_TRIGGER_ANIM_END", 0, 0, 0, 0,
             ))
 
-        elif n == 20:
-            row = state_row(20, -1, 1)
-            cs += [
-                _common_ctrl(
-                    20, "IK_CNS_CTRL_VEL_SET",
-                    "IK_CNS_TRIGGER_COMMAND_ACTIVE",
-                    "IK_CNS_COMMAND_HOLD_BACK", 0,
-                    const["walk_back_q8"], 0,
-                    "IK_CNS_CTRL_AXIS_X | IK_CNS_CTRL_LOCAL_X",
-                ),
-                _common_ctrl(
-                    20, "IK_CNS_CTRL_VEL_SET",
-                    "IK_CNS_TRIGGER_COMMAND_ACTIVE",
-                    "IK_CNS_COMMAND_HOLD_FWD", 0,
-                    const["walk_fwd_q8"], 0,
-                    "IK_CNS_CTRL_AXIS_X | IK_CNS_CTRL_LOCAL_X",
-                ),
-                _common_ctrl(
-                    20, "IK_CNS_CTRL_CHANGE_ANIM_BY_VX",
-                    "IK_CNS_TRIGGER_ALWAYS", 0, 0, -1, 20,
-                ),
-            ]
+        elif n in LOCOMOTION_STATES:
+            row = state_row(n, -1 if n == 20 else 100, 1)
+            row.update(locomotion_row_patch(n))
+            cs += locomotion_ctrl_rows(n, const)
 
         elif n == 40:
             row = state_row(40, 40, 0, spr=1)
@@ -3381,26 +3436,6 @@ def compile_common_states(
                     52, "IK_CNS_CTRL_CHANGE_STATE",
                     "IK_CNS_TRIGGER_ANIM_END", 0, 0, 0, 1,
                     "IK_CNS_CTRL_HAS_CTRL",
-                ),
-            ]
-
-        elif n == 100:
-            row = state_row(100, 100, 1)
-            row["assert_special_flags"] = (
-                "IK_CNS_STATE_ASSERT_NO_WALK | "
-                "IK_CNS_STATE_ASSERT_NO_AUTO_TURN"
-            )
-            cs += [
-                _common_ctrl(
-                    100, "IK_CNS_CTRL_VEL_SET",
-                    "IK_CNS_TRIGGER_ALWAYS", 0, 0,
-                    const["run_fwd_x_q8"], 0,
-                    "IK_CNS_CTRL_AXIS_X | IK_CNS_CTRL_LOCAL_X",
-                ),
-                _common_ctrl(
-                    100, "IK_CNS_CTRL_CHANGE_STATE",
-                    "IK_CNS_TRIGGER_COMMAND_INACTIVE",
-                    "IK_CNS_COMMAND_HOLD_FWD", 0, 0, 0,
                 ),
             ]
 
@@ -4195,10 +4230,6 @@ def emit(
     globals_, states = collect_states(parse_sections(path))
     by_number = {state.number: state for state in states}
 
-    missing = [n for n in selected if n not in by_number]
-    if missing:
-        raise ValueError(f"missing Statedef(s): {missing}")
-
     # Ikemen ZSS characters can keep [Data]/[Size]/[Velocity]/[Movement]
     # in a separate .const file. Until their ZSS state bodies are lowered,
     # permit a distinct source for constants without substituting defaults.
@@ -4217,8 +4248,9 @@ def emit(
     if character_zss is not None or hits_zss is not None:
         if character_zss is None or hits_zss is None:
             raise ValueError("character-zss and hits-zss must be provided together")
-        from tools.ikemen_zss_character_states import compile_zss_overrides
-        zss_overrides = compile_zss_overrides(character_zss, hits_zss)
+        from tools.ikemen_zss_character_states import (compile_zss_overrides,
+                                                      zss_row_patch)
+        zss_overrides = compile_zss_overrides(character_zss, hits_zss, const)
         from tools.ikemen_zss_ai import (validate_ai_followup,
                                           validate_ai_neutral,
                                           validate_ai_combat)
@@ -4229,6 +4261,13 @@ def emit(
         outside = sorted(set(zss_overrides) - set(selected))
         if outside:
             raise ValueError(f"ZSS override states not selected: {outside}")
+    # A selected number may be absent from the classic CNS as long as a
+    # source-checked ZSS body supplies it (the ZSS character file owns its
+    # own walk/run states, which classic KFM inherits from common1).
+    missing = [n for n in selected
+               if n not in by_number and n not in zss_overrides]
+    if missing:
+        raise ValueError(f"missing Statedef(s): {missing}")
     state_rows: list[dict] = []
     hitdefs: list[dict] = []
     sounds: list[dict] = []
@@ -4265,6 +4304,11 @@ def emit(
                     f"state {number_}: unexpected duplicate ZSS controllers")
             # ZSS bodies are lowered as native CNS controllers with exactly
             # the offsets used by classic states and common1.zss.
+            # Source-checked bodies may need state-row fields their StateDef
+            # omits (walk/run ctrl, static assert flags). The patch values are
+            # fixed by the verified shared locomotion lowering, not invented
+            # per character.
+            row.update(zss_row_patch(number_))
             if zss_override[1]:
                 cs = list(zss_override[1])
                 row["controller_count"] = len(cs)
@@ -4294,9 +4338,14 @@ def emit(
         hitoverrides.extend(hitoverride_rows)
 
     common_deferred: dict[int, list[str]] = {}
-    if common_zss is not None and common_selected:
+    # A source-checked ZSS body supersedes the common1 fallback for the same
+    # number; emitting both would duplicate the row without changing lookup
+    # (first match wins), so the shadowed common rows are dropped.
+    common_effective = [n for n in (common_selected or [])
+                        if n not in zss_overrides]
+    if common_zss is not None and common_effective:
         common_rows, common_ctrls, common_deferred = compile_common_states(
-            common_zss, common_selected, const, len(controllers)
+            common_zss, common_effective, const, len(controllers)
         )
         state_rows.extend(common_rows)
         controllers.extend(common_ctrls)

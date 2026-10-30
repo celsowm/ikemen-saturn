@@ -66,6 +66,7 @@ assert set(strict) == {
     "zss_p2_recovery_200", "zss_p2_throw_victim_160",
     "zss_p2_upper_y_200", "zss_p2_upper_y_attacker_200",
     "zss_p2_timeout_win_180",
+    "zss_p1_timeout_win_181",
     "zss_p1_air_x_200", "zss_p1_air_y_200", "zss_p1_air_a_200", "zss_p1_air_b_200", "zss_p2_blocking_air_air_200",
     "zss_p1_combo_cancel_x_qcf_y_200",
     "zss_p1_combo_cancel_x_upper_x_200",
@@ -96,4 +97,12 @@ origin = json.loads((OUT / "kfm_ff_a_200.json").read_text())
 assert knee["expect"] == {"p1_states": [1060, 1061], "p2_life_drops": True}
 assert knee["inputs"][:-1] == origin["inputs"][:-1]
 assert knee["inputs"][-1]["p1"] == ["forward", "b"]
-print("ZSS oracle corpus: 27 upstream-proven strict scenarios OK")
+# The ZSS character owns the winning round here: P1 (ZSS) takes state 181,
+# the authored win pose, while P2 falls to the classic 170 lose state.
+win181 = json.loads((OUT / "zss_p1_timeout_win_181.json").read_text())
+assert win181["expect"] == {"p1_states": [181], "p2_states": [170]}
+assert win181["setup"] == {"timer_frames": 5, "p2_life": 900}
+assert win181["origin"] == "kfm_timeout_win_180.json"
+
+assert len(strict) == len(cases) - len(exploratory)
+print(f"ZSS oracle corpus: {len(strict)} upstream-proven strict scenarios OK")

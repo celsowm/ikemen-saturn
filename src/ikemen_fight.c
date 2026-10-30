@@ -207,6 +207,7 @@ void ik_fight_init_players(
         p2_cns && ik_cns_find_state(p2_cns, 191);
     fight->round_state = (p1_intro || p2_intro) ? 0u : 2u;
     fight->intro_asserted = 0u;
+    fight->round_not_over_asserted = 0u;
     fight->round_wait = 0u;
     if (fight->round_state == 0u) {
         if (p1_intro) {

@@ -306,6 +306,9 @@ typedef struct ik_fight {
     uint16_t super_darken_time;
     uint8_t round_state;
     uint8_t intro_asserted;
+    /* AssertSpecial roundnotover (ZSS win pose 181): cleared each frame,
+     * set while any fighter asserts it. See ikemen_fight_ctrl_fx.c. */
+    uint8_t round_not_over_asserted;
     uint16_t round_wait;
     ik_stage_params_t stage;
     uint8_t cam_skip_smoothing;

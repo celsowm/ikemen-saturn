@@ -9,20 +9,34 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-from tools.ikemen_cns import parse_state, q16  # noqa: E402
+from tools.ikemen_cns import (collect_states, constants, parse_sections,
+                              parse_state, q16)  # noqa: E402
 from tools.ikemen_zss_character_states import (
     compile_zss_overrides,
+    zss_row_patch,
 )  # noqa: E402
 
 folder = ROOT / ".external" / "Ikemen-GO-Screenpack" / "chars" / "kfm_zss"
 character = folder / "kfm.zss"
 hits = folder / "hits.zss"
-overrides = compile_zss_overrides(character, hits)
-assert set(overrides) == {170, 180, 195, 200, 210, 230, 240, 400, 410, 430, 440, 600, 610, 630, 640, 1000, 1010, 1020, 1050, 1051, 1052, 1055, 1056, 1060, 1061, 1070, 1071, 1075, 1100, 1110, 1120, 1200, 1210, 1220, 1400, 1410, 1420, 820, 821, 1025, 1026, 1027, 1028}
+const_globals, _ = collect_states(parse_sections(folder / "kfm.const"))
+CONST = constants(const_globals)
+
+
+def compile_overrides(character_zss, hits_zss):
+    return compile_zss_overrides(character_zss, hits_zss, CONST)
+
+
+overrides = compile_overrides(character, hits)
+assert set(overrides) == {20, 100, 170, 180, 181, 195, 200, 210, 230, 240, 400, 410, 430, 440, 600, 610, 630, 640, 1000, 1010, 1020, 1050, 1051, 1052, 1055, 1056, 1060, 1061, 1070, 1071, 1075, 1100, 1110, 1120, 1200, 1210, 1220, 1400, 1410, 1420, 820, 821, 1025, 1026, 1027, 1028}
 
 expected = {
+    20: ("IK_CNS_CTRL_VEL_SET", "IK_CNS_CTRL_VEL_SET",
+         "IK_CNS_CTRL_CHANGE_ANIM_BY_VX"),
+    100: ("IK_CNS_CTRL_VEL_SET", "IK_CNS_CTRL_CHANGE_STATE"),
     170: ("IK_CNS_CTRL_NOT_HIT_BY",),
     180: ("IK_CNS_CTRL_CHANGE_STATE",),
+    181: ("IK_CNS_CTRL_ASSERT_ROUND_NOT_OVER", "IK_CNS_CTRL_NOT_HIT_BY"),
     195: ("IK_CNS_CTRL_CTRL_SET", "IK_CNS_CTRL_CHANGE_STATE"),
     200: (),
     210: (),
@@ -158,6 +172,29 @@ for number, (state, controllers) in overrides.items():
     assert tuple(x["type"] for x in controllers) == expected[number]
     assert all(x["state_number"] == number for x in controllers)
 
+# Walk and run lower to the shared locomotion rows with resolved constants;
+# the omitted ctrl/movetype and the explicit NoWalk/NoAutoTurn assert are
+# supplied by the fixed row patch, not invented per character.
+row20 = parse_state(overrides[20][0], 0, 0, 0, 0, 0, 0, 0)[0]
+row100 = parse_state(overrides[100][0], 0, 0, 0, 0, 0, 0, 0)[0]
+assert row20["anim"] == -1 and row20["spr_priority"] == 0
+assert row100["anim"] == 100 and row100["spr_priority"] == 1
+assert zss_row_patch(20) == {"move_type": "IK_CNS_MOVE_IDLE", "ctrl": 1}
+assert zss_row_patch(100)["assert_special_flags"] == (
+    "IK_CNS_STATE_ASSERT_NO_WALK | IK_CNS_STATE_ASSERT_NO_AUTO_TURN")
+assert zss_row_patch(100)["ctrl"] == 1
+assert zss_row_patch(170) == {} and zss_row_patch(181) == {}
+walk_back, walk_fwd, anim = overrides[20][1]
+assert walk_back["trigger_value"] == "IK_CNS_COMMAND_HOLD_BACK"
+assert walk_back["value0"] == CONST["walk_back_q8"]
+assert walk_fwd["trigger_value"] == "IK_CNS_COMMAND_HOLD_FWD"
+assert walk_fwd["value0"] == CONST["walk_fwd_q8"]
+assert anim["value0"] == -1 and anim["value1"] == 20
+run_vel, run_exit = overrides[100][1]
+assert run_vel["value0"] == CONST["run_fwd_x_q8"]
+assert run_exit["trigger_value"] == "IK_CNS_COMMAND_HOLD_FWD"
+assert run_exit["trigger_kind"] == "IK_CNS_TRIGGER_COMMAND_INACTIVE"
+
 assert overrides[170][0].statedef.get("anim") == "170"
 assert overrides[180][0].statedef.get("anim") == "-2"
 assert overrides[200][0].statedef.get("movetype") == "A"
@@ -218,7 +255,7 @@ with tempfile.TemporaryDirectory() as temp:
     modified = Path(temp) / "kfm.zss"
     modified.write_text(original.replace("ctrl: roundState > 1", "ctrl: 1", 1), encoding="utf-8")
     try:
-        compile_zss_overrides(modified, hits)
+        compile_overrides(modified, hits)
     except ValueError as exc:
         assert "EndState function changed" in str(exc)
     else:
@@ -231,7 +268,7 @@ with tempfile.TemporaryDirectory() as temp:
     modified = Path(temp) / "kfm.zss"
     modified.write_text(original.replace(anchor, "ctrlSet{value: 1}\n" + anchor, 1), encoding="utf-8")
     try:
-        compile_zss_overrides(modified, hits)
+        compile_overrides(modified, hits)
     except ValueError as exc:
         assert "EndState function changed" in str(exc)
     else:
@@ -244,7 +281,7 @@ with tempfile.TemporaryDirectory() as temp:
     modified = Path(temp) / "kfm.zss"
     modified.write_text(original.replace(old, old.replace("$bank", "0", 1), 1), encoding="utf-8")
     try:
-        compile_zss_overrides(modified, hits)
+        compile_overrides(modified, hits)
     except ValueError as exc:
         assert "CSnd function changed" in str(exc)
     else:
@@ -257,7 +294,7 @@ with tempfile.TemporaryDirectory() as temp:
     modified = Path(temp) / "kfm.zss"
     modified.write_text(original.replace(old, old.replace("32, 16, 0", "31, 16, 0"), 1), encoding="utf-8")
     try:
-        compile_zss_overrides(modified, hits)
+        compile_overrides(modified, hits)
     except ValueError as exc:
         assert "EXFX function changed" in str(exc)
     else:
@@ -271,7 +308,7 @@ with tempfile.TemporaryDirectory() as temp:
         encoding="utf-8")
     assert modified.read_text() != character.read_text(encoding="utf-8-sig")
     try:
-        compile_zss_overrides(modified, hits)
+        compile_overrides(modified, hits)
     except ValueError as e:
         assert "state 180 body changed" in str(e)
     else:
@@ -289,7 +326,7 @@ with tempfile.TemporaryDirectory() as temp:
         modified = Path(temp) / "kfm.zss"
         modified.write_text(before + f"[StateDef {number};" + state.replace(old, new, 1), encoding="utf-8")
         try:
-            compile_zss_overrides(modified, hits)
+            compile_overrides(modified, hits)
         except ValueError as exc:
             assert f"state {number} body changed" in str(exc)
         else:
@@ -304,7 +341,7 @@ with tempfile.TemporaryDirectory() as temp:
                         state_200.replace("damage: 23, 0", "damage: 24, 0", 1),
                         encoding="utf-8")
     try:
-        compile_zss_overrides(modified, hits)
+        compile_overrides(modified, hits)
     except ValueError as exc:
         assert "state 200 body changed" in str(exc)
     else:
@@ -319,7 +356,7 @@ with tempfile.TemporaryDirectory() as temp:
                         state_1055.replace("if animElem = 5", "if animElem = 4", 1),
                         encoding="utf-8")
     try:
-        compile_zss_overrides(modified, hits)
+        compile_overrides(modified, hits)
     except ValueError as exc:
         assert "state 1055 body changed" in str(exc)
     else:
@@ -334,7 +371,7 @@ with tempfile.TemporaryDirectory() as temp:
                         state_1052.replace("if animElem = 3, -1", "if animElem = 3, 0", 1),
                         encoding="utf-8")
     try:
-        compile_zss_overrides(modified, hits)
+        compile_overrides(modified, hits)
     except ValueError as exc:
         assert "state 1052 body changed" in str(exc)
     else:
@@ -349,7 +386,7 @@ with tempfile.TemporaryDirectory() as temp:
                         state_1051.replace("velAdd{y: .45}", "velAdd{y: .5}", 1),
                         encoding="utf-8")
     try:
-        compile_zss_overrides(modified, hits)
+        compile_overrides(modified, hits)
     except ValueError as exc:
         assert "state 1051 body changed" in str(exc)
     else:
@@ -367,7 +404,7 @@ with tempfile.TemporaryDirectory() as temp:
         state_1061.replace(old, old.replace("-1", "-2"), 1),
         encoding="utf-8")
     try:
-        compile_zss_overrides(modified, hits)
+        compile_overrides(modified, hits)
     except ValueError as exc:
         assert "state 1061 body changed" in str(exc)
     else:
@@ -386,10 +423,27 @@ with tempfile.TemporaryDirectory() as temp:
         assert old in original
         changed.write_text(original.replace(old, new, 1), encoding="utf-8")
         try:
-            compile_zss_overrides(character, changed)
+            compile_overrides(character, changed)
         except ValueError as exc:
             assert f"state {number} body changed" in str(exc)
         else:
             raise AssertionError(f"changed ZSS state {number} accepted")
 
-print("ZSS state compiler: 43 source-checked states OK")
+# Reject changed win-pose roundnotover timing in kfm.zss state 181.
+with tempfile.TemporaryDirectory() as temp:
+    original = character.read_text(encoding="utf-8-sig")
+    for old, new in (
+        ("animTime < -2", "animTime < -1"),
+        ("assertSpecial{flag: roundnotover}", "assertSpecial{flag: roundEnd}"),
+    ):
+        changed = Path(temp) / "kfm.zss"
+        assert old in original, old
+        changed.write_text(original.replace(old, new, 1), encoding="utf-8")
+        try:
+            compile_overrides(changed, hits)
+        except ValueError as exc:
+            assert "ZSS state 181 body changed" in str(exc)
+        else:
+            raise AssertionError(f"changed ZSS state 181 accepted: {old!r}")
+
+print("ZSS state compiler: 46 source-checked states OK")

@@ -62,6 +62,11 @@ set(IKEMEN_CHARACTER_ACTIONS "0,5,10,11,12,20,21,40,41,42,43,47,100,105,120,121,
 set(IKEMEN_STATE_RULE_TARGETS "100,105,195,200,210,230,240,400,410,430,440,600,610,630,640,800,1000,1010,1020,1050,1060,1070,1100,1110,1120,1200,1210,1220,1300,1320,1340,1400,1410,1420,3000,3050")
 set(IKEMEN_CNS_STATES "170,180,181,191,195,200,210,230,240,400,410,430,440,600,610,630,640,800,810,820,821,1000,1010,1020,1025,1026,1027,1028,1050,1051,1052,1055,1056,1060,1061,1070,1071,1075,1100,1110,1120,1200,1210,1220,1300,1310,1320,1330,1340,1350,1351,1400,1410,1420,3000,3050,3051")
 set(IKEMEN_CNS_COMMON_STATES "0,10,11,12,20,40,45,50,51,52,100,105,106,120,130,131,132,140,150,151,152,153,154,155,175,5000,5001,5010,5011,5020,5030,5035,5040,5050,5070,5071,5080,5081,5100,5101,5110,5120,5150,5200,5201,5210")
+# The ZSS character file owns its own walk/run bodies (states 20 and 100),
+# while classic KFM inherits both from common1. Keep the classic selection
+# unchanged and add the ZSS-only overrides here; the shadowed common rows are
+# dropped by ikemen_cns.py for the ZSS asset.
+set(IKEMEN_ZSS_CNS_STATES "${IKEMEN_CNS_STATES},20,100")
 
 file(MAKE_DIRECTORY "${IKEMEN_GEN_DIR}" "${IKEMEN_ISO_DIR}")
 
@@ -215,7 +220,7 @@ ikemen_generate(COMMENT "Ikemen assets: source-checked ZSS states plus CNS fallb
         --character-zss "${KFM_ZSS_CHARACTER_ZSS}"
         --hits-zss "${KFM_ZSS_HITS_ZSS}"
         --air "${KFM_ZSS_AIR}"
-        --states "${IKEMEN_CNS_STATES}"
+        --states "${IKEMEN_ZSS_CNS_STATES}"
         --common-zss "${COMMON_CNS_ZSS}"
         --common-states "${IKEMEN_CNS_COMMON_STATES}"
         --out-prefix "${IKEMEN_GEN_DIR}/kfm_zss_cns" --symbol kfm_zss)

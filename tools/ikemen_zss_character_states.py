@@ -2,7 +2,7 @@
 """Strict source-checked character-state lowering for KFM ZSS.
 
 Only controllers already implemented by Ikemen Saturn are accepted.
-Forty-three state bodies are translated, not merely their StateDef metadata.
+Forty-six state bodies are translated, not merely their StateDef metadata.
 Human throw recovery and strong-knee air follow-up are supported;
 AI-random recovery is not yet modeled.
 Other ZSS states keep the classic CNS fallback at runtime.
@@ -23,7 +23,23 @@ from tools.ikemen_cns import (Section, State, _common_ctrl, parse_zss_states,
 # Normalization discards insignificant spacing and ZSS '#' comments, but no
 # executable token: any new controller causes a hard failure.
 BODIES = {
+    # Walk and run are the common1 locomotion bodies plus AI-only guards
+    # (map(AIw) steering, the AI no-crouch/movement predicates). The human
+    # path is byte-identical to the proven common1 lowering; AI behavior is
+    # validated separately by tools/ikemen_zss_ai.py.
+    20: ('ifcommand="holdback"&&!ailevelf||ailevelf&&map(aiw)=-1{'
+         'velset{x:const(velocity.walk.back.x)}}'
+         'elseifcommand="holdfwd"&&!ailevelf||ailevelf&&map(aiw)=1{'
+         'velset{x:const(velocity.walk.fwd.x)}}'
+         'ifvelx>0{ifcond(anim=5,animtime=0,anim!=20){changeanim{value:20}}}'
+         'elseifvelx<0{ifcond(anim=5,animtime=0,anim!=21){changeanim{value:21}}}'),
+    100: ('velset{x:const(velocity.run.fwd.x)}'
+          'assertspecial{flag:nowalk;flag2:noautoturn}'
+          'ifailevelf{assertspecial{flag:nocrouch}}'
+          'ifcommand!="holdfwd"&&!ailevelf{changestate{value:0}}'),
     170: "nothitby{value:sca;time:1}",
+    181: ("ifanimtime<-2{assertspecial{flag:roundnotover}}"
+          "nothitby{value:sca;time:1}"),
     180: "changestate{value:181;ctrl:0}",
     195: 'iftime=40{ctrlset{value:1}}callendstate(0);',
     200: ('ifanimelem=3{hitdef{attr:s,na;damage:23,0;animtype:light;guardflag:ma;'
@@ -201,13 +217,17 @@ BODY_SHA256 = {
     1071: '1328d2942ffac387a7258ad44a458775cf4f862b524377aa9f981f668139fce3',
     1075: 'deacb575b31defd5fd88bca4b0f19eaa3180ea9ef6cacc66fe6b095f7c8fce48',
 }
-CHARACTER_STATES = (170, 180, 195, 200, 210, 230, 240, 400, 410, 430, 440, 600, 610, 630, 640, 1000, 1010, 1020, 1050, 1051, 1052, 1055, 1056, 1060, 1061, 1070, 1071, 1075, 1100, 1110, 1120, 1200, 1210, 1220, 1400, 1410, 1420)
+CHARACTER_STATES = (20, 100, 170, 180, 181, 195, 200, 210, 230, 240, 400, 410, 430, 440, 600, 610, 630, 640, 1000, 1010, 1020, 1050, 1051, 1052, 1055, 1056, 1060, 1061, 1070, 1071, 1075, 1100, 1110, 1120, 1200, 1210, 1220, 1400, 1410, 1420)
 HIT_STATES = (820, 821, 1025, 1026, 1027, 1028)
 
 # These guards protect against silently compiling outdated states with an
 # incompatible move class, physics type or action.
 METADATA = {
+    20: {"type": "S", "physics": "S", "sprpriority": "0"},
+    100: {"type": "S", "physics": "S", "anim": "100", "sprpriority": "1"},
     170: {"type": "S", "movetype": "I", "physics": "S", "anim": "170", "ctrl": "0"},
+    181: {"type": "S", "movetype": "I", "physics": "S", "anim": "181",
+          "ctrl": "0", "velset": "0,0", "sprpriority": "1"},
     180: {"type": "S", "movetype": "I", "physics": "S", "anim": "-2", "ctrl": "0"},
     195: {"type": "S", "movetype": "I", "physics": "S", "anim": "195", "ctrl": "0", "velset": "0,0", "sprpriority": "2"},
     200: {"type": "S", "movetype": "A", "physics": "S", "anim": "200",
@@ -272,7 +292,26 @@ def normalize_body(source: str) -> str:
     return re.sub(r"\s+", "", "".join(lines)).lower()
 
 
-def _controllers(state: int) -> list[dict]:
+def zss_row_patch(state: int) -> dict:
+    """State-row fields the source StateDef omits but the runtime needs.
+
+    Only the shared, verified locomotion lowering supplies these; every other
+    state keeps exactly the row its own StateDef produces.
+    """
+    if state in (20, 100):
+        from tools.ikemen_cns import locomotion_row_patch
+        return locomotion_row_patch(state)
+    return {}
+
+
+def _controllers(state: int, const: dict[str, int] | None = None) -> list[dict]:
+    if state in (20, 100):
+        if const is None:
+            raise ValueError(
+                f"state {state}: locomotion lowering requires the resolved "
+                "velocity constants")
+        from tools.ikemen_cns import locomotion_ctrl_rows
+        return locomotion_ctrl_rows(state, const)
     if state == 170:
         # Invulnerable to S/C/A attackers for one tick (refreshed each tick).
         return [_common_ctrl(
@@ -283,6 +322,17 @@ def _controllers(state: int) -> list[dict]:
             180, "IK_CNS_CTRL_CHANGE_STATE",
             "IK_CNS_TRIGGER_ALWAYS", 0, 0, 181, 0,
             "IK_CNS_CTRL_HAS_CTRL")]
+    if state == 181:
+        # Win pose: keep the round fadeout held and stay unhittable while
+        # the pose animation still has 3+ ticks to run ("AnimTime < -2").
+        return [
+            _common_ctrl(
+                181, "IK_CNS_CTRL_ASSERT_ROUND_NOT_OVER",
+                "IK_CNS_TRIGGER_ANIM_TIME_REMAIN_GT", 2, 0, 1),
+            _common_ctrl(
+                181, "IK_CNS_CTRL_NOT_HIT_BY",
+                "IK_CNS_TRIGGER_ALWAYS", 0, 0, 7, 1),
+        ]
     if state == 195:
         return [
             _common_ctrl(195, "IK_CNS_CTRL_CTRL_SET", "IK_CNS_TRIGGER_TIME_EQ", 40, 0, 1),
@@ -449,7 +499,7 @@ def _controllers(state: int) -> list[dict]:
 
 
 def compile_zss_overrides(
-    character_zss: Path, hits_zss: Path,
+    character_zss: Path, hits_zss: Path, const: dict[str, int],
 ) -> dict[int, tuple[State, list[dict]]]:
     results = {}
     # State 195 calls this shared source function; fail closed on changes to it.
@@ -725,5 +775,6 @@ def compile_zss_overrides(
                 ]
                 results[number] = (State(number, sd, sections), [])
             else:
-                results[number] = (State(number, sd, []), _controllers(number))
+                results[number] = (State(number, sd, []),
+                                   _controllers(number, const))
     return results

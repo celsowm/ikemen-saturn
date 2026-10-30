@@ -91,6 +91,15 @@ int ikf_ctrl_apply_fx(const ik_ctrl_exec_t* x) {
             fight->intro_asserted = 1u;
             break;
 
+        /* Upstream's AssertSpecial roundnotover: its only stock consumer
+         * holds the round-fadeout counter one tick (system.go, the
+         * s.intro == fadeoutStart branch). The Saturn fight model has no
+         * motif fadeout pass, so the flag is recorded per tick without a
+         * consumer yet; the assert scope stays queryable for evidence. */
+        case IK_CNS_CTRL_ASSERT_ROUND_NOT_OVER:
+            fight->round_not_over_asserted = 1u;
+            break;
+
         case IK_CNS_CTRL_PAL_FX: {
             const uint32_t add = (uint32_t)ctrl->value1;
             const uint32_t sinadd = (uint32_t)ctrl->value2;
