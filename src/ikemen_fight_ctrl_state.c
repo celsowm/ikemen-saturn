@@ -13,7 +13,9 @@ int ikf_ctrl_apply_state(const ik_ctrl_exec_t* x) {
             const int16_t target = ctrl->value0;
             ikf_turn_before_change(fight, f);
             ikf_enter_state(fight, f, target);
-            if (has_ctrl) f->ctrl = (int8_t)(ctrl->value1 != 0);
+            if (has_ctrl) f->ctrl = (int8_t)(
+                (ctrl->flags & IK_CNS_CTRL_CTRL_FROM_ROUND)
+                    ? fight->round_state > 1u : ctrl->value1 != 0);
             return IKF_CTRL_END_TICK;
         }
 

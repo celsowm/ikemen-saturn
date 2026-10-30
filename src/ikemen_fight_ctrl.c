@@ -138,15 +138,15 @@ static ik_cns_controller_context_t make_controller_context(
         .move_hit = f->move_hit,
         .round_state = fight->round_state,
         .num_projectiles = num_projectiles,
-        .proj_contact = query_root ? query_root->proj_query_contact : 0u,
-        .proj_hit = query_root ? query_root->proj_query_hit : 0u,
-        .proj_guarded = query_root ? query_root->proj_query_guarded : 0u,
+        .proj_contact = (uint8_t)(query_root ? query_root->proj_query_contact : 0u),
+        .proj_hit = (uint8_t)(query_root ? query_root->proj_query_hit : 0u),
+        .proj_guarded = (uint8_t)(query_root ? query_root->proj_query_guarded : 0u),
         .proj_contact_time =
-            query_root ? query_root->proj_query_contact_time : -1,
+            (int16_t)(query_root ? query_root->proj_query_contact_time : -1),
         .proj_hit_time =
-            query_root ? query_root->proj_query_hit_time : -1,
+            (int16_t)(query_root ? query_root->proj_query_hit_time : -1),
         .proj_guarded_time =
-            query_root ? query_root->proj_query_guarded_time : -1,
+            (int16_t)(query_root ? query_root->proj_query_guarded_time : -1),
         .in_guard_dist = f->in_guard_dist
     };
     return context;

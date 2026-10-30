@@ -419,6 +419,21 @@ int main() {
     ik_fight_controls_t jab{};
     OK(ik_zss_ai_tick(&neutral_fight, 1, 8, &random_a, &jab));
     OK(jab.has_state_request && jab.requested_state == 200);
+    /* The original nojug predicate suppresses lights on get-up, controlled
+     * 5040 recovery, and its first three landing frames. */
+    for (int variant = 0; variant < 4; ++variant) {
+        victim->anim = variant == 0 ? 5120 : 0;
+        victim->state = variant == 1 ? 5040 : variant >= 2 ? 52 : 0;
+        victim->prev_state = variant >= 2 ? 5040 : 0;
+        victim->state_time = variant == 3 ? 3 : 2;
+        victim->ctrl = 1;
+        uint32_t seed = 60000u;
+        ik_fight_controls_t recovery{};
+        (void)ik_zss_ai_tick(&neutral_fight, 1, 8, &seed, &recovery);
+        if (variant < 3) OK(!recovery.has_state_request || recovery.requested_state != 200);
+        else OK(recovery.has_state_request && recovery.requested_state == 200);
+    }
+    victim->anim = victim->state = victim->prev_state = victim->state_time = victim->ctrl = 0;
     /* The original source's inner 400-state acceptance requires
      * crouching targets within 35px; 40px is not a legal request. */
     victim->x = 112; /* 28px facing-relative, inside the crouch gate */

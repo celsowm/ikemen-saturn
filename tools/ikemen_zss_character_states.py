@@ -2,7 +2,7 @@
 """Strict source-checked character-state lowering for KFM ZSS.
 
 Only controllers already implemented by Ikemen Saturn are accepted.
-Nine state bodies are translated, not merely their StateDef metadata.
+Forty-three state bodies are translated, not merely their StateDef metadata.
 Human throw recovery and strong-knee air follow-up are supported;
 AI-random recovery is not yet modeled.
 Other ZSS states keep the classic CNS fallback at runtime.
@@ -13,6 +13,7 @@ rather than silently introducing a behavior mismatch.
 from __future__ import annotations
 
 import re
+import hashlib
 from pathlib import Path
 
 from tools.ikemen_cns import (Section, State, _common_ctrl, parse_zss_states,
@@ -24,6 +25,128 @@ from tools.ikemen_cns import (Section, State, _common_ctrl, parse_zss_states,
 BODIES = {
     170: "nothitby{value:sca;time:1}",
     180: "changestate{value:181;ctrl:0}",
+    195: 'iftime=40{ctrlset{value:1}}callendstate(0);',
+    200: ('ifanimelem=3{hitdef{attr:s,na;damage:23,0;animtype:light;guardflag:ma;'
+          'hitflag:maf;priority:3,hit;pausetime:8,8;sparkno:0;sparkxy:-10,-76;'
+          'hitsound:5,0;guardsound:6,0;ground.type:high;ground.slidetime:5;'
+          'ground.hittime:11;ground.velocity:-4;airguard.velocity:-1.9,-.8;'
+          'air.type:high;air.velocity:-1.4,-3;air.hittime:15;}}'
+          'iftime=1{callcsnd(0,0,1);}callendstate(0);'),
+    210: ('ifanimelemtime(2)>=0&&animelemtime(7)<0{width{value:15,0}}'
+          'iftime=2{callcsnd(0,4,1);}ifanimelem=3{hitdef{attr:s,na;animtype:medium;'
+          'damage:57;guardflag:ma;pausetime:12,12;sparkno:1;sparkxy:-10,-70;'
+          'hitsound:5,2;guardsound:6,0;ground.type:high;ground.slidetime:12;'
+          'ground.hittime:16;ground.velocity:-5.5;air.velocity:-2.5,-4;forcenofall:1;}}'
+          'ignorehitpausepersistent(0)ifanimelemtime(5)>0&&animelemtime(6)<=0&&movecontact{'
+          'changeanim{value:210;elem:6}}ifanimelem=5{sprpriority{value:2}}callendstate(0);'),
+    230: ('iftime=2{callcsnd(0,0,1);}ifanimelem=3{hitdef{attr:s,na;'
+          'animtype:medium;damage:26;guardflag:ma;pausetime:12,12;sparkno:0;'
+          'sparkxy:-10,-37;hitsound:5,1;guardsound:6,0;ground.type:low;'
+          'ground.slidetime:10;ground.hittime:14;ground.velocity:-5;'
+          'air.velocity:-2.5,-3.5;}}callendstate(0);'),
+    240: ('iftime=2{callcsnd(0,1,1);}ifanimelem=3{hitdef{attr:s,na;animtype:medium;'
+          'damage:63;guardflag:ma;pausetime:12,12;sparkno:1;sparkxy:-10,-60;'
+          'hitsound:5,2;guardsound:6,0;ground.type:low;ground.slidetime:12;'
+          'ground.hittime:17;ground.velocity:-6;air.velocity:-2.2,-3.2;}}'
+          'ifanimelem=7{posadd{x:12}}callendstate(0);'),
+    400: ('iftime=1{callcsnd(0,0,1);}ifanimelem=2{hitdef{attr:c,na;damage:23;'
+          'priority:3;animtype:light;hitflag:maf;guardflag:l;pausetime:10,11;'
+          'sparkno:0;sparkxy:-10,-42;hitsound:5,0;guardsound:6,0;ground.type:low;'
+          'ground.slidetime:4;ground.hittime:9;ground.velocity:-4;'
+          'air.velocity:-1.5,-3;}}ifanimelemtime(3)=2{ctrlset{value:1}}callendstate(1);'),
+    410: ('iftime=1{callcsnd(0,1,1);}ifanimelem=3{hitdef{attr:c,na;damage:37;'
+          'animtype:medium;hitflag:maf;guardflag:m;pausetime:12,12;sparkno:1;'
+          'sparkxy:-10,-55;hitsound:5,2;guardsound:6,0;ground.type:low;'
+          'ground.slidetime:12;ground.hittime:17;ground.velocity:-4;air.velocity:-3,-4;}}'
+          'ifanimelem=4{hitdef{attr:c,na;damage:36;animtype:medium;hitflag:maf;'
+          'guardflag:ma;pausetime:12,12;sparkxy:-10,-83;hitsound:5,2;guardsound:6,0;'
+          'ground.type:high;ground.slidetime:12;ground.hittime:17;ground.velocity:-7;'
+          'air.velocity:-3,-4;}}callendstate(1);'),
+    430: ('iftime=1{callcsnd(0,0,1);}ifanimelem=3{hitdef{attr:c,na;damage:28;'
+          'animtype:light;hitflag:mafd;guardflag:l;pausetime:12,12;sparkno:0;'
+          'sparkxy:-10,-8;hitsound:5,1;guardsound:6,0;ground.type:low;'
+          'ground.slidetime:6;ground.hittime:10;ground.velocity:-5;'
+          'air.velocity:-2,-3;down.velocity:-5,0;down.hittime:22;}}callendstate(1);'),
+    440: ('iftime=1{callcsnd(0,2,1);}ifanimelem=4{hitdef{attr:c,na;damage:72;'
+          'hitflag:mafd;guardflag:l;pausetime:12,12;sparkno:1;sparkxy:-5,-10;'
+          'hitsound:5,2;guardsound:6,0;ground.type:trip;ground.slidetime:10;'
+          'ground.hittime:17;ground.velocity:-1.5,-2;air.velocity:-1.2,-3;'
+          'guard.velocity:-5;fall:1;}}callendstate(1);'),
+    600: ('iftime=1{callcsnd(0,0,1);}ifanimelem=2{hitdef{attr:a,na;damage:20;'
+          'guardflag:ha;priority:3;pausetime:7,8;sparkno:0;sparkxy:-10,-58;'
+          'hitsound:5,0;guardsound:6,0;ground.type:high;ground.slidetime:5;'
+          'ground.hittime:8;guard.ctrltime:8;ground.velocity:-4;air.velocity:-1.3,-3;'
+          'air.hittime:14;}}ifanimelemtime(3)=2{ctrlset{value:1}}'),
+    610: ('iftime=2{callcsnd(0,1,1);}ifanimelem=3{hitdef{attr:a,na;damage:72;'
+          'guardflag:ha;priority:4;pausetime:12,12;sparkno:1;sparkxy:-10,-55;'
+          'hitsound:5,3;guardsound:6,0;animtype:medium;ground.type:high;'
+          'ground.slidetime:12;ground.hittime:14;guard.ctrltime:14;'
+          'ground.velocity:-6;air.velocity:-3,-4;}}'),
+    630: ('iftime=1{callcsnd(0,0,1);}ifanimelem=2{hitdef{attr:a,na;damage:26;'
+          'guardflag:ha;priority:3;pausetime:8,8;sparkno:1;sparkxy:-5,-35;'
+          'hitsound:5,0;guardsound:6,0;ground.type:high;ground.slidetime:6;'
+          'ground.hittime:10;guard.ctrltime:10;ground.velocity:-4;'
+          'air.velocity:-2,-3;air.hittime:14;}}'),
+    640: ('iftime=2{callcsnd(0,1,1);}ifanimelem=2{hitdef{attr:a,na;damage:70;'
+          'guardflag:ha;priority:4;pausetime:12,12;sparkno:1;sparkxy:-10,-40;'
+          'hitsound:5,3;guardsound:6,0;animtype:medium;ground.type:high;'
+          'ground.slidetime:12;ground.hittime:15;guard.ctrltime:15;'
+          'ground.velocity:-7;air.velocity:-3,-4;}}'),
+    1000: ('iftime=8{callcsnd(0,3,1);}ifanimelem=2{posadd{x:20}}'
+           'ifanimelem=3||animelem=13{posadd{x:10}}ifanimelem=5{posadd{x:5}'
+           'ifp2bodydistx<40{hitdef{attr:s,sa;animtype:hard;damage:90,4;priority:5;'
+           'guardflag:ma;pausetime:15,15;sparkxy:-10,-60;hitsound:5,4;guardsound:6,0;'
+           'ground.type:low;ground.slidetime:12;ground.hittime:17;ground.velocity:-4,-3.5;'
+           'air.velocity:-4,-3;fall:1;}}else{hitdef{attr:s,sa;animtype:hard;damage:85,4;'
+           'priority:4;guardflag:ma;pausetime:15,15;sparkxy:-10,-60;hitsound:5,4;'
+           'guardsound:6,0;ground.type:low;ground.slidetime:12;ground.hittime:17;'
+           'ground.velocity:-7;air.velocity:-4,-2.5;}}}ifanimelem=9{posadd{x:-5}}callendstate(0);'),
+    1010: ('iftime=9{callcsnd(0,3,1);}ifanimelem=2{posadd{x:20}}'
+           'ifanimelem=3||animelem=13{posadd{x:10}}ifanimelem=5{posadd{x:5}velset{x:4}'
+           'ifp2bodydistx<40{hitdef{attr:s,sa;animtype:hard;damage:90,4;priority:5;'
+           'guardflag:ma;pausetime:15,15;sparkxy:-10,-60;hitsound:5,4;guardsound:6,0;'
+           'ground.type:low;ground.slidetime:12;ground.hittime:17;ground.velocity:-4,-3.5;'
+           'air.velocity:-4,-3;fall:1;}}else{hitdef{attr:s,sa;animtype:hard;damage:85,4;'
+           'priority:4;guardflag:ma;pausetime:15,15;sparkxy:-10,-60;hitsound:5,4;'
+           'guardsound:6,0;ground.type:low;ground.slidetime:12;ground.hittime:17;'
+           'ground.velocity:-7;air.velocity:-4,-2.5;}}}callendstate(0);'),
+    1020: ('velmul{x:.85*ifelse(animelemtime(6)<0,1,.8)}iftime=0{'
+           'afterimage{length:13;palbright:30,30,0;palcontrast:70,70,20;'
+           'paladd:-10,-10,-10;palmul:.85,.85,.50;timegap:1;framegap:2;trans:add;time:2;}'
+           'callexfx(20);}ifanimelemtime(8)<0{afterimagetime{time:2}}'
+           'iftime=2{callcsnd(0,3,1);}ifanimelem=2{posadd{x:20}}'
+           'ifanimelem=3||animelem=12{posadd{x:10}}ifanimelem=4{posadd{x:5}velset{x:13}'
+           'hitdef{attr:s,sa;animtype:hard;damage:95,5;getpower:0;priority:4;guardflag:ma;'
+           'pausetime:8,7;sparkxy:-10,-60;hitsound:5,4;guardsound:6,0;ground.type:low;'
+           'ground.slidetime:20;ground.hittime:22;ground.velocity:-8,-7;guard.velocity:-7;'
+           'air.velocity:-8,-7;airguard.velocity:-5,-4;fall:1;p2stateno:1025;p2facing:1;}}'
+           'callendstate(0);'),
+    1050: ('iftime=1{callcsnd(0,2,1);}ifanimelem=4{posadd{x:20}}'
+           'ifanimelem=4{hitdef{attr:a,sa;animtype:medium;damage:80,4;priority:5;'
+           'guardflag:ma;pausetime:12,12;sparkxy:-10,-70;hitsound:5,3;guardsound:6,0;'
+           'ground.type:low;ground.slidetime:20;ground.hittime:22;ground.velocity:-3.5,-7;'
+           'guard.velocity:-7;air.velocity:-3.5,-7;fall:1;}}ifanimtime=0{changestate{value:1051}}'),
+    1060: ('iftime=1{callcsnd(0,2,1);}ifanimelem=2{posadd{x:6}}ifanimelem=4{posadd{x:21}}'
+           'ifanimelem=4{hitdef{attr:a,sa;animtype:medium;damage:90,4;priority:5;'
+           'guardflag:ma;pausetime:12,12;sparkxy:-10,-70;hitsound:5,3;guardsound:6,0;'
+           'ground.type:low;ground.slidetime:20;ground.hittime:22;ground.velocity:-3.5,-7.5;'
+           'guard.velocity:-7;air.velocity:-3.5,-7.5;fall:1;}}ifanimtime=0{changestate{value:1061}}'),
+    1051: ('veladd{y:.45}'
+           'if(command="a"||command="b")&&!ailevelf&&vely<-1{'
+           'changestate{value:1055}}'
+           'ifvely>0&&posy>=-10{changestate{value:1052}}'),
+    1052: ('iftime=0{posset{y:0}callcsnd(40,0,1);}'
+           'ifanimelem=3,-1{ctrlset{value:1}}'
+           'ifanimelem=4{posadd{x:-15}}callendstate(0);'),
+    1055: ('iftime=0{callcsnd(100,0,0);callcsnd(0,1,1);posadd{x:10;y:-10}}'
+           'veladd{y:.45}ifanimelem=5{hitdef{attr:a,sa;animtype:medium;'
+           'damage:35+(prevstateno=1061)*5,2;priority:4;guardflag:ma;'
+           'pausetime:12,12;sparkxy:0,-90;hitsound:5,2;guardsound:6,0;'
+           'ground.type:high;ground.slidetime:15;ground.hittime:18;'
+           'ground.velocity:-6;guard.velocity:-8;guard.ctrltime:12;'
+           'air.velocity:-4,-5;airguard.velocity:-4,-4.5;air.fall:1;}}'
+           'ifvely>0&&posy>=-5{changestate{value:1056}}'),
+    1056: 'iftime=0{posset{y:0}callcsnd(40,0,1);}callendstate(0);',
     1061: ('veladd{y:.45}'
            'if(command="a"||command="b")&&!ailevelf&&vely<-1{'
            'changestate{value:1055}}'
@@ -63,7 +186,22 @@ BODIES = {
            'ifanimtime=0{changestate{value:1028}}'),
 }
 
-CHARACTER_STATES = (170, 180, 1061)
+# These long bodies are checked in full after whitespace/comment normalization.
+BODY_SHA256 = {
+    1100: '69b426553c976f1c9c9f96930b3b595d4b2406d2b4ed0ae23dc1c5edd60d3e42',
+    1110: '534580b0dd41602e5a9059f22633fc9548d666e107506a780c50f68dee902123',
+    1120: 'acb0e7406817aed684e9569f093bf3b6c5254d34c88954de44caaefc9f442664',
+    1200: 'b038e40cc37723fa045df95bd6ffe87ac45b60c965b24105f9ba53268079e9b5',
+    1210: '6e563819eeff99ed614fc5f40595ec99178addc4132eafb3eb2f09ab43c69a90',
+    1220: 'fc94aa7fba833d76a12fc7d5eb67295b4fa31217127b5dfc346f8d135a53482e',
+    1400: '4619c48408e02186bc9b965106dd8b0cdbe495c85759647fe55bcc13116a40ea',
+    1410: '167db298085eccfd89e180f0ffc053ae25e896563073ee4bdc4106f1e919c212',
+    1420: '6238893929af3666df9a3299185cec80f1d2510fab0c2550098eba4666a2d4fb',
+    1070: '945ef8a0ed2b9ad341a3230b3187080e476a4d274d633bc34348d400098dbaae',
+    1071: '1328d2942ffac387a7258ad44a458775cf4f862b524377aa9f981f668139fce3',
+    1075: 'deacb575b31defd5fd88bca4b0f19eaa3180ea9ef6cacc66fe6b095f7c8fce48',
+}
+CHARACTER_STATES = (170, 180, 195, 200, 210, 230, 240, 400, 410, 430, 440, 600, 610, 630, 640, 1000, 1010, 1020, 1050, 1051, 1052, 1055, 1056, 1060, 1061, 1070, 1071, 1075, 1100, 1110, 1120, 1200, 1210, 1220, 1400, 1410, 1420)
 HIT_STATES = (820, 821, 1025, 1026, 1027, 1028)
 
 # These guards protect against silently compiling outdated states with an
@@ -71,6 +209,51 @@ HIT_STATES = (820, 821, 1025, 1026, 1027, 1028)
 METADATA = {
     170: {"type": "S", "movetype": "I", "physics": "S", "anim": "170", "ctrl": "0"},
     180: {"type": "S", "movetype": "I", "physics": "S", "anim": "-2", "ctrl": "0"},
+    195: {"type": "S", "movetype": "I", "physics": "S", "anim": "195", "ctrl": "0", "velset": "0,0", "sprpriority": "2"},
+    200: {"type": "S", "movetype": "A", "physics": "S", "anim": "200",
+          "ctrl": "0", "velset": "0,0", "sprpriority": "2", "juggle": "1", "poweradd": "10"},
+    210: {"type": "S", "movetype": "A", "physics": "S", "anim": "210",
+          "ctrl": "0", "velset": "0,0", "sprpriority": "-1", "juggle": "4", "poweradd": "30"},
+    230: {"type": "S", "movetype": "A", "physics": "S", "anim": "230",
+          "ctrl": "0", "velset": "0,0", "sprpriority": "2", "juggle": "4", "poweradd": "11"},
+    240: {"type": "S", "movetype": "A", "physics": "S", "anim": "240",
+          "ctrl": "0", "velset": "0,0", "sprpriority": "2", "juggle": "5", "poweradd": "30"},
+    400: {"type": "C", "movetype": "A", "physics": "C", "anim": "400",
+          "ctrl": "0", "sprpriority": "2", "juggle": "5", "poweradd": "8"},
+    410: {"type": "C", "movetype": "A", "physics": "C", "anim": "410",
+          "ctrl": "0", "sprpriority": "2", "juggle": "6", "poweradd": "25"},
+    430: {"type": "C", "movetype": "A", "physics": "C", "anim": "430",
+          "ctrl": "0", "sprpriority": "2", "juggle": "5", "poweradd": "11"},
+    440: {"type": "C", "movetype": "A", "physics": "C", "anim": "440",
+          "ctrl": "0", "sprpriority": "2", "juggle": "7", "poweradd": "35"},
+    **{n: {"type": "A", "movetype": "A", "physics": "A", "anim": str(n),
+           "ctrl": "0", "sprpriority": "2", "juggle": str(juggle), "poweradd": str(power)}
+       for n, juggle, power in ((600, 2, 5), (610, 4, 30), (630, 3, 10), (640, 4, 30))},
+    **{n: {"type": "S", "movetype": "A", "physics": "S", "anim": str(n),
+           "ctrl": "0", "velset": "0,0", "sprpriority": "2", "juggle": "4", "poweradd": str(power)}
+       for n, power in ((1000, 55), (1010, 60), (1050, 55), (1060, 60))},
+    1020: {"type": "S", "movetype": "A", "physics": "N", "anim": "1020",
+           "ctrl": "0", "velset": "0,0", "sprpriority": "2", "juggle": "6", "poweradd": "-330"},
+    **{n: {"type": "S", "movetype": "A", "physics": "S", "anim": str(n),
+           "ctrl": "0", "velset": "0,0", "sprpriority": "2", "juggle": "4", "poweradd": str(power)}
+       for n, power in ((1100, 55), (1110, 60), (1200, 50), (1210, 60))},
+    **{n: {"type": "S", "movetype": "A", "physics": "S", "anim": str(n),
+           "ctrl": "0", "velset": "0,0", "sprpriority": "2", "juggle": "6", "poweradd": "-330"}
+       for n in (1120, 1220)},
+    **{n: {"type": "S", "movetype": "A", "physics": "N", "anim": str(n),
+           "ctrl": "0", "velset": "0,0", "sprpriority": "2", "juggle": str(juggle), "poweradd": str(power)}
+       for n, juggle, power in ((1400, 4, 50), (1410, 4, 50), (1420, 6, -330))},
+    1051: {"type": "A", "movetype": "A", "physics": "N",
+           "velset": "2,-6", "anim": "1051", "hitdefpersist": "1"},
+    1052: {"type": "S", "movetype": "I", "physics": "S", "anim": "1052",
+           "sprpriority": "1", "velset": "0,0"},
+    1055: {"type": "A", "movetype": "A", "physics": "N", "anim": "1055"},
+    1056: {"type": "S", "movetype": "I", "physics": "S", "anim": "1056",
+           "sprpriority": "1", "velset": "0,0"},
+    1070: {"type": "S", "movetype": "A", "physics": "S", "anim": "1070",
+           "ctrl": "0", "velset": "0,0", "sprpriority": "2", "juggle": "6", "poweradd": "-330"},
+    1071: {"type": "A", "movetype": "A", "physics": "N", "anim": "1071", "velset": "2.5,-9"},
+    1075: {"type": "A", "movetype": "A", "physics": "N", "anim": "1055"},
     1061: {"type": "A", "movetype": "A", "physics": "N",
            "velset": "2,-7.5", "anim": "1051", "hitdefpersist": "1"},
     820: {"type": "A", "movetype": "H", "physics": "N", "velset": "0,0"},
@@ -89,51 +272,6 @@ def normalize_body(source: str) -> str:
     return re.sub(r"\s+", "", "".join(lines)).lower()
 
 
-def patch_air_punch_ctrl_timing(
-    character_zss: Path, classic: list[dict],
-) -> list[dict]:
-    """Source-checked narrow shim for ZSS state 600's early CtrlSet.
-
-    Keep the rest of the legacy CNS compatibility row (sound and HitDef).
-    ZSS says AnimElemTime(3)=2, while classic CNS uses Time=17; for the
-    pinned AIR frames this produces a visible one-tick CtrlSet difference.
-    Fail closed if that source clause or the classic baseline changes.
-    """
-    source = parse_zss_states(character_zss).get(600)
-    expected = "ifanimelemtime(3)=2{ctrlset{value:1}}"
-    if source is None or normalize_body(source.body).count(expected) != 1:
-        raise ValueError(
-            f"{character_zss}: state 600 CtrlSet clause changed; "
-            "refusing ZSS timing shim"
-        )
-    for key, value in {
-        "type": "A", "movetype": "A", "physics": "A",
-        "anim": "600", "ctrl": "0",
-    }.items():
-        actual = re.sub(r"\s+", "", source.metadata.get(key, "")).upper()
-        if actual != value:
-            raise ValueError(
-                f"{character_zss}: state 600 {key} changed: {actual!r}"
-            )
-    matches = [
-        i for i, row in enumerate(classic)
-        if row["type"] == "IK_CNS_CTRL_CTRL_SET"
-    ]
-    if len(matches) != 1:
-        raise ValueError("state 600 classic CNS CtrlSet count changed")
-    i = matches[0]
-    original = classic[i]
-    if not (original["trigger_kind"] == "IK_CNS_TRIGGER_TIME_EQ"
-            and original["trigger_value"] == 17
-            and original["value0"] == 1):
-        raise ValueError("state 600 classic CNS CtrlSet baseline changed")
-    patched = [dict(row) for row in classic]
-    patched[i]["trigger_kind"] = "IK_CNS_TRIGGER_ANIM_ELEM_TIME_EQ_PACKED"
-    patched[i]["trigger_value"] = (3 << 8) | 2
-    patched[i]["trigger_value2"] = 0
-    return patched
-
-
 def _controllers(state: int) -> list[dict]:
     if state == 170:
         # Invulnerable to S/C/A attackers for one tick (refreshed each tick).
@@ -145,21 +283,40 @@ def _controllers(state: int) -> list[dict]:
             180, "IK_CNS_CTRL_CHANGE_STATE",
             "IK_CNS_TRIGGER_ALWAYS", 0, 0, 181, 0,
             "IK_CNS_CTRL_HAS_CTRL")]
-    if state == 1061:
-        # Strong Knee: keep the previous HitDef while jumping, allow human
+    if state == 195:
+        return [
+            _common_ctrl(195, "IK_CNS_CTRL_CTRL_SET", "IK_CNS_TRIGGER_TIME_EQ", 40, 0, 1),
+            _common_ctrl(195, "IK_CNS_CTRL_CHANGE_STATE", "IK_CNS_TRIGGER_ANIM_END", 0, 0, 0, 0,
+                         "IK_CNS_CTRL_HAS_CTRL | IK_CNS_CTRL_CTRL_FROM_ROUND"),
+        ]
+    if state in (1052, 1056):
+        return [
+            _common_ctrl(state, "IK_CNS_CTRL_POS_SET", "IK_CNS_TRIGGER_TIME_EQ",
+                         0, 0, 0, 0, "IK_CNS_CTRL_AXIS_Y"),
+            _common_ctrl(state, "IK_CNS_CTRL_SOUND_EVENT", "IK_CNS_TRIGGER_TIME_EQ",
+                         0, 0, 40, 0),
+            *([_common_ctrl(1052, "IK_CNS_CTRL_CTRL_SET",
+                            "IK_CNS_TRIGGER_ANIM_ELEM_TIME_EQ_PACKED", (3 << 8) | 255, 0, 1),
+               _common_ctrl(1052, "IK_CNS_CTRL_POS_ADD", "IK_CNS_TRIGGER_ANIM_ELEM_EQ",
+                            4, 0, q8(-15))] if state == 1052 else []),
+            _common_ctrl(state, "IK_CNS_CTRL_CHANGE_STATE", "IK_CNS_TRIGGER_ANIM_END",
+                         0, 0, 0, 0,
+                         "IK_CNS_CTRL_HAS_CTRL | IK_CNS_CTRL_CTRL_FROM_ROUND"),
+        ]
+    if state in (1051, 1061):
+        # Both knees keep the previous HitDef while jumping, allow human
         # a/b air-kick follow-up on ascent, then land at Pos Y >= -10.
-        # AI is not enabled in the current native fighter driver.
         return [
             _common_ctrl(
-                1061, "IK_CNS_CTRL_VEL_ADD",
+                state, "IK_CNS_CTRL_VEL_ADD",
                 "IK_CNS_TRIGGER_ALWAYS", 0, 0, 0, q8(0.45),
                 "IK_CNS_CTRL_AXIS_Y", value5=q16(0.45)),
             _common_ctrl(
-                1061, "IK_CNS_CTRL_CHANGE_STATE",
+                state, "IK_CNS_CTRL_CHANGE_STATE",
                 "IK_CNS_TRIGGER_COMMAND_ANY_VY_LT_Q8",
                 (1 << 5) | (1 << 6), q8(-1), 1055),
             _common_ctrl(
-                1061, "IK_CNS_CTRL_CHANGE_STATE",
+                state, "IK_CNS_CTRL_CHANGE_STATE",
                 "IK_CNS_TRIGGER_VY_GT_Q8_AT_LEVEL", q8(-10), 0, 1052),
         ]
     if state == 820:
@@ -295,6 +452,29 @@ def compile_zss_overrides(
     character_zss: Path, hits_zss: Path,
 ) -> dict[int, tuple[State, list[dict]]]:
     results = {}
+    # State 195 calls this shared source function; fail closed on changes to it.
+    function_source = character_zss.read_text()
+    function_match = re.search(
+        r'\[\s*Function\s+EndState\s*\(\s*type\s*\)\s*\]'
+        r'(.*?)(?=\[\s*(?:Function|StateDef)\b|\Z)',
+        function_source, flags=re.IGNORECASE | re.DOTALL)
+    if not function_match or normalize_body(function_match.group(1)) != (
+            'ifanimtime=0{changestate{value:11*$type;ctrl:roundstate>1}}'):
+        raise ValueError(f"{character_zss}: EndState function changed")
+    sound_match = re.search(
+        r'\[\s*Function\s+CSnd\s*\(\s*bank\s*,\s*sound\s*,\s*c\s*\)\s*\]'
+        r'(.*?)(?=\[\s*(?:Function|StateDef)\b|\Z)',
+        function_source, flags=re.IGNORECASE | re.DOTALL)
+    if not sound_match or normalize_body(sound_match.group(1)) != (
+            'playsnd{value:s$bank,$sound;channel:$c}'):
+        raise ValueError(f"{character_zss}: CSnd function changed")
+    exfx_match = re.search(
+        r'\[\s*Function\s+EXFX\s*\(\s*time\s*\)\s*\]'
+        r'(.*?)(?=\[\s*(?:Function|StateDef)\b|\Z)',
+        function_source, flags=re.IGNORECASE | re.DOTALL)
+    if not exfx_match or normalize_body(exfx_match.group(1)) != (
+            'palfx{time:$time;add:32,16,0;sinadd:64,32,5,3}'):
+        raise ValueError(f"{character_zss}: EXFX function changed")
     for path, selected in (
         (character_zss, CHARACTER_STATES),
         (hits_zss, HIT_STATES),
@@ -305,7 +485,8 @@ def compile_zss_overrides(
             if item is None:
                 raise ValueError(f"{path}: missing ZSS StateDef {number}")
             observed = normalize_body(item.body)
-            if observed != BODIES[number]:
+            if (hashlib.sha256(observed.encode()).hexdigest() != BODY_SHA256[number]
+                    if number in BODY_SHA256 else observed != BODIES[number]):
                 raise ValueError(
                     f"{path}: ZSS state {number} body changed or has "
                     "unsupported controllers; refusing partial conversion")
@@ -318,5 +499,231 @@ def compile_zss_overrides(
             # The generic CNS compiler handles native StateDef metadata and
             # C emission. Controller bytecode comes only from verified ZSS.
             sd = Section(f"Statedef {number}", list(item.metadata.items()))
-            results[number] = (State(number, sd, []), _controllers(number))
+            if number in (1070, 1071, 1075):
+                hit_body = observed.split('hitdef{', 1)[1].split('}', 1)[0]
+                hit_fields = [tuple(part.split(':', 1)) for part in hit_body.split(';') if part]
+                sections = []
+                if number in (1070, 1075):
+                    sections.append(Section(f'State {number} trail', [('type', 'AfterImageTime'), ('trigger1', '1'), ('time', '2')]))
+                if number == 1070:
+                    after_body = observed.split('afterimage{', 1)[1].split('}', 1)[0]
+                    after_fields = [tuple(part.split(':', 1)) for part in after_body.split(';') if part]
+                    sections.append(Section('State 1070 afterimage', [('type', 'AfterImage'), ('trigger1', 'Time = 0')] + after_fields))
+                sections.append(Section(f'State {number} palfx', [('type', 'PalFX'), ('trigger1', 'Time = 0'), ('time', '20' if number == 1070 else '18'), ('add', '32,16,0'), ('sinadd', '64,32,5,3')]))
+                if number == 1070:
+                    sections.extend([
+                        Section('State 1070 sound', [('type', 'PlaySnd'), ('trigger1', 'Time = 1'), ('value', '0,2')]),
+                        Section('State 1070 step 2', [('type', 'PosAdd'), ('trigger1', 'AnimElem = 2'), ('x', '6')]),
+                        Section('State 1070 step 4', [('type', 'PosAdd'), ('trigger1', 'AnimElem = 4'), ('x', '21')]),
+                    ])
+                if number == 1071:
+                    sections.append(Section('State 1071 trail', [('type', 'AfterImageTime'), ('trigger1', 'Vel Y < 0'), ('time', '2')]))
+                if number == 1075:
+                    sections.extend([
+                        Section('State 1075 voice', [('type', 'PlaySnd'), ('trigger1', 'Time = 0'), ('value', '100,0')]),
+                        Section('State 1075 sound', [('type', 'PlaySnd'), ('trigger1', 'Time = 0'), ('value', '0,1')]),
+                        Section('State 1075 offset', [('type', 'PosAdd'), ('trigger1', 'Time = 0'), ('x', '10'), ('y', '-10')]),
+                    ])
+                sections.append(Section(f'State {number} hit', [('type', 'HitDef'), ('trigger1', 'AnimElem = 4' if number == 1070 else 'Time = 0')] + hit_fields))
+                if number != 1070:
+                    sections.extend([
+                        Section(f'State {number} gravity', [('type', 'VelAdd'), ('trigger1', '1'), ('y', '.5')]),
+                        Section(f'State {number} extra gravity', [('type', 'VelAdd'), ('trigger1', 'Vel Y >= -1'), ('y', '.2')]),
+                    ])
+                if number == 1071:
+                    sections.append(Section('State 1071 cancel', [('type', 'ChangeState'), ('trigger1', 'Command = "a" || Command = "b"'), ('trigger1', 'Vel Y < -1'), ('trigger1', 'Time > 0'), ('value', '1075')]))
+                sections.append(Section(f'State {number} end', [('type', 'ChangeState'),
+                    ('trigger1', 'AnimTime = 0' if number == 1070 else 'Vel Y > 0 && Pos Y >= -10' if number == 1071 else 'Vel Y > 0 && Pos Y >= -5'),
+                    ('value', '1071' if number == 1070 else '1052' if number == 1071 else '1056')]))
+                results[number] = (State(number, sd, sections), [])
+            elif number in (1400, 1410, 1420):
+                hits = re.findall(r'hitdef\{([^}]*)\}', observed)
+                if len(hits) != (2 if number == 1420 else 1):
+                    raise ValueError(f"state {number}: unexpected HitDef count")
+                sections = []
+                if number == 1420:
+                    after_body = observed.split('afterimage{', 1)[1].split('}', 1)[0]
+                    after_fields = [tuple(part.split(':', 1)) for part in after_body.split(';') if part]
+                    sections.extend([
+                        Section('State 1420 afterimage', [('type', 'AfterImage'), ('trigger1', 'Time = 0')] + after_fields),
+                        Section('State 1420 palfx', [('type', 'PalFX'), ('trigger1', 'Time = 0'), ('time', '20'), ('add', '32,16,0'), ('sinadd', '64,32,5,3')]),
+                        Section('State 1420 trail', [('type', 'AfterImageTime'), ('trigger1', 'AnimElemTime(8) < 0'), ('time', '2')]),
+                    ])
+                sections.extend([
+                    Section(f'State {number} sound', [('type', 'PlaySnd'), ('trigger1', 'AnimElem = 3'), ('value', '0,3')]),
+                    Section(f'State {number} friction', [('type', 'VelMul'), ('trigger1', '1'), ('x', {1400: '.5', 1410: '.65', 1420: '.7'}[number])]),
+                ])
+                for index, hit in enumerate(hits):
+                    fields = [tuple(part.split(':', 1)) for part in hit.split(';') if part]
+                    trigger = ('Time = 0' if number != 1420 else
+                               'AnimElemTime(4) = -2' if index == 0 else 'AnimElem = 4')
+                    sections.append(Section(f'State {number} hit {index}', [('type', 'HitDef'), ('trigger1', trigger)] + fields))
+                steps = (2, 3, 4, {1400: 8, 1410: 9, 1420: 10}[number])
+                sections.append(Section(f'State {number} steps', [('type', 'PosAdd')] +
+                                        [(f'trigger{i+1}', f'AnimElem = {e}') for i, e in enumerate(steps)] + [('x', '10')]))
+                sections.append(Section(f'State {number} velocity', [('type', 'VelSet'),
+                    ('trigger1', 'AnimElemTime(3) = [1, 2]' if number == 1420 else 'AnimElem = 4'),
+                    ('x', {1400: '2', 1410: '8', 1420: '20'}[number])]))
+                sections.append(Section(f'State {number} end', [('type', 'ChangeState'), ('trigger1', 'AnimTime = 0'), ('value', '0'), ('ctrl', '1')]))
+                results[number] = (State(number, sd, sections), [])
+            elif number in (1120, 1220):
+                upper = number == 1120
+                hits = re.findall(r'hitdef\{([^}]*)\}', observed)
+                if len(hits) != (2 if upper else 1):
+                    raise ValueError(f"state {number}: unexpected HitDef count")
+                after_body = observed.split('afterimage{', 1)[1].split('}', 1)[0]
+                after_fields = [tuple(part.split(':', 1)) for part in after_body.split(';') if part]
+                sections = []
+                if upper:
+                    sections.append(Section('State 1120 width', [('type', 'Width'), ('trigger1', 'AnimElemTime(4) >= 0 && AnimElemTime(14) < 0'), ('value', '5,0')]))
+                    sections.append(Section('State 1120 sound', [('type', 'PlaySnd'), ('trigger1', 'AnimElem = 4'), ('value', '0,2')]))
+                sections.extend([
+                    Section(f'State {number} afterimage', [('type', 'AfterImage'), ('trigger1', 'Time = 0')] + after_fields),
+                    Section(f'State {number} palfx', [('type', 'PalFX'), ('trigger1', 'Time = 0'), ('time', '20'), ('add', '32,16,0'), ('sinadd', '64,32,5,3')]),
+                    Section(f'State {number} trail', [('type', 'AfterImageTime'), ('trigger1', 'AnimTime < -2'), ('time', '2')]),
+                ])
+                if not upper:
+                    sections.extend([
+                        Section('State 1220 sound', [('type', 'PlaySnd'), ('trigger1', 'AnimElem = 4'), ('value', '0,3')]),
+                        Section('State 1220 width 5', [('type', 'Width'), ('trigger1', 'AnimElemTime(5) >= 0 && AnimElemTime(6) < 0'), ('value', '10,0')]),
+                        Section('State 1220 width 6', [('type', 'Width'), ('trigger1', 'AnimElemTime(6) >= 0 && AnimElemTime(9) < 0'), ('value', '20,0')]),
+                        Section('State 1220 shake', [('type', 'EnvShake'), ('trigger1', 'AnimElem = 6'), ('time', '8'), ('ampl', '3'), ('freq', '170')]),
+                    ])
+                for index, hit in enumerate(hits):
+                    fields = [tuple(part.split(':', 1)) for part in hit.split(';') if part]
+                    triggers = [('trigger1', 'Time = 0' if index == 0 else 'AnimElem = 7')]
+                    if upper and index == 0:
+                        triggers.append(('trigger2', 'AnimElem = 4'))
+                    sections.append(Section(f'State {number} hit {index}', [('type', 'HitDef')] + triggers + fields))
+                sections.append(Section(f'State {number} end', [('type', 'ChangeState'), ('trigger1', 'AnimTime = 0'), ('value', '0'), ('ctrl', '1')]))
+                results[number] = (State(number, sd, sections), [])
+            elif number in (1100, 1110, 1200, 1210):
+                hits = re.findall(r'hitdef\{([^}]*)\}', observed)
+                upper = number in (1100, 1110)
+                if len(hits) != (2 if upper else 1):
+                    raise ValueError(f"state {number}: unexpected HitDef count")
+                sections = []
+                if upper:
+                    end_elem = 13 if number == 1100 else 14
+                    sections.append(Section(f'State {number} width', [('type', 'Width'), ('trigger1', f'AnimElemTime(4) >= 0 && AnimElemTime({end_elem}) < 0'), ('value', '5,0')]))
+                else:
+                    sections.extend([
+                        Section(f'State {number} width 5', [('type', 'Width'), ('trigger1', 'AnimElemTime(5) >= 0 && AnimElemTime(6) < 0'), ('value', '10,0')]),
+                        Section(f'State {number} width 6', [('type', 'Width'), ('trigger1', 'AnimElemTime(6) >= 0 && AnimElemTime(9) < 0'), ('value', '20,0')]),
+                        Section(f'State {number} shake', [('type', 'EnvShake'), ('trigger1', 'AnimElem = 6'), ('time', '4' if number == 1200 else '8'), ('ampl', '2'), ('freq', '180' if number == 1200 else '170')]),
+                    ])
+                sections.append(Section(f'State {number} sound', [('type', 'PlaySnd'), ('trigger1', 'AnimElem = 4'), ('value', '0,2' if upper else '0,3')]))
+                for index, hit in enumerate(hits):
+                    fields = [tuple(part.split(':', 1)) for part in hit.split(';') if part]
+                    sections.append(Section(f'State {number} hit {index}', [('type', 'HitDef'), ('trigger1', 'Time = 0' if index == 0 else 'AnimElem = 7')] + fields))
+                sections.append(Section(f'State {number} end', [('type', 'ChangeState'), ('trigger1', 'AnimTime = 0'), ('value', '0'), ('ctrl', '1')]))
+                results[number] = (State(number, sd, sections), [])
+            elif number == 1020:
+                hit_body = observed.split('hitdef{', 1)[1].split('}', 1)[0]
+                hit_fields = [tuple(part.split(':', 1)) for part in hit_body.split(';') if part]
+                after_body = observed.split('afterimage{', 1)[1].split('}', 1)[0]
+                after_fields = [tuple(part.split(':', 1)) for part in after_body.split(';') if part]
+                sections = [
+                    Section('State 1020 friction', [('type', 'VelMul'), ('trigger1', '1'), ('x', '.85 * ifelse(AnimElemTime(6) < 0, 1, .8)')]),
+                    Section('State 1020 afterimage', [('type', 'AfterImage'), ('trigger1', 'Time = 0')] + after_fields),
+                    Section('State 1020 palfx', [('type', 'PalFX'), ('trigger1', 'Time = 0'), ('time', '20'), ('add', '32,16,0'), ('sinadd', '64,32,5,3')]),
+                    Section('State 1020 trail', [('type', 'AfterImageTime'), ('trigger1', 'AnimElemTime(8) < 0'), ('time', '2')]),
+                    Section('State 1020 sound', [('type', 'PlaySnd'), ('trigger1', 'Time = 2'), ('value', '0,3')]),
+                    Section('State 1020 step 2', [('type', 'PosAdd'), ('trigger1', 'AnimElem = 2'), ('x', '20')]),
+                    Section('State 1020 step 3', [('type', 'PosAdd'), ('trigger1', 'AnimElem = 3'), ('trigger2', 'AnimElem = 12'), ('x', '10')]),
+                    Section('State 1020 step 4', [('type', 'PosAdd'), ('trigger1', 'AnimElem = 4'), ('x', '5')]),
+                    Section('State 1020 velocity', [('type', 'VelSet'), ('trigger1', 'AnimElem = 4'), ('x', '13')]),
+                    Section('State 1020 hit', [('type', 'HitDef'), ('trigger1', 'AnimElem = 4')] + hit_fields),
+                    Section('State 1020 end', [('type', 'ChangeState'), ('trigger1', 'AnimTime = 0'), ('value', '0'), ('ctrl', '1')]),
+                ]
+                results[number] = (State(number, sd, sections), [])
+            elif number in (1000, 1010, 1050, 1060):
+                hits = re.findall(r'hitdef\{([^}]*)\}', observed)
+                if len(hits) != (2 if number in (1000, 1010) else 1):
+                    raise ValueError(f"state {number}: unexpected HitDef count")
+                sections = [Section(f'State {number} sound', [('type', 'PlaySnd'),
+                    ('trigger1', f'Time = {8 if number == 1000 else 9 if number == 1010 else 1}'),
+                    ('value', '0,3' if number in (1000, 1010) else '0,2')])]
+                if number in (1000, 1010):
+                    sections.extend([
+                        Section(f'State {number} step 2', [('type', 'PosAdd'), ('trigger1', 'AnimElem = 2'), ('x', '20')]),
+                        Section(f'State {number} step 3', [('type', 'PosAdd'), ('trigger1', 'AnimElem = 3'), ('trigger2', 'AnimElem = 13'), ('x', '10')]),
+                        Section(f'State {number} step 5', [('type', 'PosAdd'), ('trigger1', 'AnimElem = 5'), ('x', '5')]),
+                    ])
+                    if number == 1010:
+                        sections.append(Section('State 1010 velocity', [('type', 'VelSet'), ('trigger1', 'AnimElem = 5'), ('x', '4')]))
+                else:
+                    if number == 1060:
+                        sections.append(Section('State 1060 step 2', [('type', 'PosAdd'), ('trigger1', 'AnimElem = 2'), ('x', '6')]))
+                    sections.append(Section(f'State {number} step 4', [('type', 'PosAdd'), ('trigger1', 'AnimElem = 4'), ('x', '20' if number == 1050 else '21')]))
+                for index, hit in enumerate(hits):
+                    fields = [tuple(part.split(':', 1)) for part in hit.split(';') if part]
+                    triggers = [('trigger1', f'AnimElem = {5 if number in (1000, 1010) else 4}')]
+                    if number in (1000, 1010):
+                        triggers.append(('trigger1', 'P2BodyDist X < 40' if index == 0 else 'P2BodyDist X >= 40'))
+                    sections.append(Section(f'State {number} hit {index}', [('type', 'HitDef')] + triggers + fields))
+                if number == 1000:
+                    sections.append(Section('State 1000 retreat', [('type', 'PosAdd'), ('trigger1', 'AnimElem = 9'), ('x', '-5')]))
+                ending = [('type', 'ChangeState'), ('trigger1', 'AnimTime = 0'),
+                          ('value', '0' if number in (1000, 1010) else '1051' if number == 1050 else '1061')]
+                if number in (1000, 1010): ending.append(('ctrl', '1'))
+                sections.append(Section(f'State {number} end', ending))
+                results[number] = (State(number, sd, sections), [])
+            elif number in (210, 240, 410):
+                hits = re.findall(r'hitdef\{([^}]*)\}', observed)
+                if len(hits) != (2 if number == 410 else 1):
+                    raise ValueError(f"state {number}: unexpected HitDef count")
+                sections = []
+                if number == 210:
+                    sections.append(Section('State 210 width', [('type', 'Width'), ('trigger1', 'AnimElemTime(2) >= 0 && AnimElemTime(7) < 0'), ('value', '15,0')]))
+                sections.append(Section(f'State {number} sound', [('type', 'PlaySnd'), ('trigger1', 'Time = 1' if number == 410 else 'Time = 2'), ('value', '0,4' if number == 210 else '0,1')]))
+                for index, hit in enumerate(hits):
+                    fields = [tuple(part.split(':', 1)) for part in hit.split(';') if part]
+                    sections.append(Section(f'State {number} hit {index}', [('type', 'HitDef'), ('trigger1', f'AnimElem = {3 + index}')] + fields))
+                if number == 210:
+                    sections.extend([
+                        Section('State 210 contact', [('type', 'ChangeAnim'), ('trigger1', 'AnimElemTime(5) > 0 && AnimElemTime(6) <= 0'), ('trigger1', 'MoveContact'), ('ignorehitpause', '1'), ('persistent', '0'), ('value', '210'), ('elem', '6')]),
+                        Section('State 210 priority', [('type', 'SprPriority'), ('trigger1', 'AnimElem = 5'), ('value', '2')]),
+                    ])
+                elif number == 240:
+                    sections.append(Section('State 240 offset', [('type', 'PosAdd'), ('trigger1', 'AnimElem = 7'), ('x', '12')]))
+                sections.append(Section(f'State {number} end', [('type', 'ChangeState'), ('trigger1', 'AnimTime = 0'), ('value', '11' if number == 410 else '0'), ('ctrl', '1')]))
+                results[number] = (State(number, sd, sections), [])
+            elif number in (600, 610, 630, 640):
+                hit_body = observed.split('hitdef{', 1)[1].split('}', 1)[0]
+                hit_fields = [tuple(part.split(':', 1)) for part in hit_body.split(';') if part]
+                sections = [
+                    Section(f'State {number} hit', [('type', 'HitDef'), ('trigger1', f'AnimElem = {3 if number == 610 else 2}')] + hit_fields),
+                    Section(f'State {number} sound', [('type', 'PlaySnd'), ('trigger1', f'Time = {2 if number in (610, 640) else 1}'), ('value', '0,1' if number in (610, 640) else '0,0')]),
+                ]
+                if number == 600:
+                    sections.append(Section('State 600 early ctrl', [('type', 'CtrlSet'), ('trigger1', 'AnimElemTime(3) = 2'), ('value', '1')]))
+                results[number] = (State(number, sd, sections), [])
+            elif number in (200, 230, 400, 430, 440):
+                hit_body = observed.split('hitdef{', 1)[1].split('}', 1)[0]
+                hit_fields = [tuple(part.split(':', 1)) for part in hit_body.split(';') if part]
+                sections = [
+                    Section(f'State {number} hit', [('type', 'HitDef'), ('trigger1', f'AnimElem = {2 if number == 400 else 4 if number == 440 else 3}')] + hit_fields),
+                    Section(f'State {number} sound', [('type', 'PlaySnd'), ('trigger1', f'Time = {2 if number == 230 else 1}'), ('value', '0,2' if number == 440 else '0,0')]),
+                ]
+                if number == 400:
+                    sections.append(Section('State 400 early ctrl', [('type', 'CtrlSet'), ('trigger1', 'AnimElemTime(3) = 2'), ('value', '1')]))
+                sections.append(Section(f'State {number} end', [('type', 'ChangeState'), ('trigger1', 'AnimTime = 0'), ('value', '11' if number in (400, 430, 440) else '0'), ('ctrl', '1')]))
+                results[number] = (State(number, sd, sections), [])
+            elif number == 1055:
+                # Feed the verified ZSS HitDef through the normal CNS compiler
+                # so its complete payload and the AnimElem trigger are retained.
+                hit_body = observed.split('hitdef{', 1)[1].split('}', 1)[0]
+                hit_fields = [tuple(part.split(':', 1)) for part in hit_body.split(';') if part]
+                sections = [
+                    Section('State 1055 voice', [('type', 'PlaySnd'), ('trigger1', 'Time = 0'), ('value', '100,0')]),
+                    Section('State 1055 swing', [('type', 'PlaySnd'), ('trigger1', 'Time = 0'), ('value', '0,1')]),
+                    Section('State 1055 offset', [('type', 'PosAdd'), ('trigger1', 'Time = 0'), ('x', '10'), ('y', '-10')]),
+                    Section('State 1055 gravity', [('type', 'VelAdd'), ('trigger1', '1'), ('y', '.45')]),
+                    Section('State 1055 hit', [('type', 'HitDef'), ('trigger1', 'AnimElem = 5')] + hit_fields),
+                    Section('State 1055 landing', [('type', 'ChangeState'), ('trigger1', 'Vel Y > 0 && Pos Y >= -5'), ('value', '1056')]),
+                ]
+                results[number] = (State(number, sd, sections), [])
+            else:
+                results[number] = (State(number, sd, []), _controllers(number))
     return results

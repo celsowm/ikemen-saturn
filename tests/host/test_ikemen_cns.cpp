@@ -108,6 +108,22 @@ int main() {
         OK(!ik_cns_controller_trigger_context_now(&command_ctrl, &ctx));
     }
 
+    {
+        const ik_cns_controller_t cancel = {
+            1071, IK_CNS_CTRL_CHANGE_STATE,
+            IK_CNS_TRIGGER_COMMAND_ANY_VY_LT_Q8_AFTER_ENTRY,
+            IK_CNS_COMMAND_A | IK_CNS_COMMAND_B, -256, 1075, 0, 0u
+        };
+        ik_cns_controller_context_t ctx{};
+        ctx.command_mask = IK_CNS_COMMAND_A;
+        ctx.vy_q8 = -512;
+        OK(!ik_cns_controller_trigger_context_now(&cancel, &ctx));
+        ctx.state_time = 1;
+        OK(ik_cns_controller_trigger_context_now(&cancel, &ctx));
+        ctx.vy_q8 = -256;
+        OK(!ik_cns_controller_trigger_context_now(&cancel, &ctx));
+    }
+
     /* Edge distances are Q8.8: `<= 20` and `< 65` differ at the boundary and
      * a half-pixel air offset moves the distance below the limit. */
     {

@@ -46,7 +46,8 @@
     }
   ],
   "expect": {
-    "p2_life_drops": true
+    "p2_life_drops": true,
+    "p1_states": [1050, 1051, 1052]
   },
   "origin": "kfm_ff_a_200.json"
 }

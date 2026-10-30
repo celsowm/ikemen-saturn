@@ -85,7 +85,8 @@ typedef enum ik_cns_trigger_kind {
     /* common1 state 5110: !alive && (animTime = 0 || anim = 5110..5119).
      * sysVar(0) is deliberately omitted until the common-state sysvar path is
      * generalized; the stock KFM KO oracle does not set it. */
-    IK_CNS_TRIGGER_DEFEATED_LIEDOWN_READY
+    IK_CNS_TRIGGER_DEFEATED_LIEDOWN_READY,
+    IK_CNS_TRIGGER_COMMAND_ANY_VY_LT_Q8_AFTER_ENTRY
 } ik_cns_trigger_kind_t;
 
 enum {
@@ -233,6 +234,8 @@ enum {
 
 enum {
     IK_CNS_CTRL_HAS_CTRL = 1u << 0,
+    /* ChangeState only: derive ctrl from RoundState > 1. */
+    IK_CNS_CTRL_CTRL_FROM_ROUND = 1u << 2,
     IK_CNS_CTRL_IGNORE_HIT_PAUSE = 1u << 1,
     IK_CNS_CTRL_AXIS_X = 1u << 2,
     IK_CNS_CTRL_AXIS_Y = 1u << 3,

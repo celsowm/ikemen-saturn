@@ -183,6 +183,19 @@ comparable.
 The comparator is strict for integer/boolean/string/state fields and uses a
 small absolute tolerance for floating-point coordinates and velocities.
 
+## Suite status snapshot (no engine runs)
+
+After a run, summarize every existing report as one line per scenario
+without executing anything:
+
+```sh
+python tools/ikemen_oracle/suite_status.py zss
+```
+
+Statuses: `OK`, `DIFF` (with the first frame/field), `MISSING` (never run)
+and `BROKEN` (unreadable report). `--strict` exits 1 unless every selected
+scenario is `OK`; `--json` emits one JSON row per line.
+
 ## CPU scenario diagnostics (not AI parity)
 
 The original GO AI can be enabled per scenario with `p1_ai`/`p2_ai`

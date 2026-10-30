@@ -955,7 +955,8 @@ def controller_trigger(
         )
         if cmd is not None and vy and time_ok:
             return (
-                "IK_CNS_TRIGGER_COMMAND_ANY_VY_LT_Q8",
+                ("IK_CNS_TRIGGER_COMMAND_ANY_VY_LT_Q8_AFTER_ENTRY"
+                 if len(normalized) == 3 else "IK_CNS_TRIGGER_COMMAND_ANY_VY_LT_Q8"),
                 (1 << 5) | (1 << 6),
                 q8(float(vy.group(1))),
             )
@@ -3066,7 +3067,9 @@ def parse_zss_states(path: Path) -> dict[int, ZssState]:
     for i, match in enumerate(matches):
         number_ = int(match.group(1))
         meta: dict[str, str] = {}
-        for part in match.group(2).split(";"):
+        metadata_text = "\n".join(line.split("#", 1)[0]
+                                  for line in match.group(2).splitlines())
+        for part in metadata_text.split(";"):
             part = part.strip()
             if not part or ":" not in part:
                 continue
@@ -4257,21 +4260,26 @@ def emit(
             const["default_guard_spark_no"],
         )
         if zss_override is not None:
-            if hs or ss or cs or helper_rows or explod_rows or projectile_rows:
+            if zss_override[1] and (hs or ss or cs or helper_rows or explod_rows or projectile_rows):
                 raise ValueError(
                     f"state {number_}: unexpected duplicate ZSS controllers")
             # ZSS bodies are lowered as native CNS controllers with exactly
             # the offsets used by classic states and common1.zss.
-            cs = list(zss_override[1])
-            row["controller_count"] = len(cs)
+            if zss_override[1]:
+                cs = list(zss_override[1])
+                row["controller_count"] = len(cs)
+                row["owns_air_accel"] = int(any(
+                    c["type"] == "IK_CNS_CTRL_VEL_ADD" and
+                    "IK_CNS_CTRL_AXIS_Y" in c["flags"] for c in cs))
+            elif number_ in (200, 210, 230, 240, 400, 410, 430, 440, 1000, 1010, 1020, 1100, 1110, 1120, 1200, 1210, 1220, 1400, 1410, 1420):
+                endings = [c for c in cs if c["type"] == "IK_CNS_CTRL_CHANGE_STATE"
+                           and c["trigger_kind"] == "IK_CNS_TRIGGER_ANIM_END"]
+                if len(endings) != 1:
+                    raise ValueError(f"state {number_}: missing verified EndState")
+                endings[0]["flags"] = "IK_CNS_CTRL_HAS_CTRL | IK_CNS_CTRL_CTRL_FROM_ROUND"
             row["source"] = "zss"
         else:
             row["source"] = "classic_cns"
-            if character_zss is not None and number_ == 600:
-                from tools.ikemen_zss_character_states import (
-                    patch_air_punch_ctrl_timing,
-                )
-                cs = patch_air_punch_ctrl_timing(character_zss, cs)
         row["reversal_ofs"] = len(reversals)
         row["hitoverride_ofs"] = len(hitoverrides)
         state_rows.append(row)

@@ -24,8 +24,8 @@ not yet implemented or covered by the 66 classic-KFM oracle scenarios.
 The build compiles all 36 directly guarded `command.zss` State -1
 ChangeState branches (including AnimElemTime cancel tests) and activates them
 for human-controlled P2. The importer rejects incomplete coverage.
-Nine ZSS state bodies now have source-checked native lowering:
-170, 180 and 1061 (from kfm.zss), and 820, 821, 1025, 1026, 1027,
+Forty-three ZSS state bodies now have source-checked native lowering:
+170, 180, 195, 200, 210, 230, 240, 400, 410, 430, 440, 600, 610, 630, 640, 1000, 1010, 1020, 1050, 1051, 1052, 1055, 1056, 1060, 1061, 1070, 1071, 1075, 1100, 1110, 1120, 1200, 1210, 1220, 1400, 1410 and 1420 (from kfm.zss), and 820, 821, 1025, 1026, 1027,
 1028 (from hits.zss). State 1061 preserves Strong Knee's prior HitDef,
 accepts human A/B air-kick cancels into 1055 and lands through 1052.
 The 821 human recovery path is ported; AI random recovery remains deferred.
@@ -87,6 +87,29 @@ Without a second pad, P2 runs the native ZSS CPU neutral subset (walk,
 run, stop and standing/crouching light attacks). Connecting the second pad
 restores human P2 input. This is **not full AI or upstream RNG parity**.
 Oracle/host runners keep P2 idle by default unless CPU is opted into.
+
+For a reproducible headless injection smoke test on any platform with the
+LibSaturn Ymir probe, run:
+
+```sh
+python3 scripts/saturn_smoke.py --probe /path/to/probe --bios /path/to/bios.bin \
+    --nm /path/to/sh2eb-elf-nm --out build/saturn/smoke
+```
+
+The output directory must not already exist. It contains the probe log and
+report, a screenshot, a panic dump and a summary with build and input hashes.
+This checks injected execution, not disc boot or gameplay parity.
+
+To record a real CD boot in Mednafen with an isolated profile and a 4 MiB
+cartridge, use a fresh output directory:
+
+```sh
+python3 scripts/record_mednafen.py --bios /path/to/bios.bin \
+    --out build/saturn/mednafen-run --seconds 30 --screenshots 10 22
+```
+
+The recording and extracted frames must be inspected to establish what the
+game reached; a successful process exit alone does not prove gameplay.
 
 ## Test
 

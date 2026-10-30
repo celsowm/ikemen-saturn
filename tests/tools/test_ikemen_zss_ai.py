@@ -35,6 +35,7 @@ print("KFM ZSS AI knee follow-up source verified")
 with TemporaryDirectory() as temp:
     content = source.read_text(encoding="utf-8-sig")
     for old, new in (
+        ("p2,anim = 5120", "p2,anim = 5121"),
         ("random <= (396 * (aiLevelF ** 2 / 48.0))",
          "random <= (397 * (aiLevelF ** 2 / 48.0))"),
         ("p2BodyDist x = [25, 120]", "p2BodyDist x = [25, 125]"),

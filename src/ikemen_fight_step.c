@@ -168,9 +168,12 @@ static int step_attack(const ik_step_t* s) {
     ik_fight_t* fight = s->fight;
     ik_fighter_t* f = s->f;
     if (is_air_attack_fighter(fight, f)) {
-        /* Physics=A continues while the attack animation runs. If the
-         * common1 landing state is compiled, landing transitions to it. */
-        ikf_step_air(fight, f, 1, -1);
+        const ik_cns_state_t* spec = fighter_state_spec(fight, f);
+        /* Physics=N states with authored gravity own their landing branch;
+         * it must inspect the position on the next controller tick. */
+        const int custom_landing = spec && spec->physics == IK_CNS_PHYS_NONE &&
+                                   spec->owns_air_accel;
+        ikf_step_air(fight, f, custom_landing ? 0 : 1, -1);
         return IKF_STEP_DONE;
     }
 

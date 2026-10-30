@@ -21,6 +21,7 @@ def validate_ai_followup(path: Path) -> None:
 # These *selected* original AI.zss clauses are guarded against source drift.
 # They do not constitute a translation of the entire neutral AI loop.
 NEUTRAL_CLAUSES = [
+    'letnojug=p2,anim=5120||p2stateno=5040&&p2,ctrl||p2stateno=52&&p2,time<3&&p2,prevstateno=5040;',
     'ifstatetype=s&&ctrl&&stateno!=100&&random<249&&(p2movetype!=a||backedgebodydist<40)&&p2bodydistx=[25,120]&&map(aiw)!=0{changestate{value:20}}',
     'ifmap(aiw)=0&&stateno=20{printtoconsole{text:"changestate{value:0}"}changestate{value:0;ctrl:1}}',
     'ifstatetype!=a&&(ctrl||stateno=20)&&stateno!=100&&random<=(396*(ailevelf**2/48.0))&&(p2movetype!=a||backedgebodydist<40)&&(p2bodydistx>=cond($hitfall||p2stateno=5300,10,120)){changestate{value:100}}',

@@ -391,8 +391,11 @@ void ikf_credit_hit_power(
     const ik_cns_hitdef_t* hitdef,
     int guarded
 ) {
-    int get = ((int)hitdef->damage * 7) / 10;
-    int give = ((int)hitdef->damage * 6) / 10;
+    const int damage = hitdef->has_alt_damage &&
+        attacker->prev_state == hitdef->alt_damage_prev_state
+        ? hitdef->alt_damage : hitdef->damage;
+    int get = (damage * 7) / 10;
+    int give = (damage * 6) / 10;
     if ((hitdef->attack_attr_mask &
          (IK_CNS_ATTR_HYPER_ATTACK | IK_CNS_ATTR_HYPER_PROJECTILE |
           IK_CNS_ATTR_HYPER_THROW)) != 0u) {

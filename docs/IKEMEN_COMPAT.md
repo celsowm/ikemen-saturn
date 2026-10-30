@@ -6,6 +6,11 @@ the oracle in `tools/ikemen_oracle`. Mixed KFM/ZSS matches use genuine ZSS
 commands, assets and selected native states; full ZSS script/AI parity is not
 established. Run `suite.py --zss-only` to measure the separate ZSS matrix.
 
+On macOS ARM64, the 27 existing mixed-character scenarios and the additional
+ZSS taunt scenario were run against the pinned engine and screenpack. All
+matched under the suite's Q8 position and velocity tolerances. These scripted
+human-input scenarios do not establish autonomous AI or global RNG parity.
+
 ## Running it
 
 From the MSYS2 **ucrt64** shell (Windows Go on PATH, e.g. `/e/Program Files/Go/bin`):

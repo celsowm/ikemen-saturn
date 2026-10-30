@@ -17,14 +17,16 @@ super-command motions differ. The offline compiler now requires all **36 immedia
 of P2's upstream `command.zss` to compile, including AnimElemTime-based
 cancel predicates. Any unsupported branch fails the build rather than silently
 dropping a move. Human-controlled P2 now runs those ZSS State -1 input rules,
-using the original ZSS CMD and separate constants and AIR. ZSS's own
-`kfm.zss`, `hits.zss` and `AI.zss` state bodies are still unported:
-Eight P2 state bodies are now compiled directly from `kfm.zss`/`hits.zss`
+using the original ZSS CMD and separate constants and AIR. Most ZSS state
+bodies and AI are still unported:
+Forty-three P2 state bodies are now compiled directly from `kfm.zss`/`hits.zss`
 into existing CNS controller instructions: 170 (time-over loss), 180 (win
 transition), 820 (throw victim animation + unbound recovery), and 1025
 (Fast Palm hit-shake transition), 821 (airborne throw recovery), and 1026
 (Fast Palm launch, wall detection and landing). The 821 human-input
 recovery path is translated, while the random AI recovery path is deferred.
+State 195 also uses the verified ZSS `EndState` function and restores control
+according to the round state.
 State 1028 now runs its native source-checked wall-bounce velocity, turn,
 animation selection and 5050/5052->5060/5062 descent transitions with a
 configurable generic animation offset. State 1027 now uses verified ZSS controller order: front-edge Turn,
@@ -39,8 +41,16 @@ source body of each state and fails the build on unhandled source changes.
 Other ZSS states still fall back to classic CNS state bodies; they are not
 claimed as ported. Full ZSS/Ikemen oracle parity **is not claimed**.
 The ZSS global guard assumes AI input is disabled; AI needs a separate pass.
+`python3 tools/ikemen_zss_state_coverage.py` prints the pinned `kfm.zss`/
+`hits.zss` statedef inventory as natively lowered vs classic-CNS fallback
+numbers (one line per state; coverage does not imply parity).
 
 ## Hardware profile
+
+An isolated Mednafen run booted the generated CD image with a 4 MiB cart
+and reached the fight. In one recorded neutral run, continuous decoding of
+301 frames around seconds 19–24 found the red life bar in every frame.
+This is a limited presentation check, not hardware or full-match validation.
 
 ikemen_saturn targets a Saturn with a **4 MiB RAM expansion cartridge**.
 The cartridge is mandatory by design: no-cart and 1 MiB configurations stop

@@ -109,6 +109,27 @@ def missing_prerequisites(env: dict) -> list[str]:
             problems.append(f"pkg-config module '{module}' not found")
     return problems
 
+
+def configure_macos_cgo(env: dict) -> None:
+    """Find Homebrew libraries omitted from upstream's bare -lxmp/-lMoltenVK."""
+    if sys.platform != "darwin":
+        return
+    pkg = shutil.which("pkg-config", path=env.get("PATH")) or shutil.which(
+        "pkgconf", path=env.get("PATH"))
+    if pkg:
+        for flag, var in (("--cflags", "CGO_CFLAGS"), ("--libs", "CGO_LDFLAGS")):
+            result = subprocess.run([pkg, flag, "libxmp"], env=env,
+                                    capture_output=True, text=True)
+            if result.returncode == 0 and result.stdout.strip():
+                env[var] = " ".join(filter(None, (env.get(var, ""), result.stdout.strip())))
+    brew = shutil.which("brew", path=env.get("PATH"))
+    if brew:
+        result = subprocess.run([brew, "--prefix"], env=env, capture_output=True, text=True)
+        if result.returncode == 0:
+            lib = Path(result.stdout.strip()) / "lib"
+            if (lib / "libMoltenVK.dylib").is_file() or (lib / "libMoltenVK.a").is_file():
+                env["CGO_LDFLAGS"] = " ".join(filter(None, (env.get("CGO_LDFLAGS", ""), f"-L{lib}")))
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("scenario", type=Path)
@@ -213,6 +234,7 @@ def main() -> int:
             "Ikemen GO cannot be built here:\n  - " + "\n  - ".join(problems)
         )
 
+    configure_macos_cgo(env)
     completed = subprocess.run(cmd, cwd=ikemen_dir, env=env)
     if completed.returncode != 0:
         return completed.returncode

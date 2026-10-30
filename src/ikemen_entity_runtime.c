@@ -658,9 +658,9 @@ static int process_controllers(
         .y_q8 = entity->y_q8,
         .floor_y_q8 = 0,
         .command_mask =
-            entity->keyctrl && entity->owner_player < 2u
+            (uint16_t)(entity->keyctrl && entity->owner_player < 2u
                 ? runtime->command_masks[entity->owner_player]
-                : 0u,
+                : 0u),
         .hit_pause = entity->hit_pause,
         .hit_shake_time = entity->hit_pause,
         .alive = (uint8_t)(entity->life > 0),
@@ -669,15 +669,15 @@ static int process_controllers(
         .move_hit = entity->move_hit,
         .round_state = 2u,
         .num_projectiles = num_projectiles,
-        .proj_contact = query_root ? query_root->proj_query_contact : 0u,
-        .proj_hit = query_root ? query_root->proj_query_hit : 0u,
-        .proj_guarded = query_root ? query_root->proj_query_guarded : 0u,
+        .proj_contact = (uint8_t)(query_root ? query_root->proj_query_contact : 0u),
+        .proj_hit = (uint8_t)(query_root ? query_root->proj_query_hit : 0u),
+        .proj_guarded = (uint8_t)(query_root ? query_root->proj_query_guarded : 0u),
         .proj_contact_time =
-            query_root ? query_root->proj_query_contact_time : -1,
+            (int16_t)(query_root ? query_root->proj_query_contact_time : -1),
         .proj_hit_time =
-            query_root ? query_root->proj_query_hit_time : -1,
+            (int16_t)(query_root ? query_root->proj_query_hit_time : -1),
         .proj_guarded_time =
-            query_root ? query_root->proj_query_guarded_time : -1
+            (int16_t)(query_root ? query_root->proj_query_guarded_time : -1)
     };
 
     for (uint8_t i = 0u; i < state->controller_count; ++i) {

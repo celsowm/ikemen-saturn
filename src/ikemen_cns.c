@@ -412,6 +412,9 @@ int ik_cns_controller_trigger_context_now(
                    context->back_edge_dist_q8 <
                        (int32_t)controller->trigger_value * IK_CNS_Q8_ONE;
 
+        case IK_CNS_TRIGGER_COMMAND_ANY_VY_LT_Q8_AFTER_ENTRY:
+            if (context->state_time == 0u) return 0;
+            /* Fall through to the shared command and velocity test. */
         case IK_CNS_TRIGGER_COMMAND_ANY_VY_LT_Q8:
             return (context->command_mask &
                     (uint16_t)controller->trigger_value) != 0u &&

@@ -113,6 +113,12 @@ int ik_zss_ai_tick_memory(const ik_fight_t* fight, uint8_t player,
                          foe->cur_state_type == IK_CNS_STATE_CROUCH;
     const int foe_attacking = foe->cur_move_type == IK_CNS_MOVE_ATTACK;
     const int foe_hit = foe->cur_move_type == IK_CNS_MOVE_HIT;
+    /* AI.zss nojug: suppress light attacks during the authored get-up and
+     * the first three landing ticks after the controlled air recovery. */
+    const int nojug = foe->anim == 5120 ||
+        (foe->state == 5040 && foe->ctrl) ||
+        (foe->state == 52 && foe->state_time < 3u &&
+         foe->prev_state == 5040);
     const int delta_y = (int)foe->y - f->y;
     const int neutral_ctrl = f->ctrl || f->state == 20 || f->state == 100;
 
@@ -274,7 +280,7 @@ int ik_zss_ai_tick_memory(const ik_fight_t* fight, uint8_t player,
      * state 200 below 45px for a standing target, state 400 only below
      * 35px for a croucher. An outer 55px test cannot widen the inner
      * state-change gate. Source get-up map and AI_JI both gate lights. */
-    if (memory->ai_ji == 0u && grounded && !foe_hit &&
+    if (memory->ai_ji == 0u && grounded && !foe_hit && !nojug &&
         (memory->gurt == 0u || dist > 35) &&
         dist > -15 && dist < 45 &&
         (dist > 25 || ai_roll(rng) <= ai_threshold(level, 225u))) {

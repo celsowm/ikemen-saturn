@@ -1,5 +1,6 @@
 #include <cstdio>
 #include <cstdlib>
+#include <initializer_list>
 
 #include "ikemen_fight_internal.h"
 #include "ikemen_saturn/kfm_zss_cns.h"
@@ -45,8 +46,57 @@ static void initialize(ik_fight_t* fight, int x, int facing) {
 int main() {
     const ik_cns_state_t* source = ik_cns_find_state(&kfm_zss_cns, 1027);
     OK(source && source->controller_count == 8u);
+    OK(ik_cns_find_state(&kfm_zss_cns, 1026)->owns_air_accel == 1u);
+    OK(ik_cns_find_state(&kfm_zss_cns, 1028)->owns_air_accel == 1u);
     OK(ik_frames_bounds(&zss_frames, 1027, nullptr, nullptr));
     ik_fight_controls_t idle{};
+
+    {
+        static ik_fight_t fight;
+        initialize(&fight, 320, 1);
+        ik_fighter_t* f = &fight.fighters[0];
+        f->state = 1056;
+        f->anim = 1056;
+        f->state_time = f->anim_time = 0;
+        f->y_q8 = (IK_FLOOR_Y - 7) * 256;
+        OK(ikf_process_cns_controllers(&fight, f, &idle, &zss_frames, 0) == 0);
+        OK(f->y_q8 == IK_FLOOR_Y * 256);
+        OK(fight.sound_count == 1u);
+        OK(fight.sound_events[0].group == 40 && fight.sound_events[0].item == 0);
+        f->state_time = 1;
+        fight.sound_count = 0;
+        OK(ikf_process_cns_controllers(&fight, f, &idle, &zss_frames, 0) == 0);
+        OK(fight.sound_count == 0u);
+    }
+
+    {
+        static ik_fight_t fight;
+        initialize(&fight, 320, 1);
+        ik_fighter_t* f = &fight.fighters[0];
+        f->state = 195;
+        f->anim = 195;
+        f->anim_time = 0;
+        f->state_time = 40;
+        f->ctrl = 0;
+        OK(ikf_process_cns_controllers(&fight, f, &idle, &zss_frames, 0) == 0);
+        OK(f->ctrl == 1);
+    }
+
+    /* The ZSS EndState function restores control only after the intro. */
+    for (unsigned round = 1; round <= 2; ++round) {
+        static ik_fight_t fight;
+        initialize(&fight, 320, 1);
+        fight.round_state = (uint8_t)round;
+        ik_fighter_t* f = &fight.fighters[0];
+        f->state = 195;
+        f->anim = 195;
+        f->state_time = 41;
+        f->anim_time = ik_action_duration_ticks(&zss_frames, 195);
+        f->ctrl = 0;
+        OK(ikf_process_cns_controllers(&fight, f, &idle, &zss_frames, 0) != 0);
+        OK(f->state == 0);
+        OK(f->ctrl == (round > 1));
+    }
 
     {
         static ik_fight_t fight;
@@ -86,11 +136,11 @@ int main() {
         /* No front-edge turn: back distance is 320-12-.5=307.5px. */
         OK(f->x_q8 == 320 * 256 + (15 * 256 - (307 * 256 + 128)));
     }
-    /* Strong Knee's air continuation belongs to ZSS 1061, not the classic
-     * CNS fallback. Test all three branches against generated real assets. */
-    {
-        const ik_cns_state_t* knee = ik_cns_find_state(&kfm_zss_cns, 1061);
+    /* Both Knee air continuations come from the generated ZSS bodies. */
+    for (int knee_state : {1051, 1061}) {
+        const ik_cns_state_t* knee = ik_cns_find_state(&kfm_zss_cns, knee_state);
         OK(knee && knee->controller_count == 3u);
+        OK(knee->owns_air_accel == 1u);
         OK(knee->hitdef_persist == 1u);
         OK(knee->has_velset == 1u);
         auto check_knee = [&](int vy_q8, int rel_y_q8,
@@ -98,7 +148,7 @@ int main() {
             static ik_fight_t fight;
             initialize(&fight, 320, 1);
             ik_fighter_t* f = &fight.fighters[0];
-            f->state = 1061;
+            f->state = (int16_t)knee_state;
             f->anim = 1051;
             f->anim_time = 0u;
             f->state_time = 0u;
@@ -113,13 +163,13 @@ int main() {
             const int changed = ikf_process_cns_controllers(
                 &fight, f, &input, &zss_frames, 0);
             OK(f->state == expected_state);
-            OK((changed != 0) == (expected_state != 1061));
+            OK((changed != 0) == (expected_state != knee_state));
         };
         check_knee(-3 * 256, -100 * 256, true, false, 1055);
         check_knee(-3 * 256, -100 * 256, false, true, 1055);
-        check_knee(-3 * 256, -100 * 256, false, false, 1061);
-        check_knee(-128, -100 * 256, true, false, 1061);
-        check_knee(256, -11 * 256, false, false, 1061);
+        check_knee(-3 * 256, -100 * 256, false, false, knee_state);
+        check_knee(-128, -100 * 256, true, false, knee_state);
+        check_knee(256, -11 * 256, false, false, knee_state);
         check_knee(256, -9 * 256, false, false, 1052);
     }
     std::puts("[test] native ZSS 1061 knee cancel and landing OK");
