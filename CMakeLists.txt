@@ -57,6 +57,12 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
     # The runtime is tuned for -O2 (it matches the library and the original
     # Makefile build); -O2 comes last so it wins over any config default.
     target_compile_options(ikemen_saturn PRIVATE -O2 -Wall -Wextra)
+    # Test builds only: leave P2 idle (no CPU) so a console run can replay the
+    # same inputs as the host trace.
+    option(IKEMEN_P2_IDLE "Hold P2 idle instead of enabling the native CPU" OFF)
+    if(IKEMEN_P2_IDLE)
+        target_compile_definitions(ikemen_saturn PRIVATE IKEMEN_P2_IDLE=1)
+    endif()
     target_link_libraries(ikemen_saturn PRIVATE LibSaturn::Saturn)
     libsaturn_configure_executable(ikemen_saturn)
     # 0.BIN limit of the Saturn application load area.

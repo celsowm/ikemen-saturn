@@ -1317,9 +1317,20 @@ int main(void) {
 
         /* Unplugged P2 uses native ZSS CPU; pad 2 restores human control. */
         (void)ik_frame_set_zss_ai_level(
+#ifdef IKEMEN_P2_IDLE
+            &g_frame, 1u, 0u);
+#else
             &g_frame, 1u, have_p2 ? 0u : 8u);
+#endif
+#ifdef IKEMEN_P2_IDLE
+        /* An empty second pad, like the host trace: P2 stands still. The
+         * probe's pad script can drive port 2 too, so clear what was polled. */
+        pad2 = (sat_pad_state_t){0};
+        ik_frame_step(&g_frame, &g_fight, &pad1, &pad2);
+#else
         ik_frame_step(
             &g_frame, &g_fight, &pad1, have_p2 ? &pad2 : 0);
+#endif
         spawn_effect_events(&g_fight);
         ik_audio_process_fight(&audio, &g_fight);
         sat_example_must(ik_audio_update());
