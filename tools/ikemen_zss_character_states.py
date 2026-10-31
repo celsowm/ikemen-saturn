@@ -41,6 +41,9 @@ BODIES = {
     181: ("ifanimtime<-2{assertspecial{flag:roundnotover}}"
           "nothitby{value:sca;time:1}"),
     180: "changestate{value:181;ctrl:0}",
+    # Pre-fight intro. The motif-only dialogue box has no gameplay effect and
+    # is not lowered; its exact source text is pinned here so an edit fails.
+    191: 'ifroundstate=0{changeanim{value:190}}assertspecial{flag:intro}persistent(0)ifroundstate!=0{explod{anim:191;postype:p1;pos:260,-90;velocity:-4.2,-7;accel:0,.32;removetime:48;}}ifanimelemtime(7)=1{explod{anim:192;postype:p1;pos:60,-70;velocity:2,-4;accel:0,.32;removetime:35;}}ifanimelem=7{callsyssnd(5,2,1);}ifanimelemtime(7)=3{callsyssnd(5,3,2);}ifenemy,name="kungfuman"{ifteamside=1{dialogue{text1:"<p1><p1face=self,9000,1><p2face=self,9000,1><p1faceactive=self,9003>hey...youlookjustlikeme!<wait=90>";text2:"<p2><p2faceactive=self,9003>ofcourseido...i\'mkungfumantoo!<wait=90>";text3:"<p1>thisisconfusing...<wait=60>\\nidon\'ttrustyou.<wait=90>";}}}ifanimtime=0{changestate{value:0}}',
     195: 'iftime=40{ctrlset{value:1}}callendstate(0);',
     200: ('ifanimelem=3{hitdef{attr:s,na;damage:23,0;animtype:light;guardflag:ma;'
           'hitflag:maf;priority:3,hit;pausetime:8,8;sparkno:0;sparkxy:-10,-76;'
@@ -234,7 +237,7 @@ BODY_SHA256 = {
     1071: '1328d2942ffac387a7258ad44a458775cf4f862b524377aa9f981f668139fce3',
     1075: 'deacb575b31defd5fd88bca4b0f19eaa3180ea9ef6cacc66fe6b095f7c8fce48',
 }
-CHARACTER_STATES = (20, 100, 170, 180, 181, 195, 200, 800, 810, 1300, 1310, 1320, 1330, 1340, 1350, 1351, 210, 230, 240, 400, 410, 430, 440, 600, 610, 630, 640, 1000, 1010, 1020, 1050, 1051, 1052, 1055, 1056, 1060, 1061, 1070, 1071, 1075, 1100, 1110, 1120, 1200, 1210, 1220, 1400, 1410, 1420)
+CHARACTER_STATES = (20, 100, 170, 180, 181, 191, 195, 200, 800, 810, 1300, 1310, 1320, 1330, 1340, 1350, 1351, 210, 230, 240, 400, 410, 430, 440, 600, 610, 630, 640, 1000, 1010, 1020, 1050, 1051, 1052, 1055, 1056, 1060, 1061, 1070, 1071, 1075, 1100, 1110, 1120, 1200, 1210, 1220, 1400, 1410, 1420)
 HIT_STATES = (820, 821, 1025, 1026, 1027, 1028)
 
 # These guards protect against silently compiling outdated states with an
@@ -246,6 +249,7 @@ METADATA = {
     181: {"type": "S", "movetype": "I", "physics": "S", "anim": "181",
           "ctrl": "0", "velset": "0,0", "sprpriority": "1"},
     180: {"type": "S", "movetype": "I", "physics": "S", "anim": "-2", "ctrl": "0"},
+    191: {"type": "S", "movetype": "I", "physics": "S", "anim": "190", "ctrl": "0", "velset": "0,0", "sprpriority": "1"},
     195: {"type": "S", "movetype": "I", "physics": "S", "anim": "195", "ctrl": "0", "velset": "0,0", "sprpriority": "2"},
     800: {"type": "S", "movetype": "A", "physics": "S", "anim": "800",
           "ctrl": "0", "velset": "0,0", "sprpriority": "2", "juggle": "0"},
@@ -545,6 +549,13 @@ def compile_zss_overrides(
     if not sound_match or normalize_body(sound_match.group(1)) != (
             'playsnd{value:s$bank,$sound;channel:$c}'):
         raise ValueError(f"{character_zss}: CSnd function changed")
+    syssnd_match = re.search(
+        r'\[\s*Function\s+SysSnd\s*\(\s*b\s*,\s*s\s*,\s*c\s*\)\s*\]'
+        r'(.*?)(?=\[\s*(?:Function|StateDef)\b|\Z)',
+        function_source, flags=re.IGNORECASE | re.DOTALL)
+    if not syssnd_match or normalize_body(syssnd_match.group(1)) != (
+            'playsnd{value:f$b,$s;channel:$c}'):
+        raise ValueError(f"{character_zss}: SysSnd function changed")
     exfx_match = re.search(
         r'\[\s*Function\s+EXFX\s*\(\s*time\s*\)\s*\]'
         r'(.*?)(?=\[\s*(?:Function|StateDef)\b|\Z)',
@@ -781,6 +792,18 @@ def compile_zss_overrides(
                         Section('State 1351 end', [('type', 'ChangeState'), ('trigger1', 'AnimTime = 0'), ('value', '0'), ('ctrl', '1')]),
                     ],
                 }[number]
+                results[number] = (State(number, sd, sections), [])
+            elif number == 191:
+                wood = [('postype', 'p1'), ('accel', '0,.32')]
+                sections = [
+                    Section('State 191 hold', [('type', 'ChangeAnim'), ('trigger1', 'RoundState = 0'), ('value', '190')]),
+                    Section('State 191 intro', [('type', 'AssertSpecial'), ('trigger1', '1'), ('flag', 'Intro')]),
+                    Section('State 191 wood 1', [('type', 'Explod'), ('trigger1', 'RoundState != 0'), ('persistent', '0'), ('anim', '191'), ('postype', 'p1'), ('pos', '260,-90'), ('velocity', '-4.2,-7'), ('accel', '0,.32'), ('removetime', '48')]),
+                    Section('State 191 wood 2', [('type', 'Explod'), ('trigger1', 'AnimElemTime(7) = 1'), ('anim', '192'), ('postype', 'p1'), ('pos', '60,-70'), ('velocity', '2,-4'), ('accel', '0,.32'), ('removetime', '35')]),
+                    Section('State 191 snd 1', [('type', 'PlaySnd'), ('trigger1', 'AnimElem = 7'), ('value', 'F5,2'), ('channel', '1')]),
+                    Section('State 191 snd 2', [('type', 'PlaySnd'), ('trigger1', 'AnimElemTime(7) = 3'), ('value', 'F5,3'), ('channel', '2')]),
+                    Section('State 191 end', [('type', 'ChangeState'), ('trigger1', 'AnimTime = 0'), ('value', '0')]),
+                ]
                 results[number] = (State(number, sd, sections), [])
             elif number == 810:
                 sections = [
