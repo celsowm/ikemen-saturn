@@ -8,7 +8,10 @@ root = Path(".external/Ikemen-GO/src")
 validate_go_rng(root / "common.go", root / "bytecode.go")
 with TemporaryDirectory() as temp:
     bad = Path(temp) / "common.go"
-    original = (root / "common.go").read_text(encoding="utf-8")
+    from tools.ikemen_oracle.install import remove_marked_blocks
+    # The checkout may already carry the oracle hook from an earlier run.
+    original = remove_marked_blocks(
+        (root / "common.go").read_text(encoding="utf-8"))
     assert "16807" in original
     bad.write_text(original.replace("*16807", "*16809", 1), encoding="utf-8")
     try:
@@ -21,6 +24,7 @@ with TemporaryDirectory() as temp:
     # contract even though the hook wraps the bytecode instruction.
     from tools.ikemen_oracle.install import (
         RANDOM_ANCHOR, PATCHED_RANDOM, BYTECODE_ANCHOR, PATCHED_BYTECODE,
+        remove_marked_blocks,
     )
     restored_common = Path(temp) / "instrumented_common.go"
     restored_bytecode = Path(temp) / "instrumented_bytecode.go"
@@ -28,7 +32,8 @@ with TemporaryDirectory() as temp:
         original.replace(RANDOM_ANCHOR, PATCHED_RANDOM, 1),
         encoding="utf-8",
     )
-    bytecode_original = (root / "bytecode.go").read_text(encoding="utf-8")
+    bytecode_original = remove_marked_blocks(
+        (root / "bytecode.go").read_text(encoding="utf-8"))
     assert bytecode_original.count(BYTECODE_ANCHOR) == 1
     restored_bytecode.write_text(
         bytecode_original.replace(BYTECODE_ANCHOR, PATCHED_BYTECODE, 1),
@@ -37,7 +42,7 @@ with TemporaryDirectory() as temp:
     validate_go_rng(restored_common, restored_bytecode)
 
     bad_bc = Path(temp) / "bytecode.go"
-    bytecode = (root / "bytecode.go").read_text(encoding="utf-8")
+    bytecode = bytecode_original
     assert "sys.bcStack.PushI(Rand(0, 999))" in bytecode
     bad_bc.write_text(
         bytecode.replace("sys.bcStack.PushI(Rand(0, 999))",

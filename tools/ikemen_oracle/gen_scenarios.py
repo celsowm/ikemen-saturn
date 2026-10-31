@@ -298,7 +298,7 @@ def extra():
               {"p1_states": [170], "p2_states": [170]},
               setup={"timer_frames": 5})
     yield raw("kfm_timeout_win_180", [], 180,
-              {"p1_states": [180, 181], "p2_states": [170]},
+              {"p1_states": [181], "p2_states": [170]},
               setup={"timer_frames": 5, "p2_life": 900})
 
 def matrix():
