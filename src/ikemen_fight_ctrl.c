@@ -215,6 +215,17 @@ int ikf_process_cns_controllers(
                  f->target_id == ctrl->trigger_aux);
             query_context.num_targets = (uint8_t)(id_matches ? 1u : 0u);
         }
+        if (ctrl->trigger_kind == IK_CNS_TRIGGER_ANIM_ELEM_TIME_WINDOW) {
+            const uint32_t first = (uint32_t)ctrl->trigger_value;
+            const uint32_t last = (uint32_t)ctrl->trigger_value2;
+            query_context.elem_window_ok = (uint8_t)(
+                ik_anim_elem_time(frames, f->anim, f->anim_time,
+                                  (uint16_t)(first >> 8)) >=
+                    (int32_t)(first & 0xffu) &&
+                ik_anim_elem_time(frames, f->anim, f->anim_time,
+                                  (uint16_t)(last >> 8)) <
+                    (int32_t)(last & 0xffu));
+        }
         if (!ik_cns_controller_trigger_context_now(ctrl, &query_context)) {
             continue;
         }

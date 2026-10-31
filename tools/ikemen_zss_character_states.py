@@ -125,6 +125,10 @@ BODIES = {
     1340: 'ifanimelemtime(3)<0{width{value:10,0}}iftime=0{callcsnd(0,1,1);reversaldef{reversal.attr:a,aa;pausetime:0,0;sparkno:40;sparkxy:40,0;hitsound:6,0;p1stateno:1350;p1sprpriority:2;p2sprpriority:1;}}iftime=5{reversaldef{reversal.attr:}}iftime<5{hitoverride{attr:sa,ap;stateno:1350}}ifanimelem=4{ctrlset{value:1}}veladd{y:const(movement.yaccel)}ifposy>=0&&vely>0{changestate{value:1351}}',
     1350: 'iftime=0{pause{time:20;endcmdbuftime:20;pausebg:0}nothitby{value:sca;time:1}}iftime=1&&command="holdback"{changestate{value:132;ctrl:1}}ifanimelemtime(3)<0{posfreeze{}}ifanimelem=3{ctrlset{value:1}}ifanimelemtime(3)>0{veladd{y:const(movement.yaccel)}}ifposy>=0&&vely>0{changestate{value:1351}}',
     1351: 'iftime=0{velset{y:0}posset{y:0}}iftime=3{ctrlset{value:1}}ifcommand="blocking"{ifcommand!="holddown"{changestate{value:1300}}else{changestate{value:1320}}}callendstate(0);',
+    # Hyper (super) moves: SuperPause freezes the world, then the combo body.
+    3000: 'ifanimelem=2,>=0{width{value:15,0}}ifanimelem=2,1{superpause{pos:25,-57;anim:100;sound:20,0;poweradd:-1000;}afterimage{time:2}}ifanimelemtime(2)>=1&&animelemtime(25)<4{afterimagetime{time:2}}ifanimelem=2{nothitby{value:,na,sa,at;time:11}posadd{x:20}}ifanimelemtime(2)>=0&&animelemtime(14)<0{nothitby{value:c,na;time:1}}ifanimelem=4||animelem=12||animelem=20{callcsnd(0,3,1);}ifanimelem=3||animelem=11||animelem=13||animelem=19||animelem=21||animelem=31{posadd{x:10}}ifanimelem=5||animelem=13||animelem=21{velset{x:6}}ifanimelem=5{posadd{x:5}}ifanimelem=5||animelem=13{hitdef{attr:s,ha;animtype:hard;damage:72,4;getpower:0;priority:6;guardflag:ma;pausetime:15,15;sparkxy:-10,-60;hitsound:5,4;guardsound:6,0;ground.type:low;ground.slidetime:30;ground.hittime:32;ground.velocity:-6;air.velocity:-3,-2.8;air.fall:1;fall.animtype:hard;fall.recover:0;}}ifanimelem=21{hitdef{attr:s,ha;animtype:hard;damage:75,4;getpower:0;priority:5;guardflag:ma;pausetime:15,15;sparkxy:-10,-60;hitsound:5,4;guardsound:6,0;ground.type:low;ground.slidetime:30;ground.hittime:32;ground.velocity:-5,-4;guard.velocity:-12;air.velocity:-5,-4;airguard.velocity:-3,-3;fall.animtype:hard;fall:1;fall.recover:0;}}callendstate(0);',
+    3050: 'ifanimelemtime(4)>=0&&animelemtime(16)<0{width{value:5,0}}ifanimelem=2{superpause{pos:-5,-55;anim:100;sound:20,0;poweradd:-1000}nothitby{value:,na,sa,at;time:6}}ifanimelemtime(2)>=0{afterimagetime{time:2}}ifanimelem=4{callcsnd(0,2,1);}iftime=0{hitdef{attr:s,ha;animtype:up;damage:155,12;getpower:0;priority:5;guardflag:ma;pausetime:30,30;sparkno:3;sparkxy:0,-110;hitsound:5,4;guardsound:6,0;ground.type:low;ground.slidetime:26;ground.hittime:28;ground.velocity:-1.3,-25;guard.velocity:-11;air.velocity:-1.3,-25;airguard.velocity:-4.5,-5;envshake.time:25;envshake.ampl:7;envshake.freq:176;p2facing:1;fall:1;fall.recover:0;fall.damage:70;fall.envshake.ampl:6;fall.envshake.freq:178;fall.envshake.time:15;mindist:50,-100;maxdist:100,-10;yaccel:.8;}}ifmovehit{changestate{value:3051}}callendstate(0);',
+    3051: 'ifanimtime<-2{afterimagetime{time:2}}callendstate(0);[statedef-2][statedef-3]iftime=1&&(stateno=52||stateno=106){callcsnd(40,0,1);}',
     # Thrower side of the grab: bind the victim through the throw arc, then
     # hurt and release them into 821 at element 11.
     810: 'iftime=0{var(2):=command="holdfwd";}ifanimelem=2{callcsnd(1,1,1);}ifanimelem=7{callcsnd(800,0,1);}ifanimelemtime(2)<0{targetbind{pos:28,0}}ifanimelemtime(2)>=0&&animelemtime(12)<0{width{edge:60,0}ifanimelemtime(5)<0{targetbind{pos:58,0}}}ifanimelemtime(5)>=0&&animelemtime(6)<0{targetbind{pos:47,0}}ifvar(2)&&animelem=6{turn{}posadd{x:-37}targetfacing{value:-1}}ifanimelemtime(6)>=0&&animelemtime(7)<0{targetbind{pos:41,-60}}elseifanimelemtime(7)>=0&&animelemtime(8)<0{targetbind{pos:25,-75}}elseifanimelemtime(8)>=0&&animelemtime(9)<0{targetbind{pos:15,-90}}elseifanimelemtime(9)>=0&&animelemtime(10)<0{targetbind{pos:-5,-96}}elseifanimelemtime(10)>=0&&animelemtime(11)<0{targetbind{pos:-14,-90}}ifanimelem=11{targetbind{pos:-50,-50}targetlifeadd{value:-78}targetstate{value:821}}ifanimelem=12{turn{}}ifanimelem=15{posadd{x:-10}}callendstate(0);',
@@ -237,7 +241,7 @@ BODY_SHA256 = {
     1071: '1328d2942ffac387a7258ad44a458775cf4f862b524377aa9f981f668139fce3',
     1075: 'deacb575b31defd5fd88bca4b0f19eaa3180ea9ef6cacc66fe6b095f7c8fce48',
 }
-CHARACTER_STATES = (20, 100, 170, 180, 181, 191, 195, 200, 800, 810, 1300, 1310, 1320, 1330, 1340, 1350, 1351, 210, 230, 240, 400, 410, 430, 440, 600, 610, 630, 640, 1000, 1010, 1020, 1050, 1051, 1052, 1055, 1056, 1060, 1061, 1070, 1071, 1075, 1100, 1110, 1120, 1200, 1210, 1220, 1400, 1410, 1420)
+CHARACTER_STATES = (20, 100, 170, 180, 181, 191, 195, 200, 800, 810, 3000, 3050, 3051, 1300, 1310, 1320, 1330, 1340, 1350, 1351, 210, 230, 240, 400, 410, 430, 440, 600, 610, 630, 640, 1000, 1010, 1020, 1050, 1051, 1052, 1055, 1056, 1060, 1061, 1070, 1071, 1075, 1100, 1110, 1120, 1200, 1210, 1220, 1400, 1410, 1420)
 HIT_STATES = (820, 821, 1025, 1026, 1027, 1028)
 
 # These guards protect against silently compiling outdated states with an
@@ -260,6 +264,9 @@ METADATA = {
     1340: {"type": "A", "movetype": "I", "physics": "N", "anim": "1340", "ctrl": "0", "sprpriority": "1"},
     1350: {"type": "A", "movetype": "I", "physics": "N", "anim": "1350", "ctrl": "0", "sprpriority": "2"},
     1351: {"type": "S", "physics": "S", "anim": "47", "ctrl": "0"},
+    3000: {"type": "S", "movetype": "A", "physics": "S", "anim": "3000", "ctrl": "0", "velset": "0,0", "sprpriority": "2", "juggle": "4"},
+    3050: {"type": "S", "movetype": "A", "physics": "S", "anim": "3050", "ctrl": "0", "velset": "0,0", "sprpriority": "2", "juggle": "4"},
+    3051: {"type": "S", "movetype": "A", "physics": "S", "anim": "3051"},
     810: {"type": "S", "movetype": "A", "physics": "N", "anim": "810", "poweradd": "0"},
     200: {"type": "S", "movetype": "A", "physics": "S", "anim": "200",
           "ctrl": "0", "velset": "0,0", "sprpriority": "2", "juggle": "1", "poweradd": "10"},
@@ -804,6 +811,46 @@ def compile_zss_overrides(
                     Section('State 191 snd 2', [('type', 'PlaySnd'), ('trigger1', 'AnimElemTime(7) = 3'), ('value', 'F5,3'), ('channel', '2')]),
                     Section('State 191 end', [('type', 'ChangeState'), ('trigger1', 'AnimTime = 0'), ('value', '0')]),
                 ]
+                results[number] = (State(number, sd, sections), [])
+            elif number in (3000, 3050, 3051):
+                hits = re.findall(r'hitdef\{([^}]*)\}', observed)
+                hit_fields = [[tuple(part.split(':', 1)) for part in hit.split(';') if part] for hit in hits]
+                end = Section(f'State {number} end', [('type', 'ChangeState'), ('trigger1', 'AnimTime = 0'), ('value', '0'), ('ctrl', '1')])
+                if number == 3000:
+                    sections = [
+                        Section('State 3000 width', [('type', 'Width'), ('trigger1', 'AnimElem = 2, >= 0'), ('value', '15,0')]),
+                        Section('State 3000 super', [('type', 'SuperPause'), ('trigger1', 'AnimElem = 2, 1'), ('pos', '25,-57'), ('anim', '100'), ('sound', '20,0'), ('poweradd', '-1000')]),
+                        Section('State 3000 afterimage', [('type', 'AfterImage'), ('trigger1', 'AnimElem = 2, 1'), ('time', '2')]),
+                        Section('State 3000 trail', [('type', 'AfterImageTime'), ('trigger1', 'AnimElemTime(2) >= 1 && AnimElemTime(25) < 4'), ('time', '2')]),
+                        Section('State 3000 immune', [('type', 'NotHitBy'), ('trigger1', 'AnimElem = 2'), ('value', ', NA, SA, AT'), ('time', '11')]),
+                        Section('State 3000 step 2', [('type', 'PosAdd'), ('trigger1', 'AnimElem = 2'), ('x', '20')]),
+                        Section('State 3000 immune 2', [('type', 'NotHitBy'), ('trigger1', 'AnimElemTime(2) >= 0 && AnimElemTime(14) < 0'), ('value', 'C, NA'), ('time', '1')]),
+                        Section('State 3000 sound', [('type', 'PlaySnd'), ('trigger1', 'AnimElem = 4'), ('trigger2', 'AnimElem = 12'), ('trigger3', 'AnimElem = 20'), ('value', '0,3')]),
+                        Section('State 3000 steps', [('type', 'PosAdd')] + [(f'trigger{i+1}', f'AnimElem = {e}') for i, e in enumerate((3, 11, 13, 19, 21, 31))] + [('x', '10')]),
+                        Section('State 3000 velocity', [('type', 'VelSet'), ('trigger1', 'AnimElem = 5'), ('trigger2', 'AnimElem = 13'), ('trigger3', 'AnimElem = 21'), ('x', '6')]),
+                        Section('State 3000 step 5', [('type', 'PosAdd'), ('trigger1', 'AnimElem = 5'), ('x', '5')]),
+                        Section('State 3000 hit 0', [('type', 'HitDef'), ('trigger1', 'AnimElem = 5'), ('trigger2', 'AnimElem = 13')] + hit_fields[0]),
+                        Section('State 3000 hit 1', [('type', 'HitDef'), ('trigger1', 'AnimElem = 21')] + hit_fields[1]),
+                        end,
+                    ]
+                elif number == 3050:
+                    sections = [
+                        Section('State 3050 width', [('type', 'Width'), ('trigger1', 'AnimElemTime(4) >= 0 && AnimElemTime(16) < 0'), ('value', '5,0')]),
+                        Section('State 3050 super', [('type', 'SuperPause'), ('trigger1', 'AnimElem = 2'), ('pos', '-5,-55'), ('anim', '100'), ('sound', '20,0'), ('poweradd', '-1000')]),
+                        Section('State 3050 immune', [('type', 'NotHitBy'), ('trigger1', 'AnimElem = 2'), ('value', ', NA, SA, AT'), ('time', '6')]),
+                        Section('State 3050 trail', [('type', 'AfterImageTime'), ('trigger1', 'AnimElemTime(2) >= 0'), ('time', '2')]),
+                        Section('State 3050 sound', [('type', 'PlaySnd'), ('trigger1', 'AnimElem = 4'), ('value', '0,2')]),
+                        Section('State 3050 hit', [('type', 'HitDef'), ('trigger1', 'Time = 0')] + hit_fields[0]),
+                        Section('State 3050 follow', [('type', 'ChangeState'), ('trigger1', 'MoveHit'), ('value', '3051')]),
+                        end,
+                    ]
+                else:
+                    sections = [
+                        Section('State 3051 trail', [('type', 'AfterImageTime'), ('trigger1', 'AnimTime < -2'), ('time', '2')]),
+                        end,
+                    ]
+                if len(hits) != {3000: 2, 3050: 1, 3051: 0}[number]:
+                    raise ValueError(f"state {number}: unexpected HitDef count")
                 results[number] = (State(number, sd, sections), [])
             elif number == 810:
                 sections = [

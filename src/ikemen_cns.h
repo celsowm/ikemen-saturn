@@ -90,7 +90,11 @@ typedef enum ik_cns_trigger_kind {
     /* time = trigger_value && command mask trigger_value2 is active. */
     IK_CNS_TRIGGER_TIME_EQ_COMMAND_ACTIVE,
     /* every bit of trigger_value held, no bit of trigger_value2 held. */
-    IK_CNS_TRIGGER_COMMAND_ALL_NONE
+    IK_CNS_TRIGGER_COMMAND_ALL_NONE,
+    /* AnimElemTime(a) >= min && AnimElemTime(b) < limit; value = (a << 8) |
+     * min, value2 = (b << 8) | limit. Resolved per controller by the caller
+     * into context.elem_window_ok because it needs the frame table. */
+    IK_CNS_TRIGGER_ANIM_ELEM_TIME_WINDOW
 } ik_cns_trigger_kind_t;
 
 enum {
@@ -646,6 +650,7 @@ typedef struct ik_cns_controller_context {
     int16_t proj_hit_time;
     int16_t proj_guarded_time;
     uint8_t in_guard_dist;
+    uint8_t elem_window_ok;
 } ik_cns_controller_context_t;
 
 typedef struct ik_cns_projectile {

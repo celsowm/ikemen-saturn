@@ -127,6 +127,9 @@ int ik_cns_controller_trigger_context_now(
                     (uint16_t)controller->trigger_value2) == 0u;
         }
 
+        case IK_CNS_TRIGGER_ANIM_ELEM_TIME_WINDOW:
+            return context->elem_window_ok != 0u;
+
         case IK_CNS_TRIGGER_COMMAND_INACTIVE:
             return (context->command_mask &
                     (uint16_t)controller->trigger_value) == 0u;

@@ -956,6 +956,17 @@ def controller_trigger(
                     for t in split)):
                 return "IK_CNS_TRIGGER_VY_GT_Q8_AT_FLOOR", 0, 0
 
+    if ctype == "afterimagetime" and len(triggers) == 1:
+        m = re.fullmatch(
+            r"AnimElemTime\s*\(\s*(\d+)\s*\)\s*>=\s*(\d+)\s*&&\s*"
+            r"AnimElemTime\s*\(\s*(\d+)\s*\)\s*<\s*(\d+)",
+            _strip_outer_parens(triggers[0]), flags=re.I)
+        if m:
+            a, lo, b, hi = (int(g) for g in m.groups())
+            if 1 <= a <= 255 and 1 <= b <= 255 and lo <= 255 and hi <= 255:
+                return ("IK_CNS_TRIGGER_ANIM_ELEM_TIME_WINDOW",
+                        (a << 8) | lo, (b << 8) | hi)
+
     if ctype == "width" and len(triggers) == 1:
         parsed = _anim_elem_range_trigger(triggers[0])
         if parsed is not None:
