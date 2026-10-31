@@ -235,7 +235,20 @@ def main() -> int:
         )
 
     configure_macos_cgo(env)
-    completed = subprocess.run(cmd, cwd=ikemen_dir, env=env)
+    # `go run` has hung for hours holding orphaned engine processes; build
+    # once (incremental) and run the binary directly under a wall timeout.
+    binary = ikemen_dir.parent / "ikemen_oracle_engine"
+    built = subprocess.run(["go", "build", "-o", str(binary), "./src"],
+                           cwd=ikemen_dir, env=env)
+    if built.returncode != 0:
+        return built.returncode
+    run_cmd = [str(binary)] + cmd[3:]
+    timeout = max(120, int(scenario["frames"]) // 2)
+    try:
+        completed = subprocess.run(run_cmd, cwd=ikemen_dir, env=env,
+                                   timeout=timeout)
+    except subprocess.TimeoutExpired:
+        raise SystemExit(f"Ikemen GO did not finish within {timeout}s")
     if completed.returncode != 0:
         return completed.returncode
     if not trace.is_file():

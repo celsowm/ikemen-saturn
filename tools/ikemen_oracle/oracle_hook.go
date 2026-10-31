@@ -346,6 +346,13 @@ func libsaturnOracleBeginMatch(s *System) error {
 	if !libsaturnOracleEnabled() {
 		return nil
 	}
+	// Keep the oracle window above every other window so it is never
+	// occluded while it runs; LIBSATURN_IKEMEN_ORACLE_ON_TOP=0 disables.
+	if s.window != nil && s.window.Window != nil &&
+		os.Getenv("LIBSATURN_IKEMEN_ORACLE_ON_TOP") != "0" {
+		s.window.SetAlwaysOnTop(true)
+		s.window.Raise()
+	}
 	if libsaturnOracleEncoder == nil {
 		path := os.Getenv("LIBSATURN_IKEMEN_ORACLE_TRACE")
 		f, err := os.Create(path)
