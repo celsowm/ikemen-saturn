@@ -31,10 +31,12 @@ accepts human A/B air-kick cancels into 1055 and lands through 1052.
 The 821 human recovery path is ported; AI random recovery remains deferred.
 1027 and 1028 now have source-checked native wall-impact, F72 FightFX,
 common SysSnd(7,0), wall-bounce and descending animation logic.
-The ZSS oracle has not yet validated full gameplay parity.
-Unported states keep classic-CNS fallback. Full autonomous AI (beyond the bounded neutral CPU slice) and ZSS
-per-state gameplay still need porting; KFM-vs-ZSS oracle parity is not
-established.
+All 59 kfm.zss/hits.zss StateDefs are now source-checked native lowerings
+(the former 191, 800, 810, 1300-1351 and 3000/3050/3051 included); none keeps
+the classic-CNS fallback. The human-input KFM-vs-ZSS oracle matrix (49
+scenarios plus the intro, throw, blocking and hyper probes) matches upstream
+frame for frame. Full autonomous AI (beyond the bounded neutral CPU slice and
+AI random recovery) is the remaining gap; see `docs/IKEMEN_COMPAT.md`.
 
 ## Requirements
 

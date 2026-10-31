@@ -2,10 +2,10 @@
 """Strict source-checked character-state lowering for KFM ZSS.
 
 Only controllers already implemented by Ikemen Saturn are accepted.
-Forty-six state bodies are translated, not merely their StateDef metadata.
+Every kfm.zss and hits.zss state body is translated, not merely their StateDef metadata.
 Human throw recovery and strong-knee air follow-up are supported;
 AI-random recovery is not yet modeled.
-Other ZSS states keep the classic CNS fallback at runtime.
+No ZSS state keeps the classic CNS fallback.
 
 A source change invalidates the conversion until it has been reviewed
 rather than silently introducing a behavior mismatch.
