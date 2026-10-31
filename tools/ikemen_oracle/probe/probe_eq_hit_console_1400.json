@@ -9,28 +9,28 @@
   "p2_ai": 0,
   "extra_args": [],
   "exploratory": true,
-  "name": "probe_eq_hit_700",
-  "frames": 700,
+  "name": "probe_eq_hit_console_1400",
+  "frames": 1400,
   "inputs": [
     {
-      "from": 250,
-      "to": 289,
+      "from": 739,
+      "to": 778,
       "p1": [
         "forward"
       ],
       "p2": []
     },
     {
-      "from": 350,
-      "to": 352,
+      "from": 839,
+      "to": 841,
       "p1": [
         "x"
       ],
       "p2": []
     },
     {
-      "from": 450,
-      "to": 452,
+      "from": 938,
+      "to": 940,
       "p1": [
         "b"
       ],
