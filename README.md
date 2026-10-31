@@ -35,8 +35,11 @@ All 59 kfm.zss/hits.zss StateDefs are now source-checked native lowerings
 (the former 191, 800, 810, 1300-1351 and 3000/3050/3051 included); none keeps
 the classic-CNS fallback. The human-input KFM-vs-ZSS oracle matrix (49
 scenarios plus the intro, throw, blocking and hyper probes) matches upstream
-frame for frame. Full autonomous AI (beyond the bounded neutral CPU slice and
-AI random recovery) is the remaining gap; see `docs/IKEMEN_COMPAT.md`.
+frame for frame. The shipped CPU opponent is the bounded native CPU
+(neutral movement, parry/guard, anti-air and hit-confirm cancels); exact
+AI.zss parity (global RNG order, AI_JI, opponent memory, 821 random recovery)
+is an explicit non-goal of this port, not a pending item. See
+`docs/IKEMEN_COMPAT.md`.
 
 ## Requirements
 

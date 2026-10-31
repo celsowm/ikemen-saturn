@@ -521,3 +521,11 @@ in source order, ahead of the existing heavy/poke RNG logic, without
 generating an invalid attack. Host regression pins the four-draw
 Park–Miller sequence at 50px and the zero-draw boundary at 61px.
 Other conditions and the engine-global RNG remain non-parity areas.
+
+## Port scope decision (2026-10-31)
+
+The port is considered finished with: all 59 kfm.zss/hits.zss states native and
+oracle-verified (49-scenario ZSS matrix plus intro, throw, blocking and hyper
+probes), classic KFM at 66 scenarios, and the bounded native CPU. Exact AI.zss
+parity (global RNG consumption order, AI_JI, opponent memory maps, 821 AI
+random recovery) is a documented non-goal, decided by the project owner.
