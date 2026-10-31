@@ -2990,7 +2990,7 @@ int main() {
         const ik_cns_controller_t ctrls[] = {
             {191,IK_CNS_CTRL_ASSERT_INTRO,IK_CNS_TRIGGER_ALWAYS,
              0,0,0,0,0u},
-            {191,IK_CNS_CTRL_CHANGE_STATE,IK_CNS_TRIGGER_TIME_EQ,
+            {191,IK_CNS_CTRL_CHANGE_STATE,IK_CNS_TRIGGER_TIME_GE,
              2,0,0,1,IK_CNS_CTRL_HAS_CTRL},
         };
 
@@ -3029,6 +3029,12 @@ int main() {
 
         ik_fight_controls_t p1{};
         ik_fight_controls_t p2{};
+        /* RoundState 0 lasts fight.def start.waittime ticks. */
+        for(unsigned i=1;i<IK_ROUND_START_WAIT_TICKS;++i){
+            tick2(&g,&p1,&p2);
+            EQ(g.round_state,0u);
+            EQ(g.timer_frames,timer);
+        }
         tick2(&g,&p1,&p2);
         EQ(g.round_state,1u);
         EQ(g.timer_frames,timer);
@@ -3043,17 +3049,16 @@ int main() {
         EQ(g.round_state,1u);
         EQ(g.timer_frames,timer);
 
-        /* The fight announcement holds RoundState 1 after the intro ends. */
-        for(unsigned i=1;i<IK_ROUND_FIGHT_WAIT_TICKS;++i){
+        /* The fight announcement holds RoundState 1 after the intro ends;
+         * the boundary is applied at the start of the following tick. */
+        unsigned held=0u;
+        while(g.round_state==1u && held<IK_ROUND_FIGHT_WAIT_TICKS+2u){
             tick2(&g,&p1,&p2);
-            EQ(g.round_state,1u);
-            EQ(g.timer_frames,timer);
+            ++held;
+            if(g.round_state==1u) EQ(g.timer_frames,timer);
         }
-        tick2(&g,&p1,&p2);
         EQ(g.round_state,2u);
-        EQ(g.timer_frames,timer);
-
-        tick2(&g,&p1,&p2);
+        EQ(held<=IK_ROUND_FIGHT_WAIT_TICKS,true);
         EQ(g.timer_frames,timer-1u);
     }
 

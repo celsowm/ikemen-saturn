@@ -76,6 +76,12 @@ def build_trace_command(host_bin: Path, trace: Path, scenario: dict,
     ]
     if any(levels):
         command.extend(str(level) for level in levels)
+    # Mirror the upstream hook's round_state: a negative value makes both
+    # engines capture the authored pre-round intro from the opening tick
+    # instead of fast-forwarding to the active fight.
+    round_state = int(scenario.get("round_state", 2))
+    if round_state < 0:
+        command.append(str(round_state))
     return command
 
 

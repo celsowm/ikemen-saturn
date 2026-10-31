@@ -38,7 +38,21 @@ static void begin_frame(
     fight->events = IK_EVENT_NONE;
     fight->intro_asserted = 0u;
     fight->round_not_over_asserted = 0u;
+    fight->pre_intro_anim_hold = 0u;
     ikf_advance_projectile_query_times(fight);
+
+    /* Upstream stepRoundState() runs before the character actions: the
+     * intro-end boundary becomes RoundState 2 at the start of its tick and
+     * that same tick grants control (setCtrl(true) at sys.intro == 0). */
+    if (fight->round_state_pending != 0u) {
+        fight->round_state = fight->round_state_pending;
+        fight->round_state_pending = 0u;
+        if (fight->round_state == 2u) {
+            for (int i = 0; i < 2; ++i) {
+                if (fight->fighters[i].hp > 0) fight->fighters[i].ctrl = 1;
+            }
+        }
+    }
 }
 
 /* One entity-runtime pass with this frame's command masks. */
@@ -183,13 +197,12 @@ static void tick_round_timer(ik_fight_t* fight) {
 }
 
 static void advance_round_state(ik_fight_t* fight) {
-    if (fight->round_state == 0u) {
-        /* Give RoundState=0 one authored pre-intro tick, then let the
-         * character's AssertSpecial Intro controller hold the intro. */
-        fight->round_state = 1u;
-    } else if (fight->round_state == 1u && !fight->intro_asserted) {
+    if (fight->round_state == 1u && !fight->intro_asserted) {
         if (++fight->round_wait >= IK_ROUND_FIGHT_WAIT_TICKS) {
-            fight->round_state = 2u;
+            /* The boundary is visible from the next tick (see begin_frame);
+             * this tick still reports RoundState 1. */
+            fight->round_state_pending = 2u;
+            fight->round_wait = 0u;
         }
     }
 }
@@ -446,6 +459,32 @@ void ik_fight_update(ik_fight_t* fight,
     }
 
     fight->frame++;
+
+    /* RoundState 0 pre-intro: upstream spends fight.def [Round] start.waittime
+     * ticks decrementing sys.intro with no character state logic running, so
+     * the intro StateDef's animation stays on its first frame. The oracle
+     * captures post-tick frames, so start.waittime - 1 of them are visible as
+     * the freeze and the final tick both runs and promotes RoundState 1 (the
+     * intro proper, held by the state's AssertSpecial Intro controller). */
+    if (fight->round_state == 0u) {
+        if (fight->round_wait > 0u) {
+            if (++fight->round_wait < IK_ROUND_START_WAIT_TICKS) {
+                /* Frozen pre-intro tick: upstream runs no character state
+                 * logic here, so the intro state's animation and controllers
+                 * stay put while only its state clock keeps counting. */
+                for (int i = 0; i < 2; ++i) {
+                    ++fight->fighters[i].state_time;
+                    fight->fighters[i].ctrl = 0;
+                }
+                return;
+            } else {
+                fight->round_state = 1u;
+                fight->round_wait = 0u;
+            }
+        } else {
+            ++fight->round_wait; /* opening tick: run the intro state once */
+        }
+    }
 
     /* Win/lose/draw SelfStates are also part of upstream stepRoundState(), so
      * they must be installed before the fighters execute this frame. */

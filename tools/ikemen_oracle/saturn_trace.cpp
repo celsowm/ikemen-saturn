@@ -396,13 +396,21 @@ static void apply_setup(ik_fight_t* fight, const char* setup) {
 int main(int argc, char** argv) {
     if (argc < 5) {
         std::fprintf(
-            stderr, "usage: %s TRACE FRAMES SEED INPUTS [SETUP [P1_ASSET P2_ASSET [P1_AI P2_AI]]]\n", argv[0]);
+            stderr, "usage: %s TRACE FRAMES SEED INPUTS [SETUP [P1_ASSET P2_ASSET [P1_AI P2_AI [CAPTURE_ROUND_STATE]]]]\n", argv[0]);
         return 2;
     }
     const int frames = std::atoi(argv[2]);
     const int seed = std::atoi(argv[3]);
     if (frames <= 0 || (argc != 5 && argc != 6 &&
-                        argc != 8 && argc != 10)) return 2;
+                        argc != 8 && argc != 9 &&
+                        argc != 10 && argc != 11)) return 2;
+    /* Capture begins at the first tick of CAPTURE_ROUND_STATE, mirroring the
+     * upstream hook's round_state (default 2: the active fight). A negative
+     * value captures the authored pre-round intro from the opening tick
+     * instead of fast-forwarding past it. */
+    const int capture_round_state =
+        (argc == 9 || argc == 11) ? std::atoi(argv[argc - 1]) : 2;
+    if (capture_round_state < -1 || capture_round_state > 2) return 2;
     const char* names[2] = {
         argc >= 8 ? argv[6] : "kfm",
         argc >= 8 ? argv[7] : "kfm"
@@ -412,7 +420,7 @@ int main(int argc, char** argv) {
         character_assets(names[1])
     };
     int ai_levels[2] = {0, 0};
-    if (argc == 10) {
+    if (argc == 10 || argc == 11) {
         for (int p = 0; p < 2; ++p) {
             const char* raw = argv[8 + p];
             if (!raw || raw[0] < '0' || raw[0] > '8' ||
@@ -471,16 +479,28 @@ int main(int argc, char** argv) {
         }
     }
 
-    while (fight.round_state != 2u) {
-        ik_fight_update(&fight, &idle, &idle,
-                        characters[0].frames, characters[1].frames);
-        if (fight.frame > 3600u) {
-            std::fprintf(stderr, "active round state not reached\n");
-            std::fclose(out);
-            return 4;
+    if (capture_round_state >= 0) {
+        while (fight.round_state != (uint8_t)capture_round_state) {
+            /* Stop before the tick that enters the target round state: the
+             * capture loop performs that tick itself, so the first captured
+             * frame carries the target state and this frame's inputs, exactly
+             * as the upstream hook captures the transition tick. */
+            if (fight.round_state_pending == (uint8_t)capture_round_state) {
+                break;
+            }
+            ik_fight_update(&fight, &idle, &idle,
+                            characters[0].frames, characters[1].frames);
+            if (fight.frame > 3600u) {
+                std::fprintf(stderr, "active round state not reached\n");
+                std::fclose(out);
+                return 4;
+            }
         }
     }
 
+    /* Upstream applies the scenario setup at match begin, which is before
+     * the opening intro tick, so pre-round captures see the same lives and
+     * timer as the active-fight captures. */
     apply_setup(&fight, argc > 5 ? argv[5] : "");
 
     uint16_t previous[2] = {0u, 0u};

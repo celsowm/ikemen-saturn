@@ -462,11 +462,17 @@ void ikf_finish_slow_tick(ik_fight_t* fight) {
             f->move_contact_time = 1u;
         }
         if (f->anim_clock_pending) {
-            /* Char.tick checks HitPause before stepping Animation.Action(). */
-            if (f->hit_pause == 0u) ++f->anim_time;
+            /* Char.tick checks HitPause before stepping Animation.Action().
+             * Pre-intro ticks hold the intro StateDef's first frame. */
+            if (f->hit_pause == 0u && !fight->pre_intro_anim_hold) {
+                ++f->anim_time;
+            }
             f->anim_clock_pending = 0u;
         }
         if (f->hit_pause > 0u) --f->hit_pause;
+        /* Upstream grants SCF_ctrl when the intro ends; state rows cannot
+         * hand out control while the round is still in its pre-fight phase. */
+        if (fight->round_state < 2u) f->ctrl = 0;
     }
 }
 
@@ -483,8 +489,11 @@ void ikf_finish_tick(ik_fight_t* fight) {
         if (f->move_contact && f->move_contact_time == 0u) {
             f->move_contact_time = 1u;
         }
+        /* Upstream grants SCF_ctrl when the intro ends; state rows cannot
+         * hand out control while the round is still in its pre-fight phase. */
+        if (fight->round_state < 2u) f->ctrl = 0;
         if (!f->anim_clock_pending) continue;
         f->anim_clock_pending = 0u;
-        f->anim_time++;
+        if (!fight->pre_intro_anim_hold) f->anim_time++;
     }
 }

@@ -24,6 +24,9 @@ extern "C" {
 #define IK_MAX_HP 1000
 #define IK_MAX_POWER 3000
 #define IK_ROUND_TIME_FRAMES (99u * 60u)
+/* fight.def [Round] start.waittime: RoundState 0 pre-intro ticks in which
+ * upstream only decrements sys.intro and runs no character state logic. */
+#define IK_ROUND_START_WAIT_TICKS 30u
 /* Ticks between the intro ending (character leaves its intro state) and
  * RoundState 2, i.e. the "Round 1 / Fight" announcement. Measured from
  * upstream with the stock screenpack. */
@@ -306,6 +309,14 @@ typedef struct ik_fight {
     uint16_t super_darken_time;
     uint8_t round_state;
     uint8_t intro_asserted;
+    /* Round state the next tick starts in. Upstream's stepRoundState runs
+     * before the character actions, so the intro-end boundary (RoundState 2)
+     * is applied at the start of its tick together with the control grant;
+     * the tick that finishes the countdown still reports RoundState 1. */
+    uint8_t round_state_pending;
+    /* Pre-intro ticks hold the intro StateDef's animation on its first frame
+     * while its state clock keeps running (upstream decrements sys.intro only). */
+    uint8_t pre_intro_anim_hold;
     /* AssertSpecial roundnotover (ZSS win pose 181): cleared each frame,
      * set while any fighter asserts it. See ikemen_fight_ctrl_fx.c. */
     uint8_t round_not_over_asserted;
