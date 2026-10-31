@@ -20,6 +20,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--bios', type=Path, required=True)
     parser.add_argument('--out', type=Path, required=True)
+    parser.add_argument('--region', choices=('na', 'jp', 'eu'), default='na',
+                        help='console region; selects the matching BIOS setting')
     parser.add_argument('--build', type=Path, default=ROOT / 'build/saturn')
     parser.add_argument('--mednafen', default=shutil.which('mednafen') or 'mednafen')
     parser.add_argument('--seconds', type=float, default=30)
@@ -38,7 +40,8 @@ def main():
     cue = build / 'disc/ikemen_saturn.cue'
     movie = out / 'run.mov'
     command = [args.mednafen, '-sound', '0', '-video.driver', 'softfb',
-               '-ss.region_default', 'na', '-ss.bios_na_eu', str(args.bios.resolve()),
+               '-ss.region_default', args.region,
+               '-ss.bios_jp' if args.region == 'jp' else '-ss.bios_na_eu', str(args.bios.resolve()),
                '-ss.cart', 'extram4', '-qtrecord', str(movie)]
     for port in (1, 2):
         command.extend([f'-ss.input.port{port}', 'gamepad'])
