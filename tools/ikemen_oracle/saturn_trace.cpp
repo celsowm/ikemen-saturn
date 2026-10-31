@@ -4,12 +4,12 @@
 #include <cstring>
 #include <vector>
 
-#include "ikemen_anim.h"
-#include "ikemen_cns.h"
-#include "ikemen_command.h"
-#include "ikemen_entity.h"
-#include "ikemen_fight.h"
-#include "ikemen_frame.h"
+#include "ikemen_saturn/ikemen_anim.h"
+#include "ikemen_saturn/ikemen_cns.h"
+#include "ikemen_saturn/ikemen_command.h"
+#include "ikemen_saturn/ikemen_entity.h"
+#include "ikemen_saturn/ikemen_fight.h"
+#include "ikemen_saturn/ikemen_frame.h"
 #include "ikemen_saturn/kfm_cns.h"
 #include "ikemen_saturn/kfm_commands.h"
 #include "ikemen_saturn/kfm_frames.h"

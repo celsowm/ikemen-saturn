@@ -1,4 +1,4 @@
-#include "ikemen_entity_runtime.h"
+#include "ikemen_saturn/ikemen_entity_runtime.h"
 
 static const ik_frame_table_t* frames_for(
     const ik_entity_runtime_t* runtime,

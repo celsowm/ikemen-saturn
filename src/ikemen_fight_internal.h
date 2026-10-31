@@ -5,8 +5,8 @@
  * in ikemen_fight.h. Small lookups are static inline so the split costs no
  * call overhead on the SH-2; everything that crosses a file is ikf_-prefixed. */
 
-#include "ikemen_fight.h"
-#include "ikemen_entity_runtime.h"
+#include "ikemen_saturn/ikemen_fight.h"
+#include "ikemen_saturn/ikemen_entity_runtime.h"
 
 #ifdef __cplusplus
 extern "C" {

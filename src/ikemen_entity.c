@@ -1,4 +1,4 @@
-#include "ikemen_entity.h"
+#include "ikemen_saturn/ikemen_entity.h"
 
 #include <stddef.h>
 

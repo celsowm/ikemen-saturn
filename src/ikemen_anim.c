@@ -1,4 +1,4 @@
-#include "ikemen_anim.h"
+#include "ikemen_saturn/ikemen_anim.h"
 
 static int decode_lz5(const uint8_t* source,
                       uint32_t source_size,

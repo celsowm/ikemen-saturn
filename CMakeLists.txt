@@ -1,14 +1,8 @@
 # Ikemen Saturn: Kung Fu Man vs ZSS Kung Fu Man on a Sega Saturn, behaving
 # like upstream Ikemen GO frame by frame.
 #
-# This project is an ordinary external consumer of an installed LibSaturn
-# package. It reaches the library only through
-#
-#     find_package(LibSaturn CONFIG REQUIRED)     ->  LibSaturn::Saturn
-#
-# and the helpers that package ships (libsaturn_configure_executable,
-# libsaturn_add_binary, libsaturn_add_disc). There is no sibling checkout, no
-# add_subdirectory(), no private header and no library build-tree path.
+# This project provides the IkemenSaturn::IkemenSaturn CMake library target.
+# Consumers link it and use libsaturn_configure_executable from LibSaturn.
 #
 # Two configurations, chosen by the toolchain:
 #   saturn  the SH-2 toolchain file from the LibSaturn prefix: firmware ELF,
@@ -21,7 +15,7 @@ file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/VERSION" IKEMEN_SATURN_VERSION LIMIT_C
 string(STRIP "${IKEMEN_SATURN_VERSION}" IKEMEN_SATURN_VERSION)
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/VERSION")
 
-project(ikemen_saturn VERSION ${IKEMEN_SATURN_VERSION} LANGUAGES C CXX)
+project(IkemenSaturn VERSION ${IKEMEN_SATURN_VERSION} LANGUAGES C CXX)
 
 set(LIBSATURN_MIN_VERSION 0.1)
 option(IKEMEN_ENABLE_ORACLE_TESTS
@@ -46,26 +40,150 @@ endif()
 include(cmake/IkemenSources.cmake)
 include(cmake/IkemenAssets.cmake)
 
+# Install directories (GNU conventions, mirrored from LibSaturn)
+set(IKEMEN_INSTALL_INCLUDEDIR include)
+set(IKEMEN_INSTALL_LIBDIR lib)
+set(IKEMEN_INSTALL_CMAKEDIR lib/cmake/IkemenSaturn)
+set(IKEMEN_INSTALL_SHAREDIR share/ikemen_saturn)
+
+# ---- Library target: ikemen_saturn -------------------------------------------
+# Static library containing portable fight logic.
+# Saturn platform sources (asset store, audio) are only added for Saturn builds.
 if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
-    # ---- firmware -------------------------------------------------------
+    # Saturn (SH-2) build: include platform sources, link LibSaturn::Core PUBLIC
+    add_library(ikemen_saturn_lib STATIC ${IKEMEN_LIBRARY_SOURCES})
+    target_link_libraries(ikemen_saturn_lib PUBLIC LibSaturn::Core)
+    target_compile_definitions(ikemen_saturn_lib PRIVATE IKEMEN_SATURN=1)
+    target_compile_options(ikemen_saturn_lib
+        PUBLIC
+            -m2 -mb -ffreestanding -fomit-frame-pointer
+            -ffunction-sections -fdata-sections
+        PRIVATE
+            -O2 -Wall -Wextra)
+    # Generated headers (kfm_sounds.h, etc.) are needed by Saturn platform sources
+    target_include_directories(ikemen_saturn_lib PRIVATE "${IKEMEN_GENERATED_ROOT}")
+else()
+    # Host (native) build: only portable core, no LibSaturn link (flags would propagate)
+    # Manually add LibSaturn include directory for saturn/input.h needed by ikemen_command.h
+    add_library(ikemen_saturn_lib STATIC ${IKEMEN_CORE_SOURCES})
+    target_include_directories(ikemen_saturn_lib PRIVATE "${LibSaturn_INCLUDE_DIR}")
+    target_compile_options(ikemen_saturn_lib
+        PUBLIC
+            -fPIC
+        PRIVATE
+            -O2 -Wall -Wextra)
+endif()
+
+add_library(IkemenSaturn::IkemenSaturn ALIAS ikemen_saturn_lib)
+
+set_target_properties(ikemen_saturn_lib PROPERTIES
+    OUTPUT_NAME ikemen_saturn
+    EXPORT_NAME IkemenSaturn
+    C_STANDARD 11
+    C_STANDARD_REQUIRED ON
+    C_EXTENSIONS OFF
+    POSITION_INDEPENDENT_CODE ON)
+
+target_include_directories(ikemen_saturn_lib
+    PUBLIC
+        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
+        "$<INSTALL_INTERFACE:include>"
+    PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}")
+
+# Propagate LibSaturn dependency to consumers (for include directories and linking)
+if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
+    # Saturn build: LibSaturn::Core is a static library target
+    target_link_libraries(ikemen_saturn_lib INTERFACE LibSaturn::Core)
+    # Ensure the dependency is exported for consumers
+    set_target_properties(ikemen_saturn_lib PROPERTIES
+        INTERFACE_LINK_LIBRARIES "LibSaturn::Core")
+else()
+    # Host build: LibSaturn::Core may not exist as a library; create interface dependency
+    # Consumers will need to find_package(LibSaturn) separately
+    target_link_libraries(ikemen_saturn_lib INTERFACE)
+endif()
+
+# Generated headers must exist before compiling the library
+add_dependencies(ikemen_saturn_lib ikemen_assets)
+
+# ---- Install rules ------------------------------------------------------------
+install(TARGETS ikemen_saturn_lib
+    EXPORT IkemenSaturnTargets
+    ARCHIVE DESTINATION ${IKEMEN_INSTALL_LIBDIR}
+    INCLUDES DESTINATION ${IKEMEN_INSTALL_INCLUDEDIR})
+
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/include/ikemen_saturn"
+    DESTINATION ${IKEMEN_INSTALL_INCLUDEDIR}
+    FILES_MATCHING PATTERN "*.h")
+
+# Install Python asset tools for consumers
+install(FILES
+    "${CMAKE_CURRENT_SOURCE_DIR}/tools/ikemen_char_to_saturn.py"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tools/ikemen_cmd.py"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tools/ikemen_zss_ai.py"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tools/ikemen_cns.py"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tools/ikemen_oracle/ai_compare.py"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tools/ikemen_sff/__main__.py"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tools/ikemen_sff/emit.py"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tools/ikemen_sff/stage.py"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tools/ikemen_sff/air.py"
+    DESTINATION ${IKEMEN_INSTALL_SHAREDIR}/tools)
+
+install(EXPORT IkemenSaturnTargets
+    NAMESPACE IkemenSaturn::
+    DESTINATION ${IKEMEN_INSTALL_CMAKEDIR})
+
+# CMake package config
+include(CMakePackageConfigHelpers)
+set(IKEMEN_INSTALL_INCLUDEDIR_ABS "${CMAKE_INSTALL_PREFIX}/${IKEMEN_INSTALL_INCLUDEDIR}")
+
+configure_package_config_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/IkemenSaturnConfig.cmake.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/IkemenSaturnConfig.cmake"
+    INSTALL_DESTINATION ${IKEMEN_INSTALL_CMAKEDIR}
+    PATH_VARS IKEMEN_INSTALL_INCLUDEDIR_ABS)
+
+# Version compatibility: 0.x minor releases may break
+if(PROJECT_VERSION_MAJOR EQUAL 0)
+    set(_ikemen_compat SameMinorVersion)
+else()
+    set(_ikemen_compat SameMajorVersion)
+endif()
+write_basic_package_version_file(
+    "${CMAKE_CURRENT_BINARY_DIR}/IkemenSaturnConfigVersion.cmake"
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY ${_ikemen_compat}
+    ARCH_INDEPENDENT)
+
+install(FILES
+    "${CMAKE_CURRENT_BINARY_DIR}/IkemenSaturnConfig.cmake"
+    "${CMAKE_CURRENT_BINARY_DIR}/IkemenSaturnConfigVersion.cmake"
+    DESTINATION ${IKEMEN_INSTALL_CMAKEDIR})
+
+# Install helper functions for consumers
+install(FILES
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/IkemenSaturnFunctions.cmake"
+    DESTINATION ${IKEMEN_INSTALL_CMAKEDIR})
+
+if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
+    # ---- Saturn firmware example application -----------------------------------
     add_executable(ikemen_saturn
         ${IKEMEN_FIRMWARE_SOURCES}
         ${IKEMEN_GENERATED_SOURCES})
     target_include_directories(ikemen_saturn PRIVATE
-        "${CMAKE_CURRENT_SOURCE_DIR}/src"
         "${IKEMEN_GENERATED_ROOT}")
-    # The runtime is tuned for -O2 (it matches the library and the original
-    # Makefile build); -O2 comes last so it wins over any config default.
     target_compile_options(ikemen_saturn PRIVATE -O2 -Wall -Wextra)
-    # Test builds only: leave P2 idle (no CPU) so a console run can replay the
-    # same inputs as the host trace.
+
     option(IKEMEN_P2_IDLE "Hold P2 idle instead of enabling the native CPU" OFF)
     if(IKEMEN_P2_IDLE)
         target_compile_definitions(ikemen_saturn PRIVATE IKEMEN_P2_IDLE=1)
     endif()
-    target_link_libraries(ikemen_saturn PRIVATE LibSaturn::Saturn)
+
+    # Link the library (which brings LibSaturn::Core) and LibSaturn::Saturn for startup
+    target_link_libraries(ikemen_saturn PRIVATE IkemenSaturn::IkemenSaturn LibSaturn::Saturn)
+
     libsaturn_configure_executable(ikemen_saturn)
-    # 0.BIN limit of the Saturn application load area.
     libsaturn_add_binary(ikemen_saturn MAX_BYTES 983040)
     libsaturn_add_disc(ikemen_saturn
         NAME ikemen_saturn
@@ -79,7 +197,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
     return()
 endif()
 
-# ---- host: tests and the oracle's Saturn side -----------------------------
+# ---- Host: tests and the oracle's Saturn side ---------------------------------
 include(CTest)
 
 set(IKEMEN_HOST_FLAGS -Wall -Wextra -O1)
@@ -90,9 +208,12 @@ function(ikemen_host_target target)
     target_compile_features(${target} PRIVATE cxx_std_20)
     target_compile_options(${target} PRIVATE ${IKEMEN_HOST_FLAGS})
     target_include_directories(${target} PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/include"
         "${CMAKE_CURRENT_SOURCE_DIR}/src"
         "${IKEMEN_GENERATED_ROOT}"
         "${LibSaturn_INCLUDE_DIR}")
+    # Link the library for host tests
+    target_link_libraries(${target} PRIVATE IkemenSaturn::IkemenSaturn)
 endfunction()
 
 # Which runtime sources each unit test exercises (the logic lives in .c files

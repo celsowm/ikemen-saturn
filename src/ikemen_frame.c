@@ -1,5 +1,5 @@
-#include "ikemen_frame.h"
-#include "ikemen_zss_ai.h"
+#include "ikemen_saturn/ikemen_frame.h"
+#include "ikemen_saturn/ikemen_zss_ai.h"
 
 /* Resolve each player's commands once. Generated KFM IDs are not part of
  * the engine ABI; another character may number its CMD names differently. */

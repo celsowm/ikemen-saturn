@@ -1,10 +1,7 @@
 """Conan 2 recipe for Ikemen Saturn.
 
-An ordinary LibSaturn consumer: `requires("libsaturn")` and nothing else. The
-recipe configures the project's own CMakeLists.txt with the Saturn host
-profile; CMakeToolchain puts the libsaturn package folder on CMAKE_PREFIX_PATH
-and the project's unmodified `find_package(LibSaturn CONFIG REQUIRED)` resolves
-the installed config, exactly as it does for a `cmake --install` prefix.
+IkemenSaturn C library: `requires("ikemen-saturn")` + `requires("libsaturn")`.
+The recipe builds and packages the static library and CMake config.
 
     conan config install <libsaturn>/packaging/conan/config   # saturn-sh2eb profile
     conan create <libsaturn> --profile:host=saturn-sh2eb --profile:build=default
@@ -35,13 +32,14 @@ class IkemenSaturnConan(ConanFile):
     homepage = "https://github.com/celsowm/ikemen-saturn"
     topics = ("sega-saturn", "ikemen-go", "mugen", "fighting-game")
 
-    package_type = "application"
+    package_type = "library"
     settings = "os", "arch", "compiler", "build_type"
 
     exports_sources = (
         "CMakeLists.txt", "VERSION", "LICENSE", "NOTICE.md",
         "cmake/*", "src/*", "tools/*", "scripts/external-pins.env",
         "scripts/fetch_external.py", "tests/*", "requirements.txt",
+        "include/*",
     )
 
     def set_version(self):
@@ -82,13 +80,18 @@ class IkemenSaturnConan(ConanFile):
     def package(self):
         copy(self, "LICENSE", self.source_folder, os.path.join(self.package_folder, "licenses"))
         copy(self, "NOTICE.md", self.source_folder, os.path.join(self.package_folder, "licenses"))
-        copy(self, "ikemen_saturn.app.bin", self.build_folder, os.path.join(self.package_folder, "bin"))
-        copy(self, "ikemen_saturn.elf", self.build_folder, os.path.join(self.package_folder, "bin"))
-        for pattern in ("ikemen_saturn.cue", "ikemen_saturn.bin", "ikemen_saturn.iso"):
-            copy(self, pattern, os.path.join(self.build_folder, "disc"),
-                 os.path.join(self.package_folder, "disc"))
+        # Library and headers are installed by CMake install() rules
+        # Just ensure the CMake config is copied
+        for pattern in ("*.cmake",):
+            copy(self, pattern,
+                 os.path.join(self.build_folder, "lib", "cmake", "IkemenSaturn"),
+                 os.path.join(self.package_folder, "lib", "cmake", "IkemenSaturn"))
 
     def package_info(self):
-        self.cpp_info.bindirs = ["bin"]
-        self.cpp_info.libdirs = []
-        self.cpp_info.includedirs = []
+        self.cpp_info.libs = ["ikemen_saturn"]
+        self.cpp_info.includedirs = ["include"]
+        self.cpp_info.libdirs = ["lib"]
+        # The CMake config is in lib/cmake/IkemenSaturn
+        self.cpp_info.set_property("cmake_target_name", "IkemenSaturn::IkemenSaturn")
+        # Requires LibSaturn::Core transitively (handled by CMake config)
+        self.cpp_info.requires = ["libsaturn::libsaturn"]

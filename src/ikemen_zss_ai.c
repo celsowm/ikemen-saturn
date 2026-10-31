@@ -1,4 +1,4 @@
-#include "ikemen_zss_ai.h"
+#include "ikemen_saturn/ikemen_zss_ai.h"
 /* AI.zss State -1: knee follow-up, verbatim condition from lines 429-434.
  * Source drift is rejected by the KFM ZSS asset compiler.
  */

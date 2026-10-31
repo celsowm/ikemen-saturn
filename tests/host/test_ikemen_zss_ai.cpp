@@ -1,7 +1,7 @@
 #include <cstdio>
 #include <cstdlib>
-#include "ikemen_frame.h"
-#include "ikemen_zss_ai.h"
+#include "ikemen_saturn/ikemen_frame.h"
+#include "ikemen_saturn/ikemen_zss_ai.h"
 #include "ikemen_saturn/kfm_zss_cns.h"
 #include "ikemen_saturn/kfm_zss_frames.h"
 #include "ikemen_saturn/kfm_zss_commands.h"

@@ -1,6 +1,10 @@
 #ifndef IKEMEN_ASSET_STORE_H
 #define IKEMEN_ASSET_STORE_H
 
+#include "ikemen_saturn/ikemen_version.h"
+
+#if IKEMEN_SATURN
+
 #include <stdint.h>
 
 #include "saturn/cd_block.h"
@@ -8,7 +12,7 @@
 #include "saturn/core.h"
 #include "saturn/ram_cart.h"
 
-#include "ikemen_anim.h"
+#include "ikemen_saturn/ikemen_anim.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -67,4 +71,6 @@ sat_result_t ik_asset_store_read_sprite(
 }
 #endif
 
-#endif
+#endif /* IKEMEN_SATURN */
+
+#endif /* IKEMEN_ASSET_STORE_H */

@@ -16,8 +16,8 @@
 #include <string>
 #include <vector>
 
-#include "ikemen_anim.h"
-#include "ikemen_cns.h"
+#include "ikemen_saturn/ikemen_anim.h"
+#include "ikemen_saturn/ikemen_cns.h"
 #include "ikemen_saturn/kfm_cns.h"
 #include "ikemen_saturn/kfm_zss_cns.h"
 #include "ikemen_saturn/fightfx_frames.h"

@@ -1,12 +1,16 @@
 #ifndef IKEMEN_AUDIO_H
 #define IKEMEN_AUDIO_H
 
+#include "ikemen_saturn/ikemen_version.h"
+
+#if IKEMEN_SATURN
+
 #include <stdint.h>
 
 #include "saturn/audio.h"
 #include "saturn/core.h"
 
-#include "ikemen_fight.h"
+#include "ikemen_saturn/ikemen_fight.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -40,4 +44,6 @@ sat_result_t ik_audio_update(void);
 }
 #endif
 
-#endif
+#endif /* IKEMEN_SATURN */
+
+#endif /* IKEMEN_AUDIO_H */

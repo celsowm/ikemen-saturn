@@ -1,4 +1,4 @@
-#include "ikemen_cns.h"
+#include "ikemen_saturn/ikemen_cns.h"
 
 int16_t ik_cns_q8_from_int(int16_t value) {
     return (int16_t)(value * IK_CNS_Q8_ONE);
