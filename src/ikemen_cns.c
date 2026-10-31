@@ -114,6 +114,19 @@ int ik_cns_controller_trigger_context_now(
             return (context->command_mask &
                     (uint16_t)controller->trigger_value) != 0u;
 
+        case IK_CNS_TRIGGER_TIME_EQ_COMMAND_ACTIVE:
+            return context->state_time ==
+                       (uint16_t)controller->trigger_value &&
+                   (context->command_mask &
+                    (uint16_t)controller->trigger_value2) != 0u;
+
+        case IK_CNS_TRIGGER_COMMAND_ALL_NONE: {
+            const uint16_t all = (uint16_t)controller->trigger_value;
+            return (context->command_mask & all) == all &&
+                   (context->command_mask &
+                    (uint16_t)controller->trigger_value2) == 0u;
+        }
+
         case IK_CNS_TRIGGER_COMMAND_INACTIVE:
             return (context->command_mask &
                     (uint16_t)controller->trigger_value) == 0u;

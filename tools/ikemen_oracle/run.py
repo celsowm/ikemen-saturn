@@ -6,6 +6,7 @@ import json
 import os
 import shutil
 import subprocess
+import time
 import sys
 from pathlib import Path
 
@@ -130,6 +131,15 @@ def configure_macos_cgo(env: dict) -> None:
             if (lib / "libMoltenVK.dylib").is_file() or (lib / "libMoltenVK.a").is_file():
                 env["CGO_LDFLAGS"] = " ".join(filter(None, (env.get("CGO_LDFLAGS", ""), f"-L{lib}")))
 
+def send_behind(pid: int) -> None:
+    """Best effort: never leave the oracle process frontmost (macOS only)."""
+    if sys.platform != "darwin":
+        return
+    script = ('tell application "System Events" to set frontmost of '
+              f'(first process whose unix id is {pid}) to false')
+    subprocess.run(["osascript", "-e", script], stdout=subprocess.DEVNULL,
+                   stderr=subprocess.DEVNULL, timeout=5, check=False)
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("scenario", type=Path)
@@ -244,11 +254,19 @@ def main() -> int:
         return built.returncode
     run_cmd = [str(binary)] + cmd[3:]
     timeout = max(120, int(scenario["frames"]) // 2)
-    try:
-        completed = subprocess.run(run_cmd, cwd=ikemen_dir, env=env,
-                                   timeout=timeout)
-    except subprocess.TimeoutExpired:
-        raise SystemExit(f"Ikemen GO did not finish within {timeout}s")
+    # The oracle window must never cover the user's work: run as a macOS
+    # background (accessory) app and keep pushing it behind other windows.
+    env["SDL_MAC_BACKGROUND_APP"] = "1"
+    proc = subprocess.Popen(run_cmd, cwd=ikemen_dir, env=env)
+    deadline = time.monotonic() + timeout
+    while proc.poll() is None:
+        if time.monotonic() > deadline:
+            proc.kill()
+            proc.wait()
+            raise SystemExit(f"Ikemen GO did not finish within {timeout}s")
+        send_behind(proc.pid)
+        time.sleep(1.0)
+    completed = proc
     if completed.returncode != 0:
         return completed.returncode
     if not trace.is_file():

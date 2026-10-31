@@ -173,6 +173,7 @@ static inline uint16_t controls_command_mask(
     if (controls->recovery) command_mask |= IK_CNS_COMMAND_RECOVERY;
     if (controls->a) command_mask |= IK_CNS_COMMAND_A;
     if (controls->b) command_mask |= IK_CNS_COMMAND_B;
+    if (controls->blocking) command_mask |= IK_CNS_COMMAND_BLOCKING;
     return command_mask;
 }
 

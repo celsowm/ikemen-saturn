@@ -8,7 +8,7 @@ from tools.ikemen_zss_character_states import CHARACTER_STATES, HIT_STATES
 from tools.ikemen_zss_state_coverage import FILES, inventory
 
 native = set(CHARACTER_STATES) | set(HIT_STATES)
-assert len(CHARACTER_STATES) == 42, "kfm.zss native set changed"
+assert len(CHARACTER_STATES) == 49, "kfm.zss native set changed"
 assert len(HIT_STATES) == 6, "hits.zss native set changed"
 
 # The pinned lowering source (cmake/IkemenAssets.cmake), not the newer
@@ -31,10 +31,9 @@ assert statedefs == native_numbers | remaining
 for number in statedefs:
     assert rows["sources"][number] and set(rows["sources"][number]) <= set(FILES)
 
-# 48 native bodies agree with the documented source-checked lowering, and
-# the pinned source still has exactly the 11 not-yet-lowered statedefs.
-assert len(native_numbers) == 48, sorted(native_numbers)
-assert remaining == {191, 1300, 1310, 1320, 1330, 1340, 1350,
-                     1351, 3000, 3050, 3051}, sorted(remaining)
+# 55 native bodies agree with the documented source-checked lowering, and
+# the pinned source still has exactly the 4 not-yet-lowered statedefs.
+assert len(native_numbers) == 55, sorted(native_numbers)
+assert remaining == {191, 3000, 3050, 3051}, sorted(remaining)
 print(f"ZSS state coverage: {len(native_numbers)} native, "
       f"{len(remaining)} fallback statedefs OK")

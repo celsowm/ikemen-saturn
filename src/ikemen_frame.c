@@ -5,7 +5,7 @@
  * the engine ABI; another character may number its CMD names differently. */
 static const char* const k_control_names[IK_FRAME_CONTROL_COUNT] = {
     "holdfwd", "holdback", "holdup", "holddown",
-    "a", "b", "c", "x", "y", "z", "start", "recovery"
+    "a", "b", "c", "x", "y", "z", "start", "recovery", "blocking"
 };
 
 typedef struct ik_rule_expr_user {
@@ -232,6 +232,7 @@ static void controls_from_commands(
     controls->z = control_active(ctx, player, IK_FRAME_CONTROL_Z);
     controls->start = control_active(ctx, player, IK_FRAME_CONTROL_START);
     controls->recovery = control_active(ctx, player, IK_FRAME_CONTROL_RECOVERY);
+    controls->blocking = control_active(ctx, player, IK_FRAME_CONTROL_BLOCKING);
 
     ik_rule_expr_user_t user = {
         {&ctx->pool, ctx->players[player]}, state, character->commands, fight

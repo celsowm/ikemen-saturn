@@ -28,7 +28,7 @@ def compile_overrides(character_zss, hits_zss):
 
 
 overrides = compile_overrides(character, hits)
-assert set(overrides) == {20, 100, 170, 180, 181, 195, 200, 800, 810, 210, 230, 240, 400, 410, 430, 440, 600, 610, 630, 640, 1000, 1010, 1020, 1050, 1051, 1052, 1055, 1056, 1060, 1061, 1070, 1071, 1075, 1100, 1110, 1120, 1200, 1210, 1220, 1400, 1410, 1420, 820, 821, 1025, 1026, 1027, 1028}
+assert set(overrides) == {20, 100, 170, 180, 181, 195, 200, 800, 810, 1300, 1310, 1320, 1330, 1340, 1350, 1351, 210, 230, 240, 400, 410, 430, 440, 600, 610, 630, 640, 1000, 1010, 1020, 1050, 1051, 1052, 1055, 1056, 1060, 1061, 1070, 1071, 1075, 1100, 1110, 1120, 1200, 1210, 1220, 1400, 1410, 1420, 820, 821, 1025, 1026, 1027, 1028}
 
 expected = {
     20: ("IK_CNS_CTRL_VEL_SET", "IK_CNS_CTRL_VEL_SET",
@@ -38,7 +38,7 @@ expected = {
     180: ("IK_CNS_CTRL_CHANGE_STATE",),
     181: ("IK_CNS_CTRL_ASSERT_ROUND_NOT_OVER", "IK_CNS_CTRL_NOT_HIT_BY"),
     195: ("IK_CNS_CTRL_CTRL_SET", "IK_CNS_CTRL_CHANGE_STATE"),
-    200: (), 800: (), 810: (),
+    200: (), 800: (), 810: (), 1300: (), 1310: (), 1320: (), 1330: (), 1340: (), 1350: (), 1351: (),
     210: (),
     230: (),
     240: (),
@@ -84,6 +84,9 @@ expected = {
 for number, (state, controllers) in overrides.items():
     row, *emitted = parse_state(state, 0, 0, 0, 0, 0, 0, 0)
     assert row["number"] == number
+    if number in (1300, 1310, 1320, 1330, 1340, 1350, 1351):
+        assert row["unsupported_controllers"] == [], (number, row["unsupported_controllers"])
+        continue
     if number in (800, 810):
         hitdefs, sounds, controls, *rest = emitted
         assert row["unsupported_controllers"] == []

@@ -86,7 +86,11 @@ typedef enum ik_cns_trigger_kind {
      * sysVar(0) is deliberately omitted until the common-state sysvar path is
      * generalized; the stock KFM KO oracle does not set it. */
     IK_CNS_TRIGGER_DEFEATED_LIEDOWN_READY,
-    IK_CNS_TRIGGER_COMMAND_ANY_VY_LT_Q8_AFTER_ENTRY
+    IK_CNS_TRIGGER_COMMAND_ANY_VY_LT_Q8_AFTER_ENTRY,
+    /* time = trigger_value && command mask trigger_value2 is active. */
+    IK_CNS_TRIGGER_TIME_EQ_COMMAND_ACTIVE,
+    /* every bit of trigger_value held, no bit of trigger_value2 held. */
+    IK_CNS_TRIGGER_COMMAND_ALL_NONE
 } ik_cns_trigger_kind_t;
 
 enum {
@@ -271,7 +275,8 @@ enum {
     IK_CNS_COMMAND_HOLD_DOWN = 1u << 3,
     IK_CNS_COMMAND_RECOVERY = 1u << 4,
     IK_CNS_COMMAND_A = 1u << 5,
-    IK_CNS_COMMAND_B = 1u << 6
+    IK_CNS_COMMAND_B = 1u << 6,
+    IK_CNS_COMMAND_BLOCKING = 1u << 7
 };
 
 typedef struct ik_cns_constants {

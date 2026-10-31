@@ -113,6 +113,15 @@ BODIES = {
     800: ('iftime=0{hitdef{attr:s,nt;hitflag:m-;priority:1,miss;sparkno:-1;'
           'p1sprpriority:1;p1facing:1;p2facing:1;p1stateno:810;p2stateno:820;'
           'guard.dist:0;fall:1;}}callendstate(0);'),
+    # Blocking: guard-reversal stand/crouch/air startups, their pause-freeze
+    # counter states and the landing state that re-enters blocking.
+    1300: 'ifanimelemtime(3)<0{width{value:15,0}}iftime=0{callcsnd(0,1,1);reversaldef{reversal.attr:sa,aa;pausetime:0,0;sparkno:40;sparkxy:40,0;hitsound:6,0;p1stateno:1310;p1sprpriority:2;p2sprpriority:1;}hitoverride{attr:sa,ap;stateno:1310;time:8}}iftime=4&&command="holdfwd"||time=8{reversaldef{reversal.attr:}hitoverride{attr:;time:0}}callendstate(0);',
+    1310: 'iftime=0{pause{time:20;endcmdbuftime:20;pausebg:0}nothitby{value:sca;time:1}}iftime=1&&command="holdback"{changestate{value:130;ctrl:1}}callendstate(0);',
+    1320: 'ifanimelemtime(3)<0{width{value:10,0}}iftime=0{callcsnd(0,1,1);reversaldef{reversal.attr:c,aa;pausetime:0,0;sparkno:40;sparkxy:40,0;hitsound:6,0;p1stateno:1330;p1sprpriority:2;p2sprpriority:1;}}iftime=5{reversaldef{reversal.attr:}}iftime<5{hitoverride{attr:c,ap;stateno:1330}}callendstate(1);',
+    1330: 'iftime=0{pause{time:20;endcmdbuftime:20;pausebg:0}nothitby{value:sca;time:1}}iftime=1&&command="holdback"{changestate{value:131;ctrl:1}}callendstate(1);',
+    1340: 'ifanimelemtime(3)<0{width{value:10,0}}iftime=0{callcsnd(0,1,1);reversaldef{reversal.attr:a,aa;pausetime:0,0;sparkno:40;sparkxy:40,0;hitsound:6,0;p1stateno:1350;p1sprpriority:2;p2sprpriority:1;}}iftime=5{reversaldef{reversal.attr:}}iftime<5{hitoverride{attr:sa,ap;stateno:1350}}ifanimelem=4{ctrlset{value:1}}veladd{y:const(movement.yaccel)}ifposy>=0&&vely>0{changestate{value:1351}}',
+    1350: 'iftime=0{pause{time:20;endcmdbuftime:20;pausebg:0}nothitby{value:sca;time:1}}iftime=1&&command="holdback"{changestate{value:132;ctrl:1}}ifanimelemtime(3)<0{posfreeze{}}ifanimelem=3{ctrlset{value:1}}ifanimelemtime(3)>0{veladd{y:const(movement.yaccel)}}ifposy>=0&&vely>0{changestate{value:1351}}',
+    1351: 'iftime=0{velset{y:0}posset{y:0}}iftime=3{ctrlset{value:1}}ifcommand="blocking"{ifcommand!="holddown"{changestate{value:1300}}else{changestate{value:1320}}}callendstate(0);',
     # Thrower side of the grab: bind the victim through the throw arc, then
     # hurt and release them into 821 at element 11.
     810: 'iftime=0{var(2):=command="holdfwd";}ifanimelem=2{callcsnd(1,1,1);}ifanimelem=7{callcsnd(800,0,1);}ifanimelemtime(2)<0{targetbind{pos:28,0}}ifanimelemtime(2)>=0&&animelemtime(12)<0{width{edge:60,0}ifanimelemtime(5)<0{targetbind{pos:58,0}}}ifanimelemtime(5)>=0&&animelemtime(6)<0{targetbind{pos:47,0}}ifvar(2)&&animelem=6{turn{}posadd{x:-37}targetfacing{value:-1}}ifanimelemtime(6)>=0&&animelemtime(7)<0{targetbind{pos:41,-60}}elseifanimelemtime(7)>=0&&animelemtime(8)<0{targetbind{pos:25,-75}}elseifanimelemtime(8)>=0&&animelemtime(9)<0{targetbind{pos:15,-90}}elseifanimelemtime(9)>=0&&animelemtime(10)<0{targetbind{pos:-5,-96}}elseifanimelemtime(10)>=0&&animelemtime(11)<0{targetbind{pos:-14,-90}}ifanimelem=11{targetbind{pos:-50,-50}targetlifeadd{value:-78}targetstate{value:821}}ifanimelem=12{turn{}}ifanimelem=15{posadd{x:-10}}callendstate(0);',
@@ -225,7 +234,7 @@ BODY_SHA256 = {
     1071: '1328d2942ffac387a7258ad44a458775cf4f862b524377aa9f981f668139fce3',
     1075: 'deacb575b31defd5fd88bca4b0f19eaa3180ea9ef6cacc66fe6b095f7c8fce48',
 }
-CHARACTER_STATES = (20, 100, 170, 180, 181, 195, 200, 800, 810, 210, 230, 240, 400, 410, 430, 440, 600, 610, 630, 640, 1000, 1010, 1020, 1050, 1051, 1052, 1055, 1056, 1060, 1061, 1070, 1071, 1075, 1100, 1110, 1120, 1200, 1210, 1220, 1400, 1410, 1420)
+CHARACTER_STATES = (20, 100, 170, 180, 181, 195, 200, 800, 810, 1300, 1310, 1320, 1330, 1340, 1350, 1351, 210, 230, 240, 400, 410, 430, 440, 600, 610, 630, 640, 1000, 1010, 1020, 1050, 1051, 1052, 1055, 1056, 1060, 1061, 1070, 1071, 1075, 1100, 1110, 1120, 1200, 1210, 1220, 1400, 1410, 1420)
 HIT_STATES = (820, 821, 1025, 1026, 1027, 1028)
 
 # These guards protect against silently compiling outdated states with an
@@ -240,6 +249,13 @@ METADATA = {
     195: {"type": "S", "movetype": "I", "physics": "S", "anim": "195", "ctrl": "0", "velset": "0,0", "sprpriority": "2"},
     800: {"type": "S", "movetype": "A", "physics": "S", "anim": "800",
           "ctrl": "0", "velset": "0,0", "sprpriority": "2", "juggle": "0"},
+    1300: {"type": "S", "movetype": "I", "physics": "S", "anim": "1300", "ctrl": "0", "velset": "0,0", "sprpriority": "1"},
+    1310: {"type": "S", "movetype": "I", "physics": "S", "anim": "1310", "ctrl": "0", "velset": "0,0", "sprpriority": "2"},
+    1320: {"type": "C", "movetype": "I", "physics": "C", "anim": "1320", "ctrl": "0", "velset": "0,0", "sprpriority": "1"},
+    1330: {"type": "C", "movetype": "I", "physics": "C", "anim": "1330", "ctrl": "0", "velset": "0,0", "sprpriority": "2"},
+    1340: {"type": "A", "movetype": "I", "physics": "N", "anim": "1340", "ctrl": "0", "sprpriority": "1"},
+    1350: {"type": "A", "movetype": "I", "physics": "N", "anim": "1350", "ctrl": "0", "sprpriority": "2"},
+    1351: {"type": "S", "physics": "S", "anim": "47", "ctrl": "0"},
     810: {"type": "S", "movetype": "A", "physics": "N", "anim": "810", "poweradd": "0"},
     200: {"type": "S", "movetype": "A", "physics": "S", "anim": "200",
           "ctrl": "0", "velset": "0,0", "sprpriority": "2", "juggle": "1", "poweradd": "10"},
@@ -705,6 +721,66 @@ def compile_zss_overrides(
                     Section('State 800 throw', [('type', 'HitDef'), ('trigger1', 'Time = 0')] + hit_fields),
                     Section('State 800 end', [('type', 'ChangeState'), ('trigger1', 'AnimTime = 0'), ('value', '0'), ('ctrl', '1')]),
                 ]
+                results[number] = (State(number, sd, sections), [])
+            elif number in (1300, 1310, 1320, 1330, 1340, 1350, 1351):
+                sections = {
+                    1300: [
+                        Section('State 1300 width', [('type', 'Width'), ('trigger1', 'AnimElemTime(3) < 0'), ('value', '15,0')]),
+                        Section('State 1300 sound', [('type', 'PlaySnd'), ('trigger1', 'Time = 0'), ('value', '0,1')]),
+                        Section('State 1300 reversal', [('type', 'ReversalDef'), ('trigger1', 'Time = 0'), ('reversal.attr', 'SA, AA'), ('pausetime', '0,0'), ('sparkno', '40'), ('sparkxy', '40,0'), ('hitsound', '6,0'), ('p1stateno', '1310'), ('p1sprpriority', '2'), ('p2sprpriority', '1')]),
+                        Section('State 1300 hitovr', [('type', 'HitOverride'), ('trigger1', 'Time = 0'), ('attr', 'SA, AP'), ('stateno', '1310'), ('time', '8')]),
+                        Section('State 1300 stop rev', [('type', 'ReversalDef'), ('trigger1', 'Time = 4'), ('trigger1', 'command = "holdfwd"'), ('trigger2', 'Time = 8'), ('reversal.attr', '')]),
+                        Section('State 1300 stop ovr', [('type', 'HitOverride'), ('trigger1', 'Time = 4'), ('trigger1', 'command = "holdfwd"'), ('trigger2', 'Time = 8'), ('attr', ''), ('time', '0')]),
+                        Section('State 1300 end', [('type', 'ChangeState'), ('trigger1', 'AnimTime = 0'), ('value', '0'), ('ctrl', '1')]),
+                    ],
+                    1310: [
+                        Section('State 1310 pause', [('type', 'Pause'), ('trigger1', 'Time = 0'), ('time', '20'), ('endcmdbuftime', '20'), ('pausebg', '0')]),
+                        Section('State 1310 invuln', [('type', 'NotHitBy'), ('trigger1', 'Time = 0'), ('value', 'SCA'), ('time', '1')]),
+                        Section('State 1310 guard', [('type', 'ChangeState'), ('trigger1', 'Time = 1'), ('trigger1', 'command = "holdback"'), ('value', '130'), ('ctrl', '1')]),
+                        Section('State 1310 end', [('type', 'ChangeState'), ('trigger1', 'AnimTime = 0'), ('value', '0'), ('ctrl', '1')]),
+                    ],
+                    1320: [
+                        Section('State 1320 width', [('type', 'Width'), ('trigger1', 'AnimElemTime(3) < 0'), ('value', '10,0')]),
+                        Section('State 1320 sound', [('type', 'PlaySnd'), ('trigger1', 'Time = 0'), ('value', '0,1')]),
+                        Section('State 1320 reversal', [('type', 'ReversalDef'), ('trigger1', 'Time = 0'), ('reversal.attr', 'C, AA'), ('pausetime', '0,0'), ('sparkno', '40'), ('sparkxy', '40,0'), ('hitsound', '6,0'), ('p1stateno', '1330'), ('p1sprpriority', '2'), ('p2sprpriority', '1')]),
+                        Section('State 1320 stop rev', [('type', 'ReversalDef'), ('trigger1', 'Time = 5'), ('reversal.attr', '')]),
+                        Section('State 1320 hitovr', [('type', 'HitOverride'), ('trigger1', 'Time < 5'), ('attr', 'C, AP'), ('stateno', '1330')]),
+                        Section('State 1320 end', [('type', 'ChangeState'), ('trigger1', 'AnimTime = 0'), ('value', '11'), ('ctrl', '1')]),
+                    ],
+                    1330: [
+                        Section('State 1330 pause', [('type', 'Pause'), ('trigger1', 'Time = 0'), ('time', '20'), ('endcmdbuftime', '20'), ('pausebg', '0')]),
+                        Section('State 1330 invuln', [('type', 'NotHitBy'), ('trigger1', 'Time = 0'), ('value', 'SCA'), ('time', '1')]),
+                        Section('State 1330 guard', [('type', 'ChangeState'), ('trigger1', 'Time = 1'), ('trigger1', 'command = "holdback"'), ('value', '131'), ('ctrl', '1')]),
+                        Section('State 1330 end', [('type', 'ChangeState'), ('trigger1', 'AnimTime = 0'), ('value', '11'), ('ctrl', '1')]),
+                    ],
+                    1340: [
+                        Section('State 1340 width', [('type', 'Width'), ('trigger1', 'AnimElemTime(3) < 0'), ('value', '10,0')]),
+                        Section('State 1340 sound', [('type', 'PlaySnd'), ('trigger1', 'Time = 0'), ('value', '0,1')]),
+                        Section('State 1340 reversal', [('type', 'ReversalDef'), ('trigger1', 'Time = 0'), ('reversal.attr', 'A, AA'), ('pausetime', '0,0'), ('sparkno', '40'), ('sparkxy', '40,0'), ('hitsound', '6,0'), ('p1stateno', '1350'), ('p1sprpriority', '2'), ('p2sprpriority', '1')]),
+                        Section('State 1340 stop rev', [('type', 'ReversalDef'), ('trigger1', 'Time = 5'), ('reversal.attr', '')]),
+                        Section('State 1340 hitovr', [('type', 'HitOverride'), ('trigger1', 'Time < 5'), ('attr', 'SA, AP'), ('stateno', '1350')]),
+                        Section('State 1340 ctrl', [('type', 'CtrlSet'), ('trigger1', 'AnimElem = 4'), ('value', '1')]),
+                        Section('State 1340 gravity', [('type', 'VelAdd'), ('trigger1', '1'), ('y', 'Const(movement.yaccel)')]),
+                        Section('State 1340 land', [('type', 'ChangeState'), ('trigger1', '(Pos Y >= 0) && (Vel Y > 0)'), ('value', '1351')]),
+                    ],
+                    1350: [
+                        Section('State 1350 pause', [('type', 'Pause'), ('trigger1', 'Time = 0'), ('time', '20'), ('endcmdbuftime', '20'), ('pausebg', '0')]),
+                        Section('State 1350 invuln', [('type', 'NotHitBy'), ('trigger1', 'Time = 0'), ('value', 'SCA'), ('time', '1')]),
+                        Section('State 1350 guard', [('type', 'ChangeState'), ('trigger1', 'Time = 1'), ('trigger1', 'command = "holdback"'), ('value', '132'), ('ctrl', '1')]),
+                        Section('State 1350 freeze', [('type', 'PosFreeze'), ('trigger1', 'AnimElemTime(3) < 0')]),
+                        Section('State 1350 ctrl', [('type', 'CtrlSet'), ('trigger1', 'AnimElem = 3'), ('value', '1')]),
+                        Section('State 1350 gravity', [('type', 'VelAdd'), ('trigger1', 'AnimElemTime(3) > 0'), ('y', 'Const(movement.yaccel)')]),
+                        Section('State 1350 land', [('type', 'ChangeState'), ('trigger1', '(Pos Y >= 0) && (Vel Y > 0)'), ('value', '1351')]),
+                    ],
+                    1351: [
+                        Section('State 1351 vel', [('type', 'VelSet'), ('trigger1', 'Time = 0'), ('y', '0')]),
+                        Section('State 1351 pos', [('type', 'PosSet'), ('trigger1', 'Time = 0'), ('y', '0')]),
+                        Section('State 1351 ctrl', [('type', 'CtrlSet'), ('trigger1', 'Time = 3'), ('value', '1')]),
+                        Section('State 1351 high', [('type', 'ChangeState'), ('trigger1', 'command = "blocking"'), ('trigger1', 'command != "holddown"'), ('value', '1300')]),
+                        Section('State 1351 low', [('type', 'ChangeState'), ('trigger1', 'command = "blocking"'), ('trigger1', 'command = "holddown"'), ('value', '1320')]),
+                        Section('State 1351 end', [('type', 'ChangeState'), ('trigger1', 'AnimTime = 0'), ('value', '0'), ('ctrl', '1')]),
+                    ],
+                }[number]
                 results[number] = (State(number, sd, sections), [])
             elif number == 810:
                 sections = [

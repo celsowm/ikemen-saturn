@@ -101,6 +101,7 @@ typedef struct ik_fight_controls {
     uint8_t z;
     uint8_t start;
     uint8_t recovery;
+    uint8_t blocking;
     int16_t requested_state;
     uint8_t has_state_request;
 } ik_fight_controls_t;

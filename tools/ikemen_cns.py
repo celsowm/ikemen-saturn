@@ -913,6 +913,35 @@ def controller_trigger(
         if target == 5210 and trigger_all:
             return "IK_CNS_TRIGGER_THROW_AIR_RECOVERY", 0, 0
         normalized = [_strip_outer_parens(t) for t in triggers]
+        if ctype == "changestate" and not trigger_all:
+            masks = {"holdback": 2, "holddown": 8, "blocking": 128}
+            flat = [
+                _strip_outer_parens(p)
+                for t in normalized
+                for p in re.split(r"\s*&&\s*", t)
+            ]
+            time_eq = [re.fullmatch(r"Time\s*=\s*(\d+)", t, flags=re.I)
+                       for t in flat]
+            held = [re.fullmatch(r'Command\s*(!?=)\s*"(\w+)"', t, flags=re.I)
+                    for t in flat]
+            if (len(flat) == 2 and time_eq[0] and held[1] and
+                    held[1].group(1) == "=" and
+                    held[1].group(2).lower() in ("holdback",)):
+                return ("IK_CNS_TRIGGER_TIME_EQ_COMMAND_ACTIVE",
+                        int(time_eq[0].group(1)),
+                        masks[held[1].group(2).lower()])
+            if (flat and all(h and h.group(2).lower() in masks for h in held)
+                    and any(h.group(1) == "=" and
+                            h.group(2).lower() == "blocking" for h in held)):
+                need = 0
+                forbid = 0
+                for h in held:
+                    bit = masks[h.group(2).lower()]
+                    if h.group(1) == "=":
+                        need |= bit
+                    else:
+                        forbid |= bit
+                return "IK_CNS_TRIGGER_COMMAND_ALL_NONE", need, forbid
         if ctype == "selfstate":
             split = normalized
             if len(normalized) == 1:
