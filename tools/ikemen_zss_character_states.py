@@ -108,6 +108,14 @@ BODIES = {
           'hitsound:5,3;guardsound:6,0;animtype:medium;ground.type:high;'
           'ground.slidetime:12;ground.hittime:15;guard.ctrltime:15;'
           'ground.velocity:-7;air.velocity:-3,-4;}}'),
+    # Throw attempt: Miss-priority HitDef at Time 0 moves the thrower to 810
+    # and the victim to 820 on success; otherwise the whiff returns to idle.
+    800: ('iftime=0{hitdef{attr:s,nt;hitflag:m-;priority:1,miss;sparkno:-1;'
+          'p1sprpriority:1;p1facing:1;p2facing:1;p1stateno:810;p2stateno:820;'
+          'guard.dist:0;fall:1;}}callendstate(0);'),
+    # Thrower side of the grab: bind the victim through the throw arc, then
+    # hurt and release them into 821 at element 11.
+    810: 'iftime=0{var(2):=command="holdfwd";}ifanimelem=2{callcsnd(1,1,1);}ifanimelem=7{callcsnd(800,0,1);}ifanimelemtime(2)<0{targetbind{pos:28,0}}ifanimelemtime(2)>=0&&animelemtime(12)<0{width{edge:60,0}ifanimelemtime(5)<0{targetbind{pos:58,0}}}ifanimelemtime(5)>=0&&animelemtime(6)<0{targetbind{pos:47,0}}ifvar(2)&&animelem=6{turn{}posadd{x:-37}targetfacing{value:-1}}ifanimelemtime(6)>=0&&animelemtime(7)<0{targetbind{pos:41,-60}}elseifanimelemtime(7)>=0&&animelemtime(8)<0{targetbind{pos:25,-75}}elseifanimelemtime(8)>=0&&animelemtime(9)<0{targetbind{pos:15,-90}}elseifanimelemtime(9)>=0&&animelemtime(10)<0{targetbind{pos:-5,-96}}elseifanimelemtime(10)>=0&&animelemtime(11)<0{targetbind{pos:-14,-90}}ifanimelem=11{targetbind{pos:-50,-50}targetlifeadd{value:-78}targetstate{value:821}}ifanimelem=12{turn{}}ifanimelem=15{posadd{x:-10}}callendstate(0);',
     1000: ('iftime=8{callcsnd(0,3,1);}ifanimelem=2{posadd{x:20}}'
            'ifanimelem=3||animelem=13{posadd{x:10}}ifanimelem=5{posadd{x:5}'
            'ifp2bodydistx<40{hitdef{attr:s,sa;animtype:hard;damage:90,4;priority:5;'
@@ -217,7 +225,7 @@ BODY_SHA256 = {
     1071: '1328d2942ffac387a7258ad44a458775cf4f862b524377aa9f981f668139fce3',
     1075: 'deacb575b31defd5fd88bca4b0f19eaa3180ea9ef6cacc66fe6b095f7c8fce48',
 }
-CHARACTER_STATES = (20, 100, 170, 180, 181, 195, 200, 210, 230, 240, 400, 410, 430, 440, 600, 610, 630, 640, 1000, 1010, 1020, 1050, 1051, 1052, 1055, 1056, 1060, 1061, 1070, 1071, 1075, 1100, 1110, 1120, 1200, 1210, 1220, 1400, 1410, 1420)
+CHARACTER_STATES = (20, 100, 170, 180, 181, 195, 200, 800, 810, 210, 230, 240, 400, 410, 430, 440, 600, 610, 630, 640, 1000, 1010, 1020, 1050, 1051, 1052, 1055, 1056, 1060, 1061, 1070, 1071, 1075, 1100, 1110, 1120, 1200, 1210, 1220, 1400, 1410, 1420)
 HIT_STATES = (820, 821, 1025, 1026, 1027, 1028)
 
 # These guards protect against silently compiling outdated states with an
@@ -230,6 +238,9 @@ METADATA = {
           "ctrl": "0", "velset": "0,0", "sprpriority": "1"},
     180: {"type": "S", "movetype": "I", "physics": "S", "anim": "-2", "ctrl": "0"},
     195: {"type": "S", "movetype": "I", "physics": "S", "anim": "195", "ctrl": "0", "velset": "0,0", "sprpriority": "2"},
+    800: {"type": "S", "movetype": "A", "physics": "S", "anim": "800",
+          "ctrl": "0", "velset": "0,0", "sprpriority": "2", "juggle": "0"},
+    810: {"type": "S", "movetype": "A", "physics": "N", "anim": "810", "poweradd": "0"},
     200: {"type": "S", "movetype": "A", "physics": "S", "anim": "200",
           "ctrl": "0", "velset": "0,0", "sprpriority": "2", "juggle": "1", "poweradd": "10"},
     210: {"type": "S", "movetype": "A", "physics": "S", "anim": "210",
@@ -685,6 +696,39 @@ def compile_zss_overrides(
                     Section('State 1020 velocity', [('type', 'VelSet'), ('trigger1', 'AnimElem = 4'), ('x', '13')]),
                     Section('State 1020 hit', [('type', 'HitDef'), ('trigger1', 'AnimElem = 4')] + hit_fields),
                     Section('State 1020 end', [('type', 'ChangeState'), ('trigger1', 'AnimTime = 0'), ('value', '0'), ('ctrl', '1')]),
+                ]
+                results[number] = (State(number, sd, sections), [])
+            elif number == 800:
+                hit_body = observed.split('hitdef{', 1)[1].split('}', 1)[0]
+                hit_fields = [tuple(part.split(':', 1)) for part in hit_body.split(';') if part]
+                sections = [
+                    Section('State 800 throw', [('type', 'HitDef'), ('trigger1', 'Time = 0')] + hit_fields),
+                    Section('State 800 end', [('type', 'ChangeState'), ('trigger1', 'AnimTime = 0'), ('value', '0'), ('ctrl', '1')]),
+                ]
+                results[number] = (State(number, sd, sections), [])
+            elif number == 810:
+                sections = [
+                    Section('State 810 var', [('type', 'VarSet'), ('trigger1', 'Time = 0'), ('var(2)', 'command = "holdfwd"')]),
+                    Section('State 810 grab snd', [('type', 'PlaySnd'), ('trigger1', 'AnimElem = 2'), ('value', '1,1')]),
+                    Section('State 810 throw snd', [('type', 'PlaySnd'), ('trigger1', 'AnimElem = 7'), ('value', '800,0')]),
+                    Section('State 810 bind1', [('type', 'TargetBind'), ('trigger1', 'AnimElemTime(2) < 0'), ('pos', '28,0')]),
+                    Section('State 810 width', [('type', 'Width'), ('trigger1', 'AnimElemTime(2) >= 0 && AnimElemTime(12) < 0'), ('edge', '60,0')]),
+                    Section('State 810 bind2', [('type', 'TargetBind'), ('trigger1', 'AnimElemTime(2) >= 0 && AnimElemTime(5) < 0'), ('pos', '58,0')]),
+                    Section('State 810 bind5', [('type', 'TargetBind'), ('trigger1', 'AnimElemTime(5) >= 0 && AnimElemTime(6) < 0'), ('pos', '47,0')]),
+                    Section('State 810 turn6', [('type', 'Turn'), ('trigger1', 'var(2)'), ('trigger1', 'AnimElem = 6')]),
+                    Section('State 810 pos6', [('type', 'PosAdd'), ('trigger1', 'var(2)'), ('trigger1', 'AnimElem = 6'), ('x', '-37')]),
+                    Section('State 810 face6', [('type', 'TargetFacing'), ('trigger1', 'var(2)'), ('trigger1', 'AnimElem = 6'), ('value', '-1')]),
+                    Section('State 810 bind6', [('type', 'TargetBind'), ('trigger1', 'AnimElemTime(6) >= 0 && AnimElemTime(7) < 0'), ('pos', '41,-60')]),
+                    Section('State 810 bind7', [('type', 'TargetBind'), ('trigger1', 'AnimElemTime(7) >= 0 && AnimElemTime(8) < 0'), ('pos', '25,-75')]),
+                    Section('State 810 bind8', [('type', 'TargetBind'), ('trigger1', 'AnimElemTime(8) >= 0 && AnimElemTime(9) < 0'), ('pos', '15,-90')]),
+                    Section('State 810 bind9', [('type', 'TargetBind'), ('trigger1', 'AnimElemTime(9) >= 0 && AnimElemTime(10) < 0'), ('pos', '-5,-96')]),
+                    Section('State 810 bind10', [('type', 'TargetBind'), ('trigger1', 'AnimElemTime(10) >= 0 && AnimElemTime(11) < 0'), ('pos', '-14,-90')]),
+                    Section('State 810 bind11', [('type', 'TargetBind'), ('trigger1', 'AnimElem = 11'), ('pos', '-50,-50')]),
+                    Section('State 810 hurt11', [('type', 'TargetLifeAdd'), ('trigger1', 'AnimElem = 11'), ('value', '-78')]),
+                    Section('State 810 throw11', [('type', 'TargetState'), ('trigger1', 'AnimElem = 11'), ('value', '821')]),
+                    Section('State 810 turn12', [('type', 'Turn'), ('trigger1', 'AnimElem = 12')]),
+                    Section('State 810 pos15', [('type', 'PosAdd'), ('trigger1', 'AnimElem = 15'), ('x', '-10')]),
+                    Section('State 810 end', [('type', 'ChangeState'), ('trigger1', 'AnimTime = 0'), ('value', '0'), ('ctrl', '1')]),
                 ]
                 results[number] = (State(number, sd, sections), [])
             elif number in (1000, 1010, 1050, 1060):
