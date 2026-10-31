@@ -1211,9 +1211,12 @@ static void draw_bars(const ik_fight_t* fight) {
         &g_hud, "HITS P2 ", fight->hits_p2, 200, 196));
 }
 
+/* File scope (not stack) so emulator probes can read the live fight state
+ * by symbol; behaviour is unchanged. */
+static ik_fight_t g_fight;
+
 int main(void) {
     ik_audio_t audio = {0};
-    ik_fight_t fight;
 
     sat_example_must(sat_app_init_default());
     sat_example_must(sat_vdp1_set_erase_transparent());
@@ -1282,7 +1285,7 @@ int main(void) {
          &kfm_zss_state_rules}
     };
     sat_example_must(ik_frame_ctx_init(
-        &g_frame, &fight, character_assets) ? SAT_OK : SAT_ERR_CAPACITY);
+        &g_frame, &g_fight, character_assets) ? SAT_OK : SAT_ERR_CAPACITY);
 
     for (;;) {
         sat_pad_state_t pad1 = {0};
@@ -1291,7 +1294,7 @@ int main(void) {
 
         sat_example_must(sat_wait_vblank());
         sat_example_must(sat_vdp2_back_color_set(SAT_COLOR_BLACK));
-        if (fight.super_darken_time > 0u) {
+        if (g_fight.super_darken_time > 0u) {
             const sat_vdp2_color_offset_t darken = {-96, -96, -96};
             sat_example_must(sat_vdp2_color_offset_set(
                 SAT_VDP2_COLOR_OFFSET_A, &darken));
@@ -1316,15 +1319,15 @@ int main(void) {
         (void)ik_frame_set_zss_ai_level(
             &g_frame, 1u, have_p2 ? 0u : 8u);
         ik_frame_step(
-            &g_frame, &fight, &pad1, have_p2 ? &pad2 : 0);
-        spawn_effect_events(&fight);
-        ik_audio_process_fight(&audio, &fight);
+            &g_frame, &g_fight, &pad1, have_p2 ? &pad2 : 0);
+        spawn_effect_events(&g_fight);
+        ik_audio_process_fight(&audio, &g_fight);
         sat_example_must(ik_audio_update());
 
-        stage_scroll_for_fight(&fight);
-        draw_combat_entities(&fight);
+        stage_scroll_for_fight(&g_fight);
+        draw_combat_entities(&g_fight);
         draw_effects();
-        draw_bars(&fight);
+        draw_bars(&g_fight);
 
         sat_example_must(sat_app_frame_end());
         (void)sat_time_ms();
