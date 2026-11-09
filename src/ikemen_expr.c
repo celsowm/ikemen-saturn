@@ -159,6 +159,41 @@ int ik_expr_eval(
                 }
                 break;
 
+            case IK_EXPR_LOAD_PLAYER_FIELD: {
+                if (sp < 1u || !context->read_field) return 0;
+                const int32_t player_id = stack[sp - 1u];
+                if (player_id < 0 || player_id > 1) {
+                    stack[sp - 1u] = 0;
+                    break;
+                }
+                if (!context->read_field(
+                        context->user, IK_EXPR_REDIRECT_PLAYER_ID,
+                        ins->field, ins->value0, player_id, 0u, &value)) {
+                    return 0;
+                }
+                stack[sp - 1u] = value;
+                break;
+            }
+
+            case IK_EXPR_LOAD_PLAYER_FIELD_DYNAMIC_INDEX: {
+                if (sp < 2u || !context->read_field) return 0;
+                const int32_t player_id = stack[sp - 2u];
+                const int32_t index = stack[sp - 1u];
+                if (player_id < 0 || player_id > 1) {
+                    stack[sp - 2u] = 0;
+                    --sp;
+                    break;
+                }
+                if (!context->read_field(
+                        context->user, IK_EXPR_REDIRECT_PLAYER_ID,
+                        ins->field, index, player_id, 0u, &value)) {
+                    return 0;
+                }
+                stack[sp - 2u] = value;
+                --sp;
+                break;
+            }
+
             case IK_EXPR_LOAD_COMMAND:
                 if (!context->read_command ||
                     !context->read_command(

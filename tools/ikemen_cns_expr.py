@@ -255,9 +255,12 @@ def character_name_hash(name: str) -> int:
 class _ExprCompiler(_ExprParser):
     """Compile the integer/runtime CNS expression subset to postfix bytecode."""
 
-    def __init__(self, text: str, q16: bool = False):
+    def __init__(
+        self, text: str, q16: bool = False, localcoord_x: float = 320.0
+    ):
         super().__init__(text)
         self.q16 = q16
+        self.localcoord_x = localcoord_x
 
     def _load_runtime_field(
         self,
@@ -426,6 +429,98 @@ class _ExprCompiler(_ExprParser):
 
         name = self._take()[1]
         lower = name.lower()
+        if lower == "playerid" and self._peek() == ("op", "("):
+            self._take()
+            args = self._args()
+            if self._peek() != ("op", ")") or len(args) != 1:
+                raise ValueError("PlayerID() redirection requires one player ID")
+            self._take()
+            if self._peek() != ("op", ","):
+                raise ValueError("PlayerID() requires a redirected field")
+            self._take()
+            field_token = self._peek()
+            if field_token is None or field_token[0] != "ident":
+                raise ValueError("PlayerID() requires a redirected field")
+            field_name = self._take()[1]
+            field_lower = field_name.casefold()
+            if field_lower == "numexplod" and \
+                    self._peek() == ("op", "("):
+                self._take()
+                explod_args = self._args()
+                if self._peek() != ("op", ")") or len(explod_args) > 1:
+                    raise ValueError(
+                        "PlayerID(),NumExplod() takes at most one ID")
+                self._take()
+                explod_id = (
+                    self._integer_arg(explod_args[0], field_name)
+                    if explod_args else -2147483648)
+                if explod_id < -2147483648 or explod_id > 2147483647:
+                    raise ValueError(
+                        "NumExplod() ID is outside the signed 32-bit range")
+                player_code = list(args[0])
+                if self.q16 or any(ins.get("field") in {
+                        "IK_EXPR_FIELD_FVAR_Q16",
+                        "IK_EXPR_FIELD_SYSFVAR_Q16",
+                } for ins in player_code):
+                    player_code.extend([
+                        {"op": "IK_EXPR_FLOOR_Q16"},
+                        {"op": "IK_EXPR_TRUNC_Q16"},
+                    ])
+                field_code = self._load_runtime_field(
+                    "IK_EXPR_FIELD_NUM_EXPLODS", explod_id)
+                for instruction in field_code:
+                    if instruction.get("op") == "IK_EXPR_LOAD_FIELD":
+                        instruction["op"] = "IK_EXPR_LOAD_PLAYER_FIELD"
+                return player_code + field_code
+            if field_lower not in {"var", "sysvar", "fvar", "sysfvar"} or \
+                    self._peek() != ("op", "("):
+                raise ValueError(
+                    f"unsupported PlayerID() field {field_name!r}")
+            self._take()
+            index_args = self._args()
+            if self._peek() != ("op", ")") or len(index_args) != 1:
+                raise ValueError(
+                    f"PlayerID(),{field_name}() requires one index")
+            self._take()
+            max_count = {
+                "var": 60, "fvar": 40, "sysvar": 5, "sysfvar": 5,
+            }[field_lower]
+            runtime_field = {
+                "var": "IK_EXPR_FIELD_VAR",
+                "sysvar": "IK_EXPR_FIELD_SYSVAR",
+                "fvar": "IK_EXPR_FIELD_FVAR_Q16",
+                "sysfvar": "IK_EXPR_FIELD_SYSFVAR_Q16",
+            }[field_lower]
+            player_code = list(args[0])
+            if self.q16 or any(ins.get("field") in {
+                    "IK_EXPR_FIELD_FVAR_Q16",
+                    "IK_EXPR_FIELD_SYSFVAR_Q16",
+            } for ins in player_code):
+                player_code.extend([
+                    {"op": "IK_EXPR_FLOOR_Q16"},
+                    {"op": "IK_EXPR_TRUNC_Q16"},
+                ])
+            index_code = list(index_args[0])
+            is_constant_index = (
+                len(index_code) == 1 and
+                index_code[0].get("op") == "IK_EXPR_PUSH_CONST")
+            if is_constant_index:
+                index = self._integer_arg(index_code, field_name)
+                if index < 0 or index >= max_count:
+                    raise ValueError(
+                        f"PlayerID(),{field_name}({index}) is outside "
+                        f"0..{max_count - 1}")
+                field_code = self._load_runtime_field(runtime_field, index)
+                for instruction in field_code:
+                    if instruction.get("op") == "IK_EXPR_LOAD_FIELD":
+                        instruction["op"] = "IK_EXPR_LOAD_PLAYER_FIELD"
+                return player_code + field_code
+            if self.q16:
+                index_code.append({"op": "IK_EXPR_TRUNC_Q16"})
+            return player_code + index_code + [{
+                "op": "IK_EXPR_LOAD_PLAYER_FIELD_DYNAMIC_INDEX",
+                "field": runtime_field,
+            }]
         if lower == "ishelper" and self._peek() == ("op", "("):
             self._take()
             sign = -1 if self._peek() == ("op", "-") else 1
@@ -908,6 +1003,18 @@ class _ExprCompiler(_ExprParser):
                 target_id = self._integer_arg(args[0], name)
                 return self._load_runtime_field(
                     "IK_EXPR_FIELD_NUM_TARGETS", target_id)
+            if lower == "const240p" and len(args) == 1:
+                scale = self.localcoord_x / 320.0
+                if scale == 1.0:
+                    return args[0]
+                if not self.q16 and int(scale) != scale:
+                    raise ValueError(
+                        "Const240p() is fractional in integer expression")
+                factor = int(round(scale * 65536)) if self.q16 else int(scale)
+                return args[0] + [
+                    {"op": "IK_EXPR_PUSH_CONST", "value0": factor},
+                    {"op": "IK_EXPR_MUL_Q16" if self.q16 else "IK_EXPR_MUL"},
+                ]
             if lower == "abs" and len(args) == 1:
                 return args[0] + [{"op": "IK_EXPR_ABS"}]
             if lower == "ishelper" and len(args) == 1:
@@ -1410,7 +1517,8 @@ def compile_cns_expr(
         normalized,
         flags=re.I,
     )
-    code = _ExprCompiler(normalized, q16=q16).parse()
+    code = _ExprCompiler(
+        normalized, q16=q16, localcoord_x=localcoord_x).parse()
     if len(code) > 255:
         raise ValueError("runtime CNS expression exceeds 255 instructions")
     return code

@@ -470,7 +470,11 @@ int ik_entity_expr_read_field(
     const ik_entity_t* self =
         ik_entity_get_const(binding->pool, binding->self);
     const ik_entity_handle_t redirected =
-        redirect == IK_EXPR_REDIRECT_TARGET
+        redirect == IK_EXPR_REDIRECT_PLAYER_ID
+            ? (redirect_id >= 0 && redirect_id < 2
+                ? binding->pool->players[redirect_id]
+                : ik_entity_invalid_handle())
+        : redirect == IK_EXPR_REDIRECT_TARGET
             ? ik_entity_redirect_target(
                 binding->pool, binding->self,
                 redirect_id, redirect_index)
@@ -481,7 +485,14 @@ int ik_entity_expr_read_field(
                 binding->pool, binding->self, redirect);
     const ik_entity_t* entity =
         ik_entity_get_const(binding->pool, redirected);
-    if (!self || !entity) return 0;
+    if (!self) return 0;
+    if (!entity) {
+        if (redirect == IK_EXPR_REDIRECT_PLAYER_ID) {
+            *out_value = 0;
+            return 1;
+        }
+        return 0;
+    }
     const ik_entity_t* query_root =
         ik_entity_get_const(binding->pool, entity->root);
     if (!query_root) query_root = entity;

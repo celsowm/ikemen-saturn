@@ -1223,6 +1223,54 @@ static int process_controllers(
                             explod.bind_time = (int16_t)dynamic_bind_time;
                         }
                     }
+                    if (explod.scale_x_expr_count) {
+                        int32_t dynamic_scale = 0;
+                        if (runtime_eval_expr(
+                                runtime, state_cns, handle,
+                                explod.scale_x_expr_ofs,
+                                explod.scale_x_expr_count,
+                                &dynamic_scale)) {
+                            dynamic_scale /= 256;
+                            if (dynamic_scale < INT16_MIN) {
+                                dynamic_scale = INT16_MIN;
+                            }
+                            if (dynamic_scale > INT16_MAX) {
+                                dynamic_scale = INT16_MAX;
+                            }
+                            explod.scale_x_q8 = (int16_t)dynamic_scale;
+                        }
+                    }
+                    if (explod.scale_y_expr_count) {
+                        int32_t dynamic_scale = 0;
+                        if (runtime_eval_expr(
+                                runtime, state_cns, handle,
+                                explod.scale_y_expr_ofs,
+                                explod.scale_y_expr_count,
+                                &dynamic_scale)) {
+                            dynamic_scale /= 256;
+                            if (dynamic_scale < INT16_MIN) {
+                                dynamic_scale = INT16_MIN;
+                            }
+                            if (dynamic_scale > INT16_MAX) {
+                                dynamic_scale = INT16_MAX;
+                            }
+                            explod.scale_y_q8 = (int16_t)dynamic_scale;
+                        }
+                    }
+                    if (explod.alpha_expr_count) {
+                        int32_t dynamic_alpha = 0;
+                        if (runtime_eval_expr(
+                                runtime, state_cns, handle,
+                                explod.alpha_expr_ofs,
+                                explod.alpha_expr_count,
+                                &dynamic_alpha)) {
+                            dynamic_alpha /= 65536;
+                            if (dynamic_alpha < 0) dynamic_alpha = 0;
+                            if (dynamic_alpha > 256) dynamic_alpha = 256;
+                            explod.alpha = (uint8_t)(
+                                (dynamic_alpha * 255 + 128) / 256);
+                        }
+                    }
                     if (ctrl->value0_expr_count) {
                         explod.pos_x_q8 = ctrl->value6;
                     }

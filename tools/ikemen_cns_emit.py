@@ -122,6 +122,12 @@ def emit_cns_source_files(
              explod.pop("_spr_priority_expr", None))
         (explod["bind_time_expr_ofs"], explod["bind_time_expr_count"]) = \
             intern_expression(explod.pop("_bind_time_expr", None))
+        (explod["scale_x_expr_ofs"], explod["scale_x_expr_count"]) = \
+            intern_expression(explod.pop("_scale_x_expr", None))
+        (explod["scale_y_expr_ofs"], explod["scale_y_expr_count"]) = \
+            intern_expression(explod.pop("_scale_y_expr", None))
+        (explod["alpha_expr_ofs"], explod["alpha_expr_count"]) = \
+            intern_expression(explod.pop("_alpha_expr", None))
     for controller in controllers:
         (controller["trigger_expr_ofs"],
          controller["trigger_expr_count"]) = intern_expression(
@@ -419,7 +425,13 @@ def emit_cns_source_files(
         f"{e.get('spr_priority_expr_ofs', 0)}u, "
         f"{e.get('spr_priority_expr_count', 0)}u, "
         f"{e.get('bind_time_expr_ofs', 0)}u, "
-        f"{e.get('bind_time_expr_count', 0)}u"
+        f"{e.get('bind_time_expr_count', 0)}u, "
+        f"{e.get('scale_x_expr_ofs', 0)}u, "
+        f"{e.get('scale_x_expr_count', 0)}u, "
+        f"{e.get('scale_y_expr_ofs', 0)}u, "
+        f"{e.get('scale_y_expr_count', 0)}u, "
+        f"{e.get('alpha_expr_ofs', 0)}u, "
+        f"{e.get('alpha_expr_count', 0)}u"
         "},"
         for e in explods
     ]

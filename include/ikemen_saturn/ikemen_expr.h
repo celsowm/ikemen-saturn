@@ -15,7 +15,8 @@ typedef enum ik_expr_redirect {
     IK_EXPR_REDIRECT_PARENT,
     IK_EXPR_REDIRECT_ROOT,
     IK_EXPR_REDIRECT_TARGET,
-    IK_EXPR_REDIRECT_HELPER
+    IK_EXPR_REDIRECT_HELPER,
+    IK_EXPR_REDIRECT_PLAYER_ID
 } ik_expr_redirect_t;
 
 typedef enum ik_expr_field {
@@ -136,7 +137,9 @@ typedef enum ik_expr_op {
     IK_EXPR_TRUNC_Q16,
     IK_EXPR_IFELSE,
     IK_EXPR_TRUNC_Q8,
-    IK_EXPR_SELF_ANIM_EXISTS
+    IK_EXPR_SELF_ANIM_EXISTS,
+    IK_EXPR_LOAD_PLAYER_FIELD,
+    IK_EXPR_LOAD_PLAYER_FIELD_DYNAMIC_INDEX
 } ik_expr_op_t;
 
 typedef struct ik_expr_instr {

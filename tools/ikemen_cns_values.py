@@ -34,9 +34,12 @@ def split_top_level(text: str) -> list[str]:
             depth -= 1
         elif char == "," and depth == 0:
             redirect_prefix = re.search(
-                r"\b(?:parent|root|p2|enemy)\s*$", text[start:index], re.I)
+                r"\b(?:parent|root|p2|enemy)\s*$|"
+                r"\bplayerid\s*\(.*\)\s*$",
+                text[start:index], re.I | re.S)
             redirected_field = re.match(
-                r"\s*(?:var|sysvar|fvar|pos|vel|stateno|statetype|movetype)\b",
+                r"\s*(?:var|sysvar|fvar|sysfvar|numexplod|pos|vel|"
+                r"stateno|statetype|movetype)\b",
                 text[index + 1:], re.I)
             if redirect_prefix and redirected_field:
                 continue

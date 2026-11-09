@@ -91,7 +91,8 @@ def compile_explod_controller(
     vx, vy = pair(
         ctrl.get("vel", ctrl.get("velocity", ctrl.get("velset"))), 0, 0)
     ax, ay = pair(ctrl.get("accel"), 0, 0)
-    sx, sy = pair(ctrl.get("scale"), 1, 1)
+    sx, sy, sx_expr, sy_expr = pair_runtime_expr(
+        ctrl.get("scale"), 1, 1)
 
     trans_text = (ctrl.get("trans") or "none").strip().lower()
     trans_map = {
@@ -105,7 +106,7 @@ def compile_explod_controller(
     if trans_text not in trans_map:
         return reject(f"unsupported trans mode {trans_text}")
 
-    alpha_src, _alpha_dst = services["pair_static_expr"](
+    alpha_src, _alpha_dst, alpha_src_expr, _alpha_dst_expr = pair_runtime_expr(
         ctrl.get("alpha"), 256, 256)
     alpha_value = max(0, min(255, int(round(float(alpha_src) * 255.0 / 256.0))))
     if ctrl.get("supermovetime") is not None:
@@ -183,6 +184,9 @@ def compile_explod_controller(
         "_facing_expr": facing_expr,
         "_spr_priority_expr": spr_priority_expr,
         "_bind_time_expr": bind_time_expr,
+        "_scale_x_expr": sx_expr,
+        "_scale_y_expr": sy_expr,
+        "_alpha_expr": alpha_src_expr,
     }
     # Explod entities are not inserted into the fighter/projectile contact
     # queue, so `unhittable = 1` already matches this runtime's behavior.
