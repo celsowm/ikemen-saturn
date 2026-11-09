@@ -269,8 +269,12 @@ int ikf_process_cns_controllers(
                                    ctrl->value0_expr_count, &value)) {
                 continue;
             }
-            evaluated_ctrl.value4 = value;
-            evaluated_ctrl.value0 = value / 256;
+            if (ctrl->type == IK_CNS_CTRL_EXPLOD) {
+                evaluated_ctrl.value6 = value / 256;
+            } else {
+                evaluated_ctrl.value4 = value;
+                evaluated_ctrl.value0 = value / 256;
+            }
         }
         if (ctrl->value1_expr_count) {
             int32_t value = 0;
@@ -279,8 +283,12 @@ int ikf_process_cns_controllers(
                                    ctrl->value1_expr_count, &value)) {
                 continue;
             }
-            evaluated_ctrl.value5 = value;
-            evaluated_ctrl.value1 = value / 256;
+            if (ctrl->type == IK_CNS_CTRL_EXPLOD) {
+                evaluated_ctrl.value7 = value / 256;
+            } else {
+                evaluated_ctrl.value5 = value;
+                evaluated_ctrl.value1 = value / 256;
+            }
         }
         const ik_ctrl_exec_t exec = {
             fight, f, &evaluated_ctrl, &context, state_cns, native_cns, frames,

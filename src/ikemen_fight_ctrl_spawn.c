@@ -82,9 +82,12 @@ int ikf_ctrl_apply_spawn(const ik_ctrl_exec_t* x) {
                 &runtime, fight->entities, fight->cns, frames, frames);
             ikf_configure_fight_entity_runtime(fight, &runtime);
             ik_entity_handle_t spawned = ik_entity_invalid_handle();
+            ik_cns_explod_t explod = state_cns->explods[ctrl->value0];
+            if (ctrl->value0_expr_count) explod.pos_x_q8 = ctrl->value6;
+            if (ctrl->value1_expr_count) explod.pos_y_q8 = ctrl->value7;
             (void)ik_entity_runtime_spawn_explod(
                 &runtime, ikf_fighter_entity_handle(fight, f),
-                &state_cns->explods[ctrl->value0], &spawned);
+                &explod, &spawned);
             break;
         }
 

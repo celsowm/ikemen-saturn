@@ -17,6 +17,7 @@ def compile_explod_controller(
     controller_trigger = services['controller_trigger']
     integer = services['integer']
     pair = services['pair']
+    pair_runtime_expr = services['pair_runtime_expr']
     q8 = services['q8']
     supported_keys = {
         "type", "anim", "id", "supermove", "postype", "pos", "random", "vel",
@@ -55,7 +56,10 @@ def compile_explod_controller(
         return None
 
     trig_kind, trig_value, trig_value2 = controller_trigger(ctrl, "explod")
-    px, py = pair(ctrl.get("pos"), 0, 0)
+    px, py, px_expr, py_expr = pair_runtime_expr(
+        ctrl.get("pos"), 0, 0)
+    ctrl.runtime_value0_expr = px_expr
+    ctrl.runtime_value1_expr = py_expr
     random_x, random_y = pair(ctrl.get("random"), 0, 0)
     shadow_values = [0, 0, 0]
     has_shadow = 0

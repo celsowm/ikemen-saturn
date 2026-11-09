@@ -469,11 +469,23 @@ int main() {
         nested_parent->y_q8=50*IK_ENTITY_Q8_ONE;
         nested_parent->facing=1;
 
+        static const ik_expr_instr_t nested_explod_pos_expr[]={
+            {IK_EXPR_LOAD_FIELD,IK_EXPR_FIELD_VAR,
+             IK_EXPR_REDIRECT_SELF,0u,4,0},
+            {IK_EXPR_PUSH_CONST,0u,IK_EXPR_REDIRECT_SELF,0u,65536,0},
+            {IK_EXPR_MUL,0u,IK_EXPR_REDIRECT_SELF,0u,0,0},
+            {IK_EXPR_LOAD_FIELD,IK_EXPR_FIELD_VAR,
+             IK_EXPR_REDIRECT_SELF,0u,5,0},
+            {IK_EXPR_PUSH_CONST,0u,IK_EXPR_REDIRECT_SELF,0u,65536,0},
+            {IK_EXPR_MUL,0u,IK_EXPR_REDIRECT_SELF,0u,0,0},
+        };
         const ik_cns_controller_t nested_ctrls[]={
-            {300,IK_CNS_CTRL_EXPLOD,IK_CNS_TRIGGER_ALWAYS,
-             0,0,0,1,0u},
-            {300,IK_CNS_CTRL_PROJECTILE,IK_CNS_TRIGGER_ALWAYS,
-             0,0,0,1,0u},
+            {.state_number=300,.type=IK_CNS_CTRL_EXPLOD,
+             .trigger_kind=IK_CNS_TRIGGER_ALWAYS,.value0=0,.value1=1,
+             .value0_expr_count=3u,.value1_expr_ofs=3u,
+             .value1_expr_count=3u},
+            {.state_number=300,.type=IK_CNS_CTRL_PROJECTILE,
+             .trigger_kind=IK_CNS_TRIGGER_ALWAYS,.value0=0,.value1=1},
         };
         ik_cns_state_t nested_state{};
         nested_state.number=300;
@@ -512,6 +524,8 @@ int main() {
         nested_cns.controller_count=2u;
         nested_cns.explods=&nested_explod;
         nested_cns.explod_count=1u;
+        nested_cns.expressions=nested_explod_pos_expr;
+        nested_cns.expression_count=6u;
         nested_cns.projectiles=&nested_projectile;
         nested_cns.projectile_count=1u;
 
@@ -525,10 +539,24 @@ int main() {
         ik_entity_handle_t helper_parent{};
         OK(ik_entity_runtime_spawn_helper(
             &nested_runtime,root0,&nested_helper,&helper_parent));
+        ik_entity_t* dynamic_helper=ik_entity_get(
+            &nested_pool,helper_parent);
+        OK(dynamic_helper!=nullptr);
+        dynamic_helper->vars[4]=20;
+        dynamic_helper->vars[5]=-4;
 
         ik_entity_runtime_step(&nested_runtime);
         EQ(ik_entity_count_type(&nested_pool,IK_ENTITY_EXPLOD),1u);
         EQ(ik_entity_count_type(&nested_pool,IK_ENTITY_PROJECTILE),1u);
+        bool found_dynamic_explod=false;
+        for (const ik_entity_t& candidate : nested_pool.entities) {
+            if (candidate.type==IK_ENTITY_EXPLOD) {
+                EQ(candidate.x_q8,120*IK_ENTITY_Q8_ONE);
+                EQ(candidate.y_q8,46*IK_ENTITY_Q8_ONE);
+                found_dynamic_explod=true;
+            }
+        }
+        OK(found_dynamic_explod);
 
         ik_entity_runtime_step(&nested_runtime);
         EQ(ik_entity_count_type(&nested_pool,IK_ENTITY_EXPLOD),1u);

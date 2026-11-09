@@ -936,8 +936,12 @@ static int process_controllers(
                                    ctrl->value0_expr_count, &value)) {
                 continue;
             }
-            evaluated_ctrl.value0 = value / 256;
-            evaluated_ctrl.value4 = value;
+            if (ctrl->type == IK_CNS_CTRL_EXPLOD) {
+                evaluated_ctrl.value6 = value / 256;
+            } else {
+                evaluated_ctrl.value0 = value / 256;
+                evaluated_ctrl.value4 = value;
+            }
         }
         if (ctrl->value1_expr_count) {
             int32_t value = 0;
@@ -946,8 +950,12 @@ static int process_controllers(
                                    ctrl->value1_expr_count, &value)) {
                 continue;
             }
-            evaluated_ctrl.value1 = value / 256;
-            evaluated_ctrl.value5 = value;
+            if (ctrl->type == IK_CNS_CTRL_EXPLOD) {
+                evaluated_ctrl.value7 = value / 256;
+            } else {
+                evaluated_ctrl.value1 = value / 256;
+                evaluated_ctrl.value5 = value;
+            }
         }
         ctrl = &evaluated_ctrl;
 
@@ -1136,12 +1144,18 @@ static int process_controllers(
                 if (ctrl->value0 >= 0 &&
                     ctrl->value0 < runtime->cns->explod_count &&
                     runtime->cns->explods) {
+                    ik_cns_explod_t explod =
+                        runtime->cns->explods[ctrl->value0];
+                    if (ctrl->value0_expr_count) {
+                        explod.pos_x_q8 = ctrl->value6;
+                    }
+                    if (ctrl->value1_expr_count) {
+                        explod.pos_y_q8 = ctrl->value7;
+                    }
                     ik_entity_handle_t child =
                         ik_entity_invalid_handle();
                     (void)ik_entity_runtime_spawn_explod(
-                        runtime, handle,
-                        &runtime->cns->explods[ctrl->value0],
-                        &child);
+                        runtime, handle, &explod, &child);
                 }
                 break;
 

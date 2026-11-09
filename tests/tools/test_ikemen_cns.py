@@ -3176,6 +3176,17 @@ assert _random_explod is not None
 assert (_random_explod[1]["random_x_q8"],
         _random_explod[1]["random_y_q8"]) == (5 * 256, -2 * 256)
 
+_dynamic_explod_section = Section("dynamic explod", [
+    ("type", "Explod"), ("trigger1", "1"),
+    ("anim", "10"), ("pos", "var(0) * 2, -var(1)"),
+])
+_dynamic_explod = compile_explod_controller(0, _dynamic_explod_section, 0)
+assert _dynamic_explod is not None
+assert _dynamic_explod[1]["pos_x_q8"] == 0
+assert _dynamic_explod[1]["pos_y_q8"] == 0
+assert _dynamic_explod_section.runtime_value0_expr
+assert _dynamic_explod_section.runtime_value1_expr
+
 _bound_section = Section("sb", [
     ("type", "ScreenBound"),
     ("triggerall", "Pos y < -15"),
