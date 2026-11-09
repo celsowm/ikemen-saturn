@@ -62,11 +62,20 @@ static int runtime_expr_read_field(
                      IK_CNS_Q8_ONE;
         return 1;
     }
-    if (redirect == IK_EXPR_REDIRECT_SELF &&
-        field == IK_EXPR_FIELD_ANIM_ELEM_TIME && index >= 1 &&
+    if (field == IK_EXPR_FIELD_ANIM_ELEM_TIME && index >= 1 &&
         index <= UINT16_MAX) {
-        const ik_entity_t* entity = ik_entity_get_const(
-            binding->entity.pool, binding->entity.self);
+        const ik_entity_handle_t handle =
+            redirect == IK_EXPR_REDIRECT_HELPER
+                ? ik_entity_redirect_helper(
+                    binding->entity.pool, binding->entity.self,
+                    redirect_id, redirect_index)
+                : redirect == IK_EXPR_REDIRECT_SELF
+                    ? binding->entity.self
+                    : ik_entity_redirect(
+                        binding->entity.pool, binding->entity.self,
+                        redirect);
+        const ik_entity_t* entity =
+            ik_entity_get_const(binding->entity.pool, handle);
         if (!entity || entity->anim_owner >= 3u) return 0;
         *out_value = ik_anim_elem_time(
             binding->runtime->frames[entity->anim_owner], entity->anim_no,

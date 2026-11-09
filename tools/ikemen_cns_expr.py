@@ -193,6 +193,9 @@ _RUNTIME_EXPR_FIELDS = {
     "time": "IK_EXPR_FIELD_STATE_TIME",
     "gametime": "IK_EXPR_FIELD_GAME_TIME",
     "roundstate": "IK_EXPR_FIELD_ROUND_STATE",
+    "matchover": "IK_EXPR_FIELD_MATCH_OVER",
+    "win": "IK_EXPR_FIELD_WIN",
+    "lose": "IK_EXPR_FIELD_LOSE",
     "roundno": "IK_EXPR_FIELD_ROUND_NUMBER",
     "stageauthorhash": "IK_EXPR_FIELD_STAGE_AUTHOR_HASH",
     "power": "IK_EXPR_FIELD_POWER",
@@ -541,6 +544,12 @@ class _ExprCompiler(_ExprParser):
                             "AnimElemTime() index must be in the range 1..65535")
                     return self._load_runtime_field(
                         "IK_EXPR_FIELD_ANIM_ELEM_TIME", elem, redirect)
+                if field_lower == "animelemno" and len(args) == 1:
+                    if self._integer_arg(args[0], field_name) != 0:
+                        raise ValueError(
+                            "AnimElemNo currently supports only argument 0")
+                    return self._load_runtime_field(
+                        "IK_EXPR_FIELD_ANIM_ELEM", redirect=redirect)
                 raise ValueError(
                     f"unsupported redirected function {name},{field_name}()")
             if field_lower in _RUNTIME_EXPR_FIELDS:
@@ -589,6 +598,35 @@ class _ExprCompiler(_ExprParser):
             field_name = self._take()[1]
             field_lower = field_name.casefold()
             redirect = "IK_EXPR_REDIRECT_HELPER"
+            if field_lower == "animelemtime" and \
+                    self._peek() == ("op", "("):
+                self._take()
+                args = self._args()
+                if self._peek() != ("op", ")") or len(args) != 1:
+                    raise ValueError(
+                        "Helper(),AnimElemTime() requires one element")
+                self._take()
+                elem = self._integer_arg(args[0], field_name)
+                if elem < 1 or elem > 65535:
+                    raise ValueError(
+                        "AnimElemTime() index must be in the range 1..65535")
+                return self._load_runtime_field(
+                    "IK_EXPR_FIELD_ANIM_ELEM_TIME", elem,
+                    redirect=redirect, redirect_id=helper_id)
+            if field_lower == "animelemno" and \
+                    self._peek() == ("op", "("):
+                self._take()
+                args = self._args()
+                if self._peek() != ("op", ")") or len(args) != 1:
+                    raise ValueError(
+                        "Helper(),AnimElemNo() requires one argument")
+                self._take()
+                if self._integer_arg(args[0], field_name) != 0:
+                    raise ValueError(
+                        "AnimElemNo currently supports only argument 0")
+                return self._load_runtime_field(
+                    "IK_EXPR_FIELD_ANIM_ELEM", redirect=redirect,
+                    redirect_id=helper_id)
             if field_lower in _RUNTIME_EXPR_FIELDS:
                 return self._load_runtime_field(
                     _RUNTIME_EXPR_FIELDS[field_lower],
@@ -719,6 +757,17 @@ class _ExprCompiler(_ExprParser):
                         f"{name}() index must be in the range 1..65535")
                 return self._load_runtime_field(
                     "IK_EXPR_FIELD_ANIM_ELEM_TIME", index)
+            if lower in {"selfanimexist", "animexist"} and len(args) == 1:
+                code = args[0]
+                if self.q16:
+                    code = code + [{"op": "IK_EXPR_TRUNC_Q16"}]
+                code = code + [{"op": "IK_EXPR_SELF_ANIM_EXISTS"}]
+                if self.q16:
+                    code.extend([
+                        {"op": "IK_EXPR_PUSH_CONST", "value0": 65536},
+                        {"op": "IK_EXPR_MUL"},
+                    ])
+                return code
             if lower == "animelemno" and len(args) == 1:
                 if self._integer_arg(args[0], name) != 0:
                     raise ValueError("AnimElemNo currently supports only argument 0")
@@ -1168,12 +1217,7 @@ def compile_cns_expr(
 def expand_dynamic_self_anim_exist(
     text: str, self_anims: set[int] | None
 ) -> str:
-    """Fold dynamic SelfAnimExist expressions against this character's AIR.
-
-    The runtime only has the current animation number, not the source AIR
-    action table. Expand the two common arithmetic forms into exact boolean
-    expressions so missing actions remain false at runtime.
-    """
+    """Fold literal SelfAnimExist queries; leave dynamic queries to runtime."""
     if self_anims is None:
         return text
 
@@ -1201,33 +1245,9 @@ def expand_dynamic_self_anim_exist(
         negated, expression = match.groups()
         expression = re.sub(r"\s+", "", expression).casefold()
         fixed_action = re.fullmatch(r"\d+", expression)
-        if fixed_action:
-            result = "1" if int(expression) in self_anims else "0"
-        elif expression in {"anim", "anim+0"}:
-            result = terms_for_values(self_anims, "anim")
-        else:
-            anim_offset = re.fullmatch(r"anim([+-])(\d+)", expression)
-            hit_offset = re.fullmatch(
-                r"(\d+)\+gethitvar\(animtype\)", expression)
-            if anim_offset:
-                sign, amount = anim_offset.groups()
-                offset = int(amount) * (1 if sign == "+" else -1)
-                result = terms_for_values(
-                    {action - offset for action in self_anims}, "anim")
-            elif hit_offset:
-                base = int(hit_offset.group(1))
-                values = sorted(
-                    hit_type for hit_type in range(0, 16)
-                    if base + hit_type in self_anims)
-                if len(values) > 8:
-                    raise ValueError(
-                        "SelfAnimExist dynamic animtype has too many cases")
-                result = "(" + " || ".join(
-                    f"(gethitvar(animtype)={value})" for value in values
-                ) + ")" if values else "0"
-            else:
-                raise ValueError(
-                    f"unsupported dynamic SelfAnimExist({expression})")
+        if not fixed_action:
+            return match.group(0)
+        result = "1" if int(fixed_action.group()) in self_anims else "0"
         return f"!({result})" if negated else result
 
     return re.sub(

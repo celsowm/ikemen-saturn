@@ -14,6 +14,42 @@ static int ikf_expr_read_field(
 ) {
     if (!user || !out_value) return 0;
     const ikf_expr_binding_t* binding = (const ikf_expr_binding_t*)user;
+    if (redirect == IK_EXPR_REDIRECT_SELF &&
+        field == IK_EXPR_FIELD_MATCH_OVER) {
+        *out_value = binding->fight->round_over != 0u;
+        return 1;
+    }
+    if (redirect == IK_EXPR_REDIRECT_SELF &&
+        (field == IK_EXPR_FIELD_WIN || field == IK_EXPR_FIELD_LOSE)) {
+        uint8_t owner = 2u;
+        if (binding->fighter) {
+            owner = ikf_fighter_player_index(
+                binding->fight, binding->fighter);
+        } else {
+            const ik_entity_t* entity = ik_entity_get_const(
+                binding->entity.pool, binding->entity.self);
+            if (entity) owner = entity->owner_player;
+        }
+        if (owner >= 2u) return 0;
+        const int won = binding->fight->winner == (uint8_t)(owner + 1u);
+        *out_value = field == IK_EXPR_FIELD_WIN
+            ? won : binding->fight->winner != 0u && !won;
+        return 1;
+    }
+    if (redirect == IK_EXPR_REDIRECT_SELF &&
+        field == IK_EXPR_FIELD_SELF_ANIM_EXISTS) {
+        const ik_frame_table_t* frames = binding->fighter
+            ? frames_for_fighter(binding->fight, binding->fighter)
+            : frames_for_entity(
+                binding->fight,
+                ik_entity_get_const(
+                    binding->entity.pool, binding->entity.self));
+        uint32_t first = 0u;
+        uint32_t count = 0u;
+        *out_value = frames &&
+            ik_frames_bounds(frames, index, &first, &count);
+        return 1;
+    }
     if (field == IK_EXPR_FIELD_HITDEF_ATTR) {
         uint8_t owner = 2u;
         int16_t active_hitdef = -1;
@@ -375,32 +411,36 @@ static int ikf_expr_read_field(
         *out_value = distance / IK_CNS_Q8_ONE;
         return 1;
     }
-    if (redirect == IK_EXPR_REDIRECT_SELF &&
-        field == IK_EXPR_FIELD_ANIM_ELEM_TIME && index >= 1 &&
+    if (field == IK_EXPR_FIELD_ANIM_ELEM_TIME && index >= 1 &&
         index <= UINT16_MAX) {
-        int16_t anim = -1;
-        uint16_t anim_time = 0u;
-        uint8_t owner = 2u;
-        if (binding->fighter) {
-            owner = ikf_fighter_player_index(
+        if (binding->fighter && redirect == IK_EXPR_REDIRECT_SELF) {
+            const uint8_t owner = ikf_fighter_player_index(
                 binding->fight, binding->fighter);
-            anim = binding->fighter->anim;
-            anim_time = binding->fighter->anim_time;
-        } else {
-            const ik_entity_t* entity = ik_entity_get_const(
-                binding->entity.pool, binding->entity.self);
-            if (entity) {
-                owner = entity->anim_owner;
-                anim = entity->anim_no;
-                anim_time = entity->anim_time;
-            }
+            const ik_frame_table_t* frames = frames_for_owner(
+                binding->fight, owner);
+            if (!frames) return 0;
+            *out_value = ik_anim_elem_time(
+                frames, binding->fighter->anim,
+                binding->fighter->anim_time, (uint16_t)index);
+            return 1;
         }
-        const ik_frame_table_t* frames = owner < 2u
-            ? binding->fight->player_frames[owner]
-            : owner == 2u ? binding->fight->fightfx_frames : 0;
-        if (!frames) return 0;
+        const ik_entity_handle_t handle =
+            redirect == IK_EXPR_REDIRECT_HELPER
+                ? ik_entity_redirect_helper(
+                    binding->entity.pool, binding->entity.self,
+                    redirect_id, redirect_index)
+                : redirect == IK_EXPR_REDIRECT_SELF
+                    ? binding->entity.self
+                    : ik_entity_redirect(
+                        binding->entity.pool, binding->entity.self,
+                        redirect);
+        const ik_entity_t* entity = ik_entity_get_const(
+            binding->entity.pool, handle);
+        const ik_frame_table_t* frames =
+            frames_for_entity(binding->fight, entity);
+        if (!entity || !frames) return 0;
         *out_value = ik_anim_elem_time(
-            frames, anim, anim_time, (uint16_t)index);
+            frames, entity->anim_no, entity->anim_time, (uint16_t)index);
         return 1;
     }
     if (redirect == IK_EXPR_REDIRECT_SELF &&
@@ -438,6 +478,22 @@ static int ikf_expr_read_field(
             f = &binding->fight->fighters[owner ^ 1u];
         }
         switch ((ik_expr_field_t)field) {
+            case IK_EXPR_FIELD_ANIM_ELEM:
+                {
+                    const uint8_t owner = ikf_fighter_player_index(
+                        binding->fight, f);
+                    const ik_frame_table_t* frames = frames_for_owner(
+                        binding->fight, owner);
+                    int element = 0;
+                    uint32_t anim_time = 0u;
+                    if (frames) {
+                        ik_anim_trace_state(
+                            frames, f->anim, f->anim_time,
+                            &element, &anim_time);
+                    }
+                    *out_value = element;
+                }
+                return 1;
             case IK_EXPR_FIELD_GET_HIT_ANIM_TYPE:
                 *out_value = f->gethit_anim_type;
                 return 1;

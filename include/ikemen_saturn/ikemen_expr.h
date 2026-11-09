@@ -98,7 +98,11 @@ typedef enum ik_expr_field {
     IK_EXPR_FIELD_HIT_SHAKE_OVER,
     IK_EXPR_FIELD_CAN_RECOVER,
     IK_EXPR_FIELD_FRONT_EDGE_BODY_DIST,
-    IK_EXPR_FIELD_GET_HIT_AIR_TYPE
+    IK_EXPR_FIELD_GET_HIT_AIR_TYPE,
+    IK_EXPR_FIELD_SELF_ANIM_EXISTS,
+    IK_EXPR_FIELD_MATCH_OVER,
+    IK_EXPR_FIELD_WIN,
+    IK_EXPR_FIELD_LOSE
 } ik_expr_field_t;
 
 typedef enum ik_expr_op {
@@ -128,7 +132,8 @@ typedef enum ik_expr_op {
     IK_EXPR_ABS,
     IK_EXPR_TRUNC_Q16,
     IK_EXPR_IFELSE,
-    IK_EXPR_TRUNC_Q8
+    IK_EXPR_TRUNC_Q8,
+    IK_EXPR_SELF_ANIM_EXISTS
 } ik_expr_op_t;
 
 typedef struct ik_expr_instr {

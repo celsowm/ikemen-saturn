@@ -168,6 +168,17 @@ int ik_expr_eval(
                 }
                 break;
 
+            case IK_EXPR_SELF_ANIM_EXISTS:
+                if (sp < 1u || !context->read_field ||
+                    !context->read_field(
+                        context->user, IK_EXPR_REDIRECT_SELF,
+                        IK_EXPR_FIELD_SELF_ANIM_EXISTS,
+                        stack[sp - 1u], 0, 0u, &value)) {
+                    return 0;
+                }
+                stack[sp - 1u] = value != 0;
+                break;
+
             case IK_EXPR_NOT:
             case IK_EXPR_NEG:
                 if (!unary(stack, sp, ins->op)) return 0;

@@ -440,6 +440,16 @@ static ik_entity_handle_t helper_by_id(
     return ik_entity_invalid_handle();
 }
 
+ik_entity_handle_t ik_entity_redirect_helper(
+    const ik_entity_pool_t* pool,
+    ik_entity_handle_t self,
+    int32_t helper_id,
+    uint8_t index
+) {
+    return helper_by_id(
+        pool, ik_entity_get_const(pool, self), helper_id, index);
+}
+
 static int32_t q8_to_int(int32_t value) {
     if (value >= 0) return value / IK_ENTITY_Q8_ONE;
     return -((-value) / IK_ENTITY_Q8_ONE);

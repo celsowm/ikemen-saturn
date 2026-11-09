@@ -214,6 +214,11 @@ ik_entity_handle_t ik_entity_redirect(
     const ik_entity_pool_t* pool,
     ik_entity_handle_t self,
     uint8_t redirect);
+ik_entity_handle_t ik_entity_redirect_helper(
+    const ik_entity_pool_t* pool,
+    ik_entity_handle_t self,
+    int32_t helper_id,
+    uint8_t index);
 
 uint8_t ik_entity_count_type(
     const ik_entity_pool_t* pool,
