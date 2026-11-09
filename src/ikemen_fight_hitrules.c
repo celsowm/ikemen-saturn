@@ -429,6 +429,11 @@ int ikf_can_guard_hit(const ik_fight_t* fight,
         return 0;
     }
     const uint8_t type = ikf_guard_type_for(fight, victim, controls);
+    if (type == IK_CNS_STATE_AIR &&
+        (victim->assert_controller_flags &
+         IK_CNS_ASSERT_NO_AIR_GUARD) != 0u) {
+        return 0;
+    }
     return (hitdef->guard_flags & guard_mask_for_type(type)) != 0u;
 }
 

@@ -207,9 +207,13 @@ typedef enum ik_cns_controller_type {
     IK_CNS_CTRL_SYSVAR_ADD,
     IK_CNS_CTRL_FVAR_SET,
     IK_CNS_CTRL_FVAR_ADD,
-    IK_CNS_CTRL_ASSERT_WALK_FLAGS,
+    IK_CNS_CTRL_ASSERT_FLAGS,
     IK_CNS_CTRL_LIFE_ADD
 } ik_cns_controller_type_t;
+
+/* Source compatibility for integrations that used the earlier narrower
+ * name before non-walking AssertSpecial flags joined this controller. */
+#define IK_CNS_CTRL_ASSERT_WALK_FLAGS IK_CNS_CTRL_ASSERT_FLAGS
 
 typedef enum ik_cns_helper_postype {
     IK_CNS_HELPER_POS_P1 = 0,
@@ -408,7 +412,8 @@ enum {
 
 enum {
     IK_CNS_ASSERT_NO_WALK = 1u << 0,
-    IK_CNS_ASSERT_NO_AUTO_TURN = 1u << 1
+    IK_CNS_ASSERT_NO_AUTO_TURN = 1u << 1,
+    IK_CNS_ASSERT_NO_AIR_GUARD = 1u << 2
 };
 
 typedef struct ik_cns_state {

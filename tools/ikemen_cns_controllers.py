@@ -137,17 +137,30 @@ def compile_runtime_controller(
         return " | ".join(flags) if flags else "0u"
 
     if ctype == "assertspecial":
-        flag = (ctrl.get("flag") or "").strip().casefold()
-        if flag in {"nowalk", "noautoturn"}:
-            flag_value = (
-                "IK_CNS_ASSERT_NO_WALK" if flag == "nowalk" else
-                "IK_CNS_ASSERT_NO_AUTO_TURN"
+        flag_values = [
+            value.strip().casefold()
+            for key, value in ctrl.values
+            if (
+                key.strip().casefold() == "flag" or
+                key.strip().casefold().startswith("flag") and
+                key.strip().casefold()[4:].isdigit()
             )
-            controller_type = "IK_CNS_CTRL_ASSERT_WALK_FLAGS"
-        elif flag == "intro":
+        ]
+        if not flag_values:
+            return None
+        flag_bits = {
+            "nowalk": "IK_CNS_ASSERT_NO_WALK",
+            "noautoturn": "IK_CNS_ASSERT_NO_AUTO_TURN",
+            "noairguard": "IK_CNS_ASSERT_NO_AIR_GUARD",
+        }
+        if all(flag in flag_bits for flag in flag_values):
+            flag_value = " | ".join(dict.fromkeys(
+                flag_bits[flag] for flag in flag_values))
+            controller_type = "IK_CNS_CTRL_ASSERT_FLAGS"
+        elif len(flag_values) == 1 and flag_values[0] == "intro":
             flag_value = "0"
             controller_type = "IK_CNS_CTRL_ASSERT_INTRO"
-        elif flag == "roundnotover":
+        elif len(flag_values) == 1 and flag_values[0] == "roundnotover":
             flag_value = "0"
             controller_type = "IK_CNS_CTRL_ASSERT_ROUND_NOT_OVER"
         else:

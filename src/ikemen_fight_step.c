@@ -128,6 +128,11 @@ static int enter_guard_stance(const ik_step_t* s) {
     if (s->is_dummy || !controls || f->hitstun != 0u) return 0;
 
     const int threat = f->in_guard_dist;
+    if (!f->on_ground &&
+        (f->assert_controller_flags &
+         IK_CNS_ASSERT_NO_AIR_GUARD) != 0u) {
+        return 0;
+    }
     if (controls->back && threat && f->ctrl &&
         !is_attack_fighter(fight, f) &&
         !ikf_in_guard_state(f->state) &&
@@ -316,11 +321,17 @@ static int run_state_tick(ik_step_t* s, int first_pass) {
     if (first_pass) {
         drop_stale_binder(fight, f);
         const int entered = dispatch_hardcoded_keys(s);
-        f->assert_controller_flags = 0u;
-        if (entered) return IKF_STEP_RERUN;
+        if (entered) {
+            f->assert_controller_flags = 0u;
+            return IKF_STEP_RERUN;
+        }
         /* Upstream starts guarding right after state -1, before the
          * current state's own controllers run. */
-        if (enter_guard_stance(s)) return IKF_STEP_RERUN;
+        if (enter_guard_stance(s)) {
+            f->assert_controller_flags = 0u;
+            return IKF_STEP_RERUN;
+        }
+        f->assert_controller_flags = 0u;
     }
     if (ikf_process_cns_controllers(
             fight, f, s->controls, s->frames, 0)) {

@@ -110,7 +110,7 @@ int ikf_ctrl_apply_fx(const ik_ctrl_exec_t* x) {
             fight->round_not_over_asserted = 1u;
             break;
 
-        case IK_CNS_CTRL_ASSERT_WALK_FLAGS:
+        case IK_CNS_CTRL_ASSERT_FLAGS:
             f->assert_controller_flags |= (uint8_t)ctrl->value0;
             break;
 
