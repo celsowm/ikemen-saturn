@@ -1076,16 +1076,30 @@ def compile_runtime_controller(
         }
 
     if ctype == "targetlifeadd":
+        supported_keys = {
+            "type", "value", "id", "index", "absolute", "kill",
+            "ignorehitpause",
+        }
+        if any(
+            not key.strip().casefold().startswith("trigger") and
+            key.strip().casefold() not in supported_keys
+            for key, _ in ctrl.values
+        ):
+            return None
+        value, value_expr = services["integer_or_runtime_expr"](
+            ctrl.get("value"), 0)
+        ctrl.runtime_value0_expr = value_expr
         return {
             "state_number": state_no,
             "type": "IK_CNS_CTRL_TARGET_LIFE_ADD",
             "trigger_kind": trig_kind,
             "trigger_value": trig_value,
             "trigger_value2": trig_value2,
-            "value0": integer(ctrl.get("value")),
-            "value1": 0,
+            "value0": value,
+            "value1": int(integer(ctrl.get("absolute"), 0) != 0),
             "value2": integer(ctrl.get("id"), -1),
             "value3": integer(ctrl.get("index"), -1),
+            "value5": int(integer(ctrl.get("kill"), 1) != 0),
             "flags": flag_expr(),
         }
 

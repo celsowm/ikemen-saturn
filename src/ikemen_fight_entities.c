@@ -1,5 +1,6 @@
 /* Fighter <-> entity pool mirroring and the entity runtime bridge. */
 #include "ikemen_fight_internal.h"
+#include "ikemen_fight_hit_values.h"
 
 uint8_t ikf_fighter_player_index(
     const ik_fight_t* fight,
@@ -151,22 +152,36 @@ static int apply_entity_target_controller_one(
 
         case IK_CNS_CTRL_TARGET_LIFE_ADD:
             if (target_fighter) {
-                int hp = (int)target_fighter->hp + ctrl->value0;
+                const int64_t add_q16 =
+                    (int64_t)ctrl->value0 * 65536;
+                const int32_t add = ikf_scale_life_add(
+                    add_q16,
+                    constants_for_fighter(fight, target_fighter),
+                    ikf_active_custom_defense_q16(target_fighter),
+                    ctrl->value1 != 0);
+                int hp = (int)target_fighter->hp + add;
                 const int max_hp = ik_fight_max_hp_player(
                     fight, target_fighter->owner_player);
                 if (hp > max_hp) hp = max_hp;
                 if (hp <= 0) {
-                    hp = 0;
-                    fight->winner =
-                        (uint8_t)((target_index ^ 1) + 1);
-                    fight->events |= IK_EVENT_KO;
-                    fight->win_by_ko = 1u;
+                    if (ctrl->value5 == 0 && target_fighter->hp > 0) {
+                        hp = 1;
+                    } else {
+                        hp = 0;
+                        fight->winner =
+                            (uint8_t)((target_index ^ 1) + 1);
+                        fight->events |= IK_EVENT_KO;
+                        fight->win_by_ko = 1u;
+                    }
                 }
                 target_fighter->hp = (int16_t)hp;
                 ikf_sync_fighter_entity(fight, target_fighter);
             } else {
                 int life = (int)target_entity->life + ctrl->value0;
-                if (life < 0) life = 0;
+                if (life <= 0) {
+                    life = ctrl->value5 == 0 && target_entity->life > 0
+                        ? 1 : 0;
+                }
                 if (life > 32767) life = 32767;
                 target_entity->life = (int16_t)life;
             }

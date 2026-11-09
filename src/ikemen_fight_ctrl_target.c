@@ -1,5 +1,6 @@
 /* Controller family: Controllers that act on the current target (TargetBind etc). */
 #include "ikemen_fight_internal.h"
+#include "ikemen_fight_hit_values.h"
 
 int ikf_ctrl_apply_target(const ik_ctrl_exec_t* x) {
     ik_fight_t* fight = x->fight;
@@ -48,16 +49,26 @@ int ikf_ctrl_apply_target(const ik_ctrl_exec_t* x) {
                 (ctrl->value2 < 0 || f->target_id == ctrl->value2)) {
                 const int target_index = f->target_index;
                 ik_fighter_t* target = &fight->fighters[target_index];
-                int hp = (int)target->hp + ctrl->value0;
+                const int64_t add_q16 =
+                    (int64_t)ctrl->value0 * 65536;
+                const int32_t add = ikf_scale_life_add(
+                    add_q16, constants_for_fighter(fight, target),
+                    ikf_active_custom_defense_q16(target),
+                    ctrl->value1 != 0);
+                int hp = (int)target->hp + add;
                 const int max_hp = ik_fight_max_hp_player(
                     fight, target->owner_player);
                 if (hp > max_hp) hp = max_hp;
                 if (hp <= 0) {
-                    hp = 0;
-                    fight->winner =
-                        (uint8_t)((target_index ^ 1) + 1);
-                    fight->events |= IK_EVENT_KO;
-                    fight->win_by_ko = 1u;
+                    if (ctrl->value5 == 0 && target->hp > 0) {
+                        hp = 1;
+                    } else {
+                        hp = 0;
+                        fight->winner =
+                            (uint8_t)((target_index ^ 1) + 1);
+                        fight->events |= IK_EVENT_KO;
+                        fight->win_by_ko = 1u;
+                    }
                 }
                 target->hp = (int16_t)hp;
             }

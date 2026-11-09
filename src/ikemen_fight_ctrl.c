@@ -273,6 +273,7 @@ int ikf_process_cns_controllers(
                 evaluated_ctrl.value6 = value;
             } else if (ctrl->type == IK_CNS_CTRL_CHANGE_ANIM ||
                        ctrl->type == IK_CNS_CTRL_LIFE_ADD ||
+                       ctrl->type == IK_CNS_CTRL_TARGET_LIFE_ADD ||
                        ctrl->type == IK_CNS_CTRL_HIT_FALL_SET ||
                        ctrl->type == IK_CNS_CTRL_ATTACK_MUL_SET ||
                        ctrl->type == IK_CNS_CTRL_DEFENCE_MUL_SET) {
