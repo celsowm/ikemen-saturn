@@ -56,6 +56,11 @@ endforeach()
 
 file(GLOB _sff_tool_sources CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/tools/ikemen_sff/*.py")
 set(_tools "${CMAKE_CURRENT_SOURCE_DIR}/tools")
+file(GLOB _cns_tool_sources CONFIGURE_DEPENDS
+    "${_tools}/ikemen_cns_*.py")
+list(APPEND _cns_tool_sources
+    "${_tools}/ikemen_cmd.py"
+    "${_tools}/ikemen_text.py")
 
 set(IKEMEN_FIGHTFX_ACTIONS "0,1,2,3,40,60,100,120")
 set(IKEMEN_CHARACTER_ACTIONS "0,5,10,11,12,20,21,40,41,42,43,47,100,105,120,121,122,130,131,132,140,141,142,150,151,152,170,181,190,191,192,195,200,210,230,240,400,410,430,440,600,610,630,640,800,810,820,821,1000,1010,1020,1025,1027,1050,1051,1052,1055,1056,1060,1061,1070,1071,1100,1110,1120,1200,1210,1220,1300,1310,1320,1330,1340,1350,1351,1400,1410,1420,3000,3050,3051,5000,5001,5002,5005,5006,5007,5010,5011,5012,5015,5016,5017,5020,5021,5022,5025,5026,5027,5030,5035,5040,5050,5051,5061,5070,5080,5090,5100,5101,5160,5170,5110,5120,5140,5150,5200,5210")
@@ -183,18 +188,7 @@ set(KFM_CNS_C "${IKEMEN_GEN_DIR}/kfm_cns.c")
 ikemen_generate(COMMENT "Ikemen assets: state controllers"
     OUTPUTS "${KFM_CNS_C}" "${IKEMEN_GEN_DIR}/kfm_cns.h"
     DEPENDS "${KFM_CNS}" "${KFM_AIR}" "${COMMON_CNS_ZSS}"
-            "${_tools}/ikemen_cns.py" "${_tools}/ikemen_cns_common.py"
-            "${_tools}/ikemen_cns_controllers.py"
-            "${_tools}/ikemen_cns_explods.py"
-            "${_tools}/ikemen_cns_emit.py"
-            "${_tools}/ikemen_cns_expr.py" "${_tools}/ikemen_cns_parse.py"
-            "${_tools}/ikemen_cns_expr_normalize.py"
-            "${_tools}/ikemen_cns_expr_parser.py"
-            "${_tools}/ikemen_cns_helpers.py"
-            "${_tools}/ikemen_cns_projectiles.py"
-            "${_tools}/ikemen_cns_state.py"
-            "${_tools}/ikemen_cns_triggers.py"
-            "${_tools}/ikemen_text.py"
+            ${_cns_tool_sources}
     COMMAND "${Python3_EXECUTABLE}" "${_tools}/ikemen_cns.py"
         --cns "${KFM_CNS}" --air "${KFM_AIR}"
         --states "${IKEMEN_CNS_STATES}"
@@ -225,19 +219,7 @@ ikemen_generate(COMMENT "Ikemen assets: source-checked ZSS states plus CNS fallb
     OUTPUTS "${KFM_ZSS_CNS_C}" "${IKEMEN_GEN_DIR}/kfm_zss_cns.h"
     DEPENDS "${KFM_CNS}" "${KFM_ZSS_CONST}" "${KFM_ZSS_AIR}"
             "${KFM_ZSS_CHARACTER_ZSS}" "${KFM_ZSS_HITS_ZSS}"
-            "${COMMON_CNS_ZSS}" "${_tools}/ikemen_cns.py"
-            "${_tools}/ikemen_cns_common.py" "${_tools}/ikemen_cns_emit.py"
-            "${_tools}/ikemen_cns_controllers.py"
-            "${_tools}/ikemen_cns_explods.py"
-            "${_tools}/ikemen_cns_expr.py"
-            "${_tools}/ikemen_cns_expr_normalize.py"
-            "${_tools}/ikemen_cns_expr_parser.py"
-            "${_tools}/ikemen_cns_helpers.py"
-            "${_tools}/ikemen_cns_parse.py"
-            "${_tools}/ikemen_cns_projectiles.py"
-            "${_tools}/ikemen_cns_state.py"
-            "${_tools}/ikemen_cns_triggers.py"
-            "${_tools}/ikemen_text.py"
+            "${COMMON_CNS_ZSS}" ${_cns_tool_sources}
             "${_tools}/ikemen_zss_character_states.py"
     COMMAND "${Python3_EXECUTABLE}" -m tools.ikemen_cns
         --cns "${KFM_CNS}" --constants-cns "${KFM_ZSS_CONST}"
