@@ -50,6 +50,17 @@ int ikf_ctrl_apply_state(const ik_ctrl_exec_t* x) {
             break;
         }
 
+        case IK_CNS_CTRL_REMOVE_EXPLOD: {
+            if (ctrl->value1 != 0 && x->index < 64u) {
+                const uint64_t bit = (uint64_t)1u << x->index;
+                if ((f->one_shot_controller_mask & bit) != 0u) break;
+                f->one_shot_controller_mask |= bit;
+            }
+            (void)ik_entity_remove_explods(
+                fight->entities, f->owner_player, ctrl->value0);
+            break;
+        }
+
         case IK_CNS_CTRL_SPR_PRIORITY:
             f->spr_priority = (int8_t)ctrl->value0;
             break;

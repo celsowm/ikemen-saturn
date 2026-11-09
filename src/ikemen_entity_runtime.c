@@ -229,6 +229,8 @@ void ik_entity_runtime_init(
     runtime->frames[1] = p2_frames ? p2_frames : p1_frames;
     runtime->command_masks[0] = 0u;
     runtime->command_masks[1] = 0u;
+    runtime->game_time = 0u;
+    runtime->explod_random_sequence = 0u;
     runtime->stage_min_x = 0;
     runtime->stage_max_x = 320;
     runtime->external_user = 0;
@@ -535,6 +537,19 @@ uint8_t ik_entity_runtime_modify_projectiles(
     return changed;
 }
 
+static int32_t explod_random_offset(uint32_t seed, int32_t range_q8) {
+    if (range_q8 <= 0) return 0;
+    uint32_t value = seed + 0x9e3779b9u;
+    value ^= value >> 16;
+    value *= 0x7feb352du;
+    value ^= value >> 15;
+    value *= 0x846ca68bu;
+    value ^= value >> 16;
+    const int64_t half = range_q8 / 2;
+    const uint32_t span = (uint32_t)(half * 2 + 1);
+    return (int32_t)((int64_t)(value % span) - half);
+}
+
 int ik_entity_runtime_spawn_explod(
     ik_entity_runtime_t* runtime,
     ik_entity_handle_t parent_handle,
@@ -549,8 +564,10 @@ int ik_entity_runtime_spawn_explod(
         ik_entity_get_const(runtime->pool, parent_handle);
     if (!parent || parent->owner_player >= 2u) return 0;
 
+    const int screen_space =
+        explod->postype >= IK_CNS_EXPLOD_POS_FRONT;
     ik_entity_handle_t base_handle = parent_handle;
-    if (explod->postype == IK_CNS_HELPER_POS_P2) {
+    if (explod->postype == IK_CNS_EXPLOD_POS_P2) {
         base_handle = runtime->pool->players[parent->owner_player ^ 1u];
     }
     const ik_entity_t* base =
@@ -570,10 +587,44 @@ int ik_entity_runtime_spawn_explod(
         return 0;
     }
 
+    const uint32_t random_seed = runtime->game_time ^
+        ((uint32_t)(uint16_t)parent->state_no << 16) ^
+        ((uint32_t)parent->state_time << 1) ^
+        ((uint32_t)parent->owner_player << 28) ^
+        runtime->explod_random_sequence++;
+    const int32_t random_x = explod_random_offset(
+        random_seed, explod->random_x_q8);
+    const int32_t random_y = explod_random_offset(
+        random_seed ^ 0xa511e9b3u, explod->random_y_q8);
     entity->id = explod->id;
-    entity->x_q8 =
-        base->x_q8 + (int32_t)base->facing * explod->pos_x_q8;
-    entity->y_q8 = base->y_q8 + explod->pos_y_q8;
+    entity->x_q8 = screen_space
+        ? explod->pos_x_q8 + random_x
+        : base->x_q8 + (int32_t)base->facing *
+            (explod->pos_x_q8 + random_x);
+    entity->y_q8 = screen_space
+        ? explod->pos_y_q8 + random_y
+        : base->y_q8 + explod->pos_y_q8 + random_y;
+    uint8_t screen_right = 0u;
+    if (screen_space) {
+        switch ((ik_cns_explod_postype_t)explod->postype) {
+            case IK_CNS_EXPLOD_POS_FRONT:
+                screen_right = parent->facing > 0;
+                break;
+            case IK_CNS_EXPLOD_POS_BACK:
+                screen_right = parent->facing < 0;
+                if (parent->facing < 0) entity->x_q8 = -entity->x_q8;
+                break;
+            case IK_CNS_EXPLOD_POS_RIGHT:
+                screen_right = 1u;
+                break;
+            case IK_CNS_EXPLOD_POS_P1:
+            case IK_CNS_EXPLOD_POS_P2:
+            case IK_CNS_EXPLOD_POS_LEFT:
+            case IK_CNS_EXPLOD_POS_NONE:
+            default:
+                break;
+        }
+    }
     entity->vx_q8 = (int32_t)parent->facing * explod->vel_x_q8;
     entity->vy_q8 = explod->vel_y_q8;
     entity->ax_q8 = (int32_t)parent->facing * explod->accel_x_q8;
@@ -587,11 +638,12 @@ int ik_entity_runtime_spawn_explod(
     entity->ownpal = explod->ownpal;
     entity->pause_move_time = explod->pause_move_time;
     entity->super_move_time = explod->super_move_time;
-    entity->explod_bind_time = explod->bind_time;
+    entity->explod_bind_time = screen_space ? 0 : explod->bind_time;
     entity->explod_parent_state_no = parent->state_no;
-    entity->explod_bind_anchor = base_handle;
-    entity->explod_bind_x_q8 = explod->pos_x_q8;
-    entity->explod_bind_y_q8 = explod->pos_y_q8;
+    entity->explod_bind_anchor = screen_space
+        ? ik_entity_invalid_handle() : base_handle;
+    entity->explod_bind_x_q8 = explod->pos_x_q8 + random_x;
+    entity->explod_bind_y_q8 = explod->pos_y_q8 + random_y;
     entity->explod_remove_on_gethit =
         explod->remove_on_gethit != 0u;
     entity->explod_remove_on_state_change =
@@ -606,6 +658,10 @@ int ik_entity_runtime_spawn_explod(
     entity->explod_trans_mode = explod->trans_mode;
     entity->explod_alpha = explod->alpha;
     entity->explod_under = explod->under;
+    entity->explod_ontop = explod->ontop;
+    entity->explod_screen_space = (uint8_t)screen_space;
+    entity->explod_screen_right = screen_right;
+    entity->explod_has_shadow = explod->has_shadow;
     entity->life = 1;
 
     *out_handle = spawned;
@@ -1147,6 +1203,19 @@ static int process_controllers(
             case IK_CNS_CTRL_DESTROY_SELF:
                 (void)ik_entity_destroy(runtime->pool, handle);
                 return 2;
+
+            case IK_CNS_CTRL_REMOVE_EXPLOD:
+                if (ctrl->value1 != 0 && i < 64u) {
+                    const uint64_t bit = (uint64_t)1u << i;
+                    if ((entity->one_shot_controller_mask & bit) != 0u) {
+                        break;
+                    }
+                    entity->one_shot_controller_mask |= bit;
+                }
+                (void)ik_entity_remove_explods(
+                    runtime->pool, entity->owner_player, ctrl->value0);
+                if (!ik_entity_get(runtime->pool, handle)) return 2;
+                break;
 
             default:
                 break;

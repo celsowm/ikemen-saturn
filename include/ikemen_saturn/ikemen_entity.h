@@ -112,6 +112,10 @@ typedef struct ik_entity {
     uint8_t explod_trans_mode;
     uint8_t explod_alpha;
     uint8_t explod_under;
+    uint8_t explod_ontop;
+    uint8_t explod_screen_space;
+    uint8_t explod_screen_right;
+    uint8_t explod_has_shadow;
 
     uint8_t proj_query_contact;
     uint8_t proj_query_hit;
@@ -158,6 +162,8 @@ int ik_entity_spawn(
     ik_entity_handle_t* out_handle);
 
 int ik_entity_destroy(ik_entity_pool_t* pool, ik_entity_handle_t handle);
+uint8_t ik_entity_remove_explods(
+    ik_entity_pool_t* pool, uint8_t owner_player, int32_t id);
 
 ik_entity_t* ik_entity_get(
     ik_entity_pool_t* pool,

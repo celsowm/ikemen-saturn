@@ -196,13 +196,24 @@ typedef enum ik_cns_controller_type {
     IK_CNS_CTRL_SCREEN_BACK_EFFECT, /* action / screen-Y offset */
     IK_CNS_CTRL_SOUND_EVENT,       /* common system group / item */
     IK_CNS_CTRL_GRAVITY,
-    IK_CNS_CTRL_POWER_ADD
+    IK_CNS_CTRL_POWER_ADD,
+    IK_CNS_CTRL_REMOVE_EXPLOD
 } ik_cns_controller_type_t;
 
 typedef enum ik_cns_helper_postype {
     IK_CNS_HELPER_POS_P1 = 0,
     IK_CNS_HELPER_POS_P2
 } ik_cns_helper_postype_t;
+
+typedef enum ik_cns_explod_postype {
+    IK_CNS_EXPLOD_POS_P1 = 0,
+    IK_CNS_EXPLOD_POS_P2,
+    IK_CNS_EXPLOD_POS_FRONT,
+    IK_CNS_EXPLOD_POS_BACK,
+    IK_CNS_EXPLOD_POS_LEFT,
+    IK_CNS_EXPLOD_POS_RIGHT,
+    IK_CNS_EXPLOD_POS_NONE
+} ik_cns_explod_postype_t;
 
 enum {
     IK_CNS_HITDEF_FALL = 1u << 0,
@@ -933,6 +944,10 @@ typedef struct ik_cns_explod {
     uint8_t alpha;
     int32_t id;
     uint8_t under;
+    uint8_t ontop;
+    int32_t random_x_q8;
+    int32_t random_y_q8;
+    uint8_t has_shadow;
 } ik_cns_explod_t;
 
 typedef struct ik_cns_helper {

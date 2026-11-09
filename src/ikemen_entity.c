@@ -162,6 +162,23 @@ int ik_entity_destroy(
     return 1;
 }
 
+uint8_t ik_entity_remove_explods(
+    ik_entity_pool_t* pool, uint8_t owner_player, int32_t id) {
+    if (!pool || owner_player >= 2u) return 0u;
+    uint8_t removed = 0u;
+    for (uint8_t slot = 0u; slot < IK_ENTITY_CAPACITY; ++slot) {
+        const ik_entity_t* entity = &pool->entities[slot];
+        if (entity->type != IK_ENTITY_EXPLOD ||
+            entity->owner_player != owner_player ||
+            (id >= 0 && entity->id != id)) {
+            continue;
+        }
+        const ik_entity_handle_t handle = {slot, pool->generations[slot]};
+        if (ik_entity_destroy(pool, handle)) ++removed;
+    }
+    return removed;
+}
+
 void ik_entity_clear_targets(
     ik_entity_pool_t* pool,
     ik_entity_handle_t source

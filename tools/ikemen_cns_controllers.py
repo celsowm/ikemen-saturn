@@ -59,6 +59,7 @@ def compile_runtime_controller(
         "hitvelset",
         "posfreeze",
         "destroyself",
+        "removeexplod",
         "pause",
         "superpause",
         "nothitby",
@@ -737,6 +738,24 @@ def compile_runtime_controller(
             "trigger_value2": trig_value2,
             "value0": 0,
             "value1": 0,
+            "flags": flag_expr(),
+        }
+
+    if ctype == "removeexplod":
+        for key, _ in ctrl.values:
+            lowered = key.strip().lower()
+            if lowered.startswith("trigger") or lowered in {
+                    "type", "id", "persistent", "ignorehitpause"}:
+                continue
+            return None
+        return {
+            "state_number": state_no,
+            "type": "IK_CNS_CTRL_REMOVE_EXPLOD",
+            "trigger_kind": trig_kind,
+            "trigger_value": trig_value,
+            "trigger_value2": trig_value2,
+            "value0": integer(ctrl.get("id"), -1),
+            "value1": 1 if integer(ctrl.get("persistent"), 1) == 0 else 0,
             "flags": flag_expr(),
         }
 
@@ -1437,11 +1456,12 @@ def compile_explod_controller(
     q8 = services['q8']
     supported_keys = {
         "type", "anim", "id", "supermove", "postype", "pos", "vel",
-        "velocity", "accel",
+        "velocity", "velset", "accel", "space",
         "removetime", "sprpriority", "persistent", "ignorehitpause",
         "ownpal", "pausemovetime", "supermovetime", "bindtime",
         "removeongethit", "removeonchangestate", "facing", "vfacing",
-        "scale", "trans", "alpha", "under",
+        "face", "scale", "trans", "alpha", "under", "ontop",
+        "unhittable", "shadow",
     }
     for key, _ in ctrl.values:
         lowered = key.strip().lower()
@@ -1452,16 +1472,48 @@ def compile_explod_controller(
 
     postype_name = (ctrl.get("postype", "p1") or "p1").strip().lower()
     postypes = {
-        "p1": "IK_CNS_HELPER_POS_P1",
-        "p2": "IK_CNS_HELPER_POS_P2",
+        "p1": "IK_CNS_EXPLOD_POS_P1",
+        "p2": "IK_CNS_EXPLOD_POS_P2",
+        "front": "IK_CNS_EXPLOD_POS_FRONT",
+        "back": "IK_CNS_EXPLOD_POS_BACK",
+        "left": "IK_CNS_EXPLOD_POS_LEFT",
+        "right": "IK_CNS_EXPLOD_POS_RIGHT",
+        "none": "IK_CNS_EXPLOD_POS_NONE",
     }
     postype = postypes.get(postype_name)
     if postype is None:
         return None
+    space_name = ctrl.get("space")
+    if space_name is not None and space_name.strip().lower() != "screen":
+        return None
+    unhittable = ctrl.get("unhittable")
+    if unhittable is not None and integer(unhittable, 0) != 1:
+        return None
 
     trig_kind, trig_value, trig_value2 = controller_trigger(ctrl, "explod")
     px, py = pair(ctrl.get("pos"), 0, 0)
-    vx, vy = pair(ctrl.get("vel", ctrl.get("velocity")), 0, 0)
+    random_x, random_y = pair(ctrl.get("random"), 0, 0)
+    shadow_values = [0, 0, 0]
+    has_shadow = 0
+    if ctrl.get("shadow") is not None:
+        raw_shadow = [part.strip() for part in ctrl.get("shadow").split(",")]
+        if len(raw_shadow) > 3:
+            return None
+        try:
+            values = [integer(value) for value in raw_shadow]
+        except ValueError:
+            return None
+        if values == [-1]:
+            has_shadow = 1
+            values = []
+        elif any(value < 0 for value in values):
+            return None
+        if any(value < 0 or value > 255 for value in values):
+            return None
+        shadow_values[:len(values)] = values
+        has_shadow |= int(any(shadow_values))
+    vx, vy = pair(
+        ctrl.get("vel", ctrl.get("velocity", ctrl.get("velset"))), 0, 0)
     ax, ay = pair(ctrl.get("accel"), 0, 0)
     sx, sy = pair(ctrl.get("scale"), 1, 1)
 
@@ -1506,14 +1558,21 @@ def compile_explod_controller(
         "remove_on_gethit": integer(ctrl.get("removeongethit"), 0),
         "remove_on_state_change": integer(
             ctrl.get("removeonchangestate"), 0),
-        "facing": 1 if integer(ctrl.get("facing"), 1) >= 0 else -1,
+        "facing": 1 if integer(
+            ctrl.get("facing", ctrl.get("face")), 1) >= 0 else -1,
         "vfacing": 1 if integer(ctrl.get("vfacing"), 1) >= 0 else -1,
         "scale_x_q8": q8(sx),
         "scale_y_q8": q8(sy),
         "trans_mode": trans_map[trans_text],
         "alpha": alpha_value,
         "under": 1 if integer(ctrl.get("under"), 0) else 0,
+        "ontop": 1 if integer(ctrl.get("ontop"), 0) else 0,
+        "random_x_q8": q8(random_x, wide=True),
+        "random_y_q8": q8(random_y, wide=True),
+        "has_shadow": has_shadow,
     }
+    # Explod entities are not inserted into the fighter/projectile contact
+    # queue, so `unhittable = 1` already matches this runtime's behavior.
     controller = {
         "state_number": state_no,
         "type": "IK_CNS_CTRL_EXPLOD",

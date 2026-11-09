@@ -26,6 +26,7 @@ typedef struct ik_entity_runtime {
     uint16_t command_masks[2];
     uint64_t command_active[2][2];
     uint32_t game_time;
+    uint32_t explod_random_sequence;
     int16_t stage_min_x;
     int16_t stage_max_x;
     void* external_user;
