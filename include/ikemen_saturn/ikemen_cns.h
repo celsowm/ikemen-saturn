@@ -963,6 +963,8 @@ typedef struct ik_cns_explod {
     uint8_t facing_expr_count;
     uint16_t spr_priority_expr_ofs;
     uint8_t spr_priority_expr_count;
+    uint16_t bind_time_expr_ofs;
+    uint8_t bind_time_expr_count;
 } ik_cns_explod_t;
 
 typedef struct ik_cns_helper {

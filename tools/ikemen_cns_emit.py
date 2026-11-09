@@ -120,6 +120,8 @@ def emit_cns_source_files(
         (explod["spr_priority_expr_ofs"],
          explod["spr_priority_expr_count"]) = intern_expression(
              explod.pop("_spr_priority_expr", None))
+        (explod["bind_time_expr_ofs"], explod["bind_time_expr_count"]) = \
+            intern_expression(explod.pop("_bind_time_expr", None))
     for controller in controllers:
         (controller["trigger_expr_ofs"],
          controller["trigger_expr_count"]) = intern_expression(
@@ -415,7 +417,9 @@ def emit_cns_source_files(
         f"{e.get('facing_expr_ofs', 0)}u, "
         f"{e.get('facing_expr_count', 0)}u, "
         f"{e.get('spr_priority_expr_ofs', 0)}u, "
-        f"{e.get('spr_priority_expr_count', 0)}u"
+        f"{e.get('spr_priority_expr_count', 0)}u, "
+        f"{e.get('bind_time_expr_ofs', 0)}u, "
+        f"{e.get('bind_time_expr_count', 0)}u"
         "},"
         for e in explods
     ]

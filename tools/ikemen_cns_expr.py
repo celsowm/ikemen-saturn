@@ -987,6 +987,21 @@ class _ExprCompiler(_ExprParser):
                 condition, when_true, when_false = args
                 return (condition + when_true + when_false +
                         [{"op": "IK_EXPR_IFELSE"}])
+            if lower == "playeridexist" and len(args) == 1:
+                # The Saturn fight runtime has exactly two player slots, with
+                # player IDs 0 and 1. Other MUGEN player IDs do not exist in
+                # this 1P-versus-2P runtime.
+                player_id = args[0]
+                scale = 65536 if self.q16 else 1
+                return (
+                    player_id +
+                    [{"op": "IK_EXPR_PUSH_CONST", "value0": 0},
+                     {"op": "IK_EXPR_GE"}] +
+                    player_id +
+                    [{"op": "IK_EXPR_PUSH_CONST", "value0": 2 * scale},
+                     {"op": "IK_EXPR_LT"},
+                     {"op": "IK_EXPR_AND"}]
+                )
             if lower == "stageauthoris" and len(args) == 1:
                 author_hash = self._integer_arg(args[0], name)
                 if author_hash < 0 or author_hash > 0x7fffffff:

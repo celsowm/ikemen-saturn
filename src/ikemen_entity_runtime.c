@@ -1207,6 +1207,22 @@ static int process_controllers(
                             explod.spr_priority = (int8_t)dynamic_priority;
                         }
                     }
+                    if (explod.bind_time_expr_count) {
+                        int32_t dynamic_bind_time = explod.bind_time;
+                        if (runtime_eval_expr(
+                                runtime, state_cns, handle,
+                                explod.bind_time_expr_ofs,
+                                explod.bind_time_expr_count,
+                                &dynamic_bind_time)) {
+                            if (dynamic_bind_time < INT16_MIN) {
+                                dynamic_bind_time = INT16_MIN;
+                            }
+                            if (dynamic_bind_time > INT16_MAX) {
+                                dynamic_bind_time = INT16_MAX;
+                            }
+                            explod.bind_time = (int16_t)dynamic_bind_time;
+                        }
+                    }
                     if (ctrl->value0_expr_count) {
                         explod.pos_x_q8 = ctrl->value6;
                     }

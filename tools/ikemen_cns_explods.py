@@ -144,6 +144,9 @@ def compile_explod_controller(
     spr_priority, spr_priority_expr = integer_or_runtime_expr(
         ctrl.get("sprpriority"), 0)
     spr_priority = max(-127, min(127, spr_priority))
+    bind_time, bind_time_expr = integer_or_runtime_expr(
+        ctrl.get("bindtime"), 0)
+    bind_time = max(-32768, min(32767, bind_time))
     explod = {
         "anim_no": anim_no,
         "id": max(0, integer(ctrl.get("id"), 0)),
@@ -160,7 +163,7 @@ def compile_explod_controller(
         "pause_move_time": min(0xFFFFFFFF, max(0, integer(
             ctrl.get("pausemovetime", ctrl.get("pausemove")), 0))),
         "super_move_time": super_move_time,
-        "bind_time": integer(ctrl.get("bindtime"), 0),
+        "bind_time": bind_time,
         "remove_on_gethit": integer(ctrl.get("removeongethit"), 0),
         "remove_on_state_change": integer(
             ctrl.get("removeonchangestate"), 0),
@@ -179,6 +182,7 @@ def compile_explod_controller(
         "_anim_expr": anim_expr,
         "_facing_expr": facing_expr,
         "_spr_priority_expr": spr_priority_expr,
+        "_bind_time_expr": bind_time_expr,
     }
     # Explod entities are not inserted into the fighter/projectile contact
     # queue, so `unhittable = 1` already matches this runtime's behavior.
