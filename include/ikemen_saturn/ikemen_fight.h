@@ -138,6 +138,9 @@ typedef struct ik_fighter {
     uint8_t in_guard_dist;
     uint8_t cur_state_type;
     uint8_t cur_move_type;
+    /* AssertSpecial controller flags survive through the next input pass;
+     * controllers then rebuild the current frame's assertions. */
+    uint8_t assert_controller_flags;
     int8_t physics_override; /* -1 uses the current StateDef physics */
     int32_t anim;
     uint16_t anim_time;

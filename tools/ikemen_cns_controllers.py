@@ -135,20 +135,28 @@ def compile_runtime_controller(
         return " | ".join(flags) if flags else "0u"
 
     if ctype == "assertspecial":
-        flag = (ctrl.get("flag") or "").strip().lower()
-        if flag not in {"intro", "roundnotover"}:
+        flag = (ctrl.get("flag") or "").strip().casefold()
+        if flag in {"nowalk", "noautoturn"}:
+            flag_value = (
+                "IK_CNS_ASSERT_NO_WALK" if flag == "nowalk" else
+                "IK_CNS_ASSERT_NO_AUTO_TURN"
+            )
+            controller_type = "IK_CNS_CTRL_ASSERT_WALK_FLAGS"
+        elif flag == "intro":
+            flag_value = "0"
+            controller_type = "IK_CNS_CTRL_ASSERT_INTRO"
+        elif flag == "roundnotover":
+            flag_value = "0"
+            controller_type = "IK_CNS_CTRL_ASSERT_ROUND_NOT_OVER"
+        else:
             return None
         return {
             "state_number": state_no,
-            "type": (
-                "IK_CNS_CTRL_ASSERT_INTRO"
-                if flag == "intro" else
-                "IK_CNS_CTRL_ASSERT_ROUND_NOT_OVER"
-            ),
+            "type": controller_type,
             "trigger_kind": trig_kind,
             "trigger_value": trig_value,
             "trigger_value2": trig_value2,
-            "value0": 0,
+            "value0": flag_value,
             "value1": 0,
             "flags": flag_expr(),
         }

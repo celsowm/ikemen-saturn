@@ -105,8 +105,10 @@ static void update_facing_and_fall_time(
             int anim_ended = 0;
             ikf_anim_position(frames_for_fighter(fight, f), f,
                               &elem, &elem_time, &anim_ended);
-            if (f->state == 0 || f->state == 11 || f->state == 20 ||
-                (f->state == 52 && anim_ended)) {
+            if ((f->assert_controller_flags &
+                 IK_CNS_ASSERT_NO_AUTO_TURN) == 0u &&
+                (f->state == 0 || f->state == 11 || f->state == 20 ||
+                 (f->state == 52 && anim_ended))) {
                 ikf_auto_turn(fight, f);
             }
         }
@@ -287,7 +289,10 @@ static int dispatch_hardcoded_keys(const ik_step_t* s) {
     if (!spec) return 0;
     const int forward = controls->forward != 0;
     const int back = controls->back != 0;
-    if (spec->assert_special_flags & IK_CNS_STATE_ASSERT_NO_WALK) return 0;
+    if ((spec->assert_special_flags & IK_CNS_STATE_ASSERT_NO_WALK) != 0u ||
+        (f->assert_controller_flags & IK_CNS_ASSERT_NO_WALK) != 0u) {
+        return 0;
+    }
     if (f->state != IK_STATE_WALK && f->ctrl &&
         f->cur_state_type == IK_CNS_STATE_STAND &&
         (forward != ((!f->in_guard_dist) && back)) &&
@@ -310,7 +315,9 @@ static int run_state_tick(ik_step_t* s, int first_pass) {
     if (f->state == IK_STATE_KO) return IKF_STEP_DONE;
     if (first_pass) {
         drop_stale_binder(fight, f);
-        if (dispatch_hardcoded_keys(s)) return IKF_STEP_RERUN;
+        const int entered = dispatch_hardcoded_keys(s);
+        f->assert_controller_flags = 0u;
+        if (entered) return IKF_STEP_RERUN;
         /* Upstream starts guarding right after state -1, before the
          * current state's own controllers run. */
         if (enter_guard_stance(s)) return IKF_STEP_RERUN;
@@ -399,6 +406,7 @@ static void step_fighter_body(
 
     f->frozen_tick = f->hit_pause > 0u;
     if (f->hit_pause > 0u) {
+        f->assert_controller_flags = 0u;
         (void)ikf_process_cns_controllers(fight, f, controls, frames, 1);
         /* At normal speed tickFrame and tickNextFrame coincide, which is the
          * legacy path below. During KO slow motion they are separate: the

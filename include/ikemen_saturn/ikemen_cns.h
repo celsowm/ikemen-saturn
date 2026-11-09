@@ -206,7 +206,8 @@ typedef enum ik_cns_controller_type {
     IK_CNS_CTRL_VAR_RANDOM,
     IK_CNS_CTRL_SYSVAR_ADD,
     IK_CNS_CTRL_FVAR_SET,
-    IK_CNS_CTRL_FVAR_ADD
+    IK_CNS_CTRL_FVAR_ADD,
+    IK_CNS_CTRL_ASSERT_WALK_FLAGS
 } ik_cns_controller_type_t;
 
 typedef enum ik_cns_helper_postype {
@@ -400,6 +401,11 @@ typedef struct ik_cns_constants {
 enum {
     IK_CNS_STATE_ASSERT_NO_WALK = 1u << 0,
     IK_CNS_STATE_ASSERT_NO_AUTO_TURN = 1u << 1
+};
+
+enum {
+    IK_CNS_ASSERT_NO_WALK = 1u << 0,
+    IK_CNS_ASSERT_NO_AUTO_TURN = 1u << 1
 };
 
 typedef struct ik_cns_state {
