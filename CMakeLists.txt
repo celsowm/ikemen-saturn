@@ -133,6 +133,7 @@ install(FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/tools/ikemen_cns_controllers.py"
     "${CMAKE_CURRENT_SOURCE_DIR}/tools/ikemen_cns_emit.py"
     "${CMAKE_CURRENT_SOURCE_DIR}/tools/ikemen_cns_expr.py"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tools/ikemen_cns_character.py"
     "${CMAKE_CURRENT_SOURCE_DIR}/tools/ikemen_cns_parse.py"
     "${CMAKE_CURRENT_SOURCE_DIR}/tools/ikemen_cns_state.py"
     "${CMAKE_CURRENT_SOURCE_DIR}/tools/ikemen_cns_triggers.py"
