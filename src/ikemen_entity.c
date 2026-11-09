@@ -484,6 +484,12 @@ int ik_entity_expr_read_field(
         case IK_EXPR_FIELD_MOVE_HIT:
             *out_value = entity->move_hit != 0u;
             return 1;
+        case IK_EXPR_FIELD_HIT_SHAKE_OVER:
+            *out_value = entity->hit_pause == 0u;
+            return 1;
+        case IK_EXPR_FIELD_GET_HIT_FALL:
+            *out_value = 0;
+            return 1;
         case IK_EXPR_FIELD_MOVE_REVERSED:
             *out_value = entity->move_reversed != 0u;
             return 1;

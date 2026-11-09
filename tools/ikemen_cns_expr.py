@@ -215,6 +215,8 @@ _RUNTIME_EXPR_FIELDS = {
     "animelem": "IK_EXPR_FIELD_ANIM_ELEM",
     "animtime": "IK_EXPR_FIELD_ANIM_TIME",
     "hitpausetime": "IK_EXPR_FIELD_HIT_PAUSE_TIME",
+    "hitshakeover": "IK_EXPR_FIELD_HIT_SHAKE_OVER",
+    "hitfall": "IK_EXPR_FIELD_GET_HIT_FALL",
     "hitover": "IK_EXPR_FIELD_HIT_OVER",
     "hitcount": "IK_EXPR_FIELD_HIT_COUNT",
     "uniqhitcount": "IK_EXPR_FIELD_UNIQ_HIT_COUNT",
@@ -408,6 +410,13 @@ class _ExprCompiler(_ExprParser):
 
         name = self._take()[1]
         lower = name.lower()
+        if lower == "ishelper" and self._peek() != ("op", "("):
+            scale = 65536 if self.q16 else 1
+            return (
+                self._load_runtime_field("IK_EXPR_FIELD_ENTITY_TYPE") +
+                [{"op": "IK_EXPR_PUSH_CONST", "value0": 2 * scale},
+                 {"op": "IK_EXPR_EQ"}]
+            )
         redirects = {
             "p2": "IK_EXPR_REDIRECT_P2",
             "enemy": "IK_EXPR_REDIRECT_P2",
@@ -718,12 +727,14 @@ class _ExprCompiler(_ExprParser):
                 return args[0] + [{"op": "IK_EXPR_ABS"}]
             if lower == "ishelper" and len(args) == 1:
                 helper_id = self._integer_arg(args[0], name)
+                scale = 65536 if self.q16 else 1
                 return (
                     self._load_runtime_field("IK_EXPR_FIELD_ENTITY_TYPE") +
-                    [{"op": "IK_EXPR_PUSH_CONST", "value0": 2},
+                    [{"op": "IK_EXPR_PUSH_CONST", "value0": 2 * scale},
                      {"op": "IK_EXPR_EQ"}] +
                     self._load_runtime_field("IK_EXPR_FIELD_ENTITY_ID") +
-                    [{"op": "IK_EXPR_PUSH_CONST", "value0": helper_id},
+                    [{"op": "IK_EXPR_PUSH_CONST",
+                      "value0": helper_id * scale},
                      {"op": "IK_EXPR_EQ"}, {"op": "IK_EXPR_AND"}]
                 )
             if lower == "ceil" and len(args) == 1:
@@ -1043,6 +1054,13 @@ def compile_cns_expr(
     )
     normalized = re.sub(
         r"\b(time|gametime)\s*(==|!=|=)\s*([\[(])\s*"
+        r"(-?\d+)\s*,\s*(-?\d+)\s*([\])])",
+        expand_interval,
+        normalized,
+        flags=re.I,
+    )
+    normalized = re.sub(
+        r"\b(p2bodydist\s+x)\s*(==|!=|=)\s*([\[(])\s*"
         r"(-?\d+)\s*,\s*(-?\d+)\s*([\])])",
         expand_interval,
         normalized,

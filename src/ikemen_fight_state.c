@@ -465,6 +465,9 @@ static int ikf_expr_read_field(
             case IK_EXPR_FIELD_HIT_OVER:
                 *out_value = f->hitstun == 0u;
                 return 1;
+            case IK_EXPR_FIELD_HIT_SHAKE_OVER:
+                *out_value = f->hit_shake_time == 0u;
+                return 1;
             case IK_EXPR_FIELD_IN_GUARD_DIST:
                 *out_value = f->in_guard_dist != 0u;
                 return 1;
