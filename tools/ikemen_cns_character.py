@@ -32,6 +32,8 @@ def compile_character_constants(globals_: dict, *, services: dict) -> dict[str, 
 
     return {
         "life": integer(data.get("life"), 1000),
+        "attack": integer(data.get("attack"), 100),
+        "defence": integer(data.get("defence"), 100),
         "air_juggle": integer(data.get("airjuggle"), 15),
         # HitDef values inherit these [Data] defaults when omitted.
         # They are compiler-only metadata; ik_cns_constants_t stays unchanged.

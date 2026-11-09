@@ -1,5 +1,6 @@
 /* Controller family: ChangeState family, variables, guard and hit-recovery routing. */
 #include "ikemen_fight_internal.h"
+#include "ikemen_fight_hit_values.h"
 
 int ikf_ctrl_apply_state(const ik_ctrl_exec_t* x) {
     ik_fight_t* fight = x->fight;
@@ -25,8 +26,11 @@ int ikf_ctrl_apply_state(const ik_ctrl_exec_t* x) {
             break;
 
         case IK_CNS_CTRL_LIFE_ADD: {
-            const int32_t add = ctrl->value0_expr_count
-                ? ctrl->value4 : ctrl->value0;
+            const int64_t add_q16 = ctrl->value0_expr_count
+                ? ctrl->value4 : (int64_t)ctrl->value0 * 65536;
+            const int32_t add = ikf_scale_life_add(
+                add_q16, constants_for_fighter(fight, f),
+                ikf_active_custom_defense_q16(f), ctrl->value1 != 0);
             if (add == 0) break;
             const int64_t adjusted = (int64_t)f->hp + add;
             const int max_hp = ik_fight_max_hp_player(
@@ -55,6 +59,20 @@ int ikf_ctrl_apply_state(const ik_ctrl_exec_t* x) {
             f->attack_mul_q16 = ctrl->value0_expr_count
                 ? ctrl->value4 : ctrl->value0;
             break;
+
+        case IK_CNS_CTRL_DEFENCE_MUL_SET: {
+            const int32_t value = ctrl->value0_expr_count
+                ? ctrl->value4 : ctrl->value0;
+            if (value <= 0) {
+                f->custom_defense_q16 = INT32_MAX;
+            } else {
+                const int64_t inverse = (INT64_C(1) << 32) / value;
+                f->custom_defense_q16 = inverse > INT32_MAX
+                    ? INT32_MAX : (int32_t)inverse;
+            }
+            f->defense_mul_delay = (uint8_t)(ctrl->value2 != 0);
+            break;
+        }
 
         case IK_CNS_CTRL_HIT_FALL_SET:
             if ((ctrl->value3 & IK_CNS_HIT_FALL_SET_VALUE) != 0) {

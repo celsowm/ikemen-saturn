@@ -316,7 +316,10 @@ void ikf_apply_damage(ik_fight_t* fight, int victim,
         a->prev_state == hitdef->alt_damage_prev_state) {
         damage = hitdef->alt_damage;
     }
-    damage = ikf_scale_attack_damage(damage, a->attack_mul_q16);
+    damage = ikf_scale_character_damage(
+        damage, a->attack_mul_q16,
+        constants_for_fighter(fight, a), constants_for_fighter(fight, v),
+        ikf_active_custom_defense_q16(v));
     int pending_damage = v->pending_damage + damage;
     if (((v->assert_controller_flags & IK_CNS_ASSERT_NO_KO) != 0u ||
          (fight->global_assert_controller_flags &

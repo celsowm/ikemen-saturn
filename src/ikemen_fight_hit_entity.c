@@ -73,8 +73,13 @@ void ikf_apply_guard_from_entity(
         const int32_t attack_mul_q16 = attacker->type == IK_ENTITY_PROJECTILE
             ? attacker->projectile_parent_attack_mul_q16
             : attacker->attack_mul_q16;
-        const int32_t damage = ikf_scale_attack_damage(
-            hitdef->guard_damage, attack_mul_q16);
+        const ik_fighter_t* attack_owner =
+            &fight->fighters[attacker->owner_player];
+        const int32_t damage = ikf_scale_character_damage(
+            hitdef->guard_damage, attack_mul_q16,
+            constants_for_fighter(fight, attack_owner),
+            constants_for_fighter(fight, v),
+            ikf_active_custom_defense_q16(v));
         v->hp = (int16_t)(v->hp - damage);
         if (v->hp <= 0) {
             if (hitdef->guard_kill &&

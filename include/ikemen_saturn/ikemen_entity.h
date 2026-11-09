@@ -57,6 +57,8 @@ typedef struct ik_entity {
     uint32_t name_hash;
     /* Q16.16 attack multiplier for helper-owned HitDefs. */
     int32_t attack_mul_q16;
+    int32_t custom_defense_q16;
+    uint8_t defense_mul_delay;
 
     ik_entity_handle_t parent;
     ik_entity_handle_t root;

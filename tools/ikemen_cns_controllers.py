@@ -67,6 +67,7 @@ def compile_runtime_controller(
         "varrandom",
         "lifeadd",
         "attackmulset",
+        "defencemulset",
         "hitfalldamage",
         "hitfallset",
         "fallenvshake",
@@ -300,8 +301,6 @@ def compile_runtime_controller(
             "trigger_value": trig_value,
             "trigger_value2": trig_value2,
             "value0": value,
-            # The current fight model has a fixed 1.0 defense multiplier, so
-            # LifeAdd's absolute switch has no numeric effect yet.
             "value1": int(integer(ctrl.get("absolute"), 0) != 0),
             "value2": int(integer(ctrl.get("kill"), 1) != 0),
             "flags": flag_expr(),
@@ -328,6 +327,30 @@ def compile_runtime_controller(
             "trigger_value2": trig_value2,
             "value0": q16(value),
             "value1": 0,
+            "flags": flag_expr(),
+        }
+
+    if ctype == "defencemulset":
+        allowed = {
+            "type", "trigger1", "trigger2", "trigger3", "trigger4",
+            "trigger5", "trigger6", "trigger7", "trigger8", "triggerall",
+            "value", "ignorehitpause", "persistent",
+        }
+        if any(key.strip().casefold() not in allowed for key, _ in ctrl.values):
+            return None
+        value, value_expr = number_or_runtime_expr(
+            ctrl.get("value"), 1.0)
+        ctrl.runtime_value0_expr = value_expr
+        return {
+            "state_number": state_no,
+            "type": "IK_CNS_CTRL_DEFENCE_MUL_SET",
+            "trigger_kind": trig_kind,
+            "trigger_value": trig_value,
+            "trigger_value2": trig_value2,
+            "value0": q16(value),
+            # MUGEN characters default to reciprocal mulType and onHit=true.
+            "value1": 0,
+            "value2": 1,
             "flags": flag_expr(),
         }
 

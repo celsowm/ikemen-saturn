@@ -252,7 +252,13 @@ void ikf_apply_damage_from_entity(
     const int32_t attack_mul_q16 = attacker->type == IK_ENTITY_PROJECTILE
         ? attacker->projectile_parent_attack_mul_q16
         : attacker->attack_mul_q16;
-    damage = ikf_scale_attack_damage(damage, attack_mul_q16);
+    const ik_fighter_t* attack_owner =
+        &fight->fighters[attacker->owner_player];
+    damage = ikf_scale_character_damage(
+        damage, attack_mul_q16,
+        constants_for_fighter(fight, attack_owner),
+        constants_for_fighter(fight, v),
+        ikf_active_custom_defense_q16(v));
 
     int pending_damage = v->pending_damage + damage;
     if (((v->assert_controller_flags & IK_CNS_ASSERT_NO_KO) != 0u ||

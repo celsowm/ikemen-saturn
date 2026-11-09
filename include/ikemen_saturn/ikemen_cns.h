@@ -213,7 +213,9 @@ typedef enum ik_cns_controller_type {
      * controller trigger as an explicit platform no-op. */
     IK_CNS_CTRL_PLATFORM_NOOP,
     IK_CNS_CTRL_HIT_FALL_SET,
-    IK_CNS_CTRL_ATTACK_MUL_SET
+    /* Q16.16 Damage/Defence multipliers used by subsequent contacts. */
+    IK_CNS_CTRL_ATTACK_MUL_SET,
+    IK_CNS_CTRL_DEFENCE_MUL_SET
 } ik_cns_controller_type_t;
 
 enum {
@@ -417,6 +419,9 @@ typedef struct ik_cns_constants {
     uint8_t ko_velocity_defined;
     uint32_t character_name_hash;
     uint32_t character_author_hash;
+    /* [Data] percentages used by the HitDef damage calculation. */
+    int16_t attack;
+    int16_t defence;
 } ik_cns_constants_t;
 
 enum {

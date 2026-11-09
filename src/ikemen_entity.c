@@ -104,6 +104,7 @@ int ik_entity_spawn(
     entity->anim_owner = owner_player;
     entity->id = id;
     entity->attack_mul_q16 = 65536;
+    entity->custom_defense_q16 = 65536;
     entity->parent = ik_entity_invalid_handle();
     entity->root = ik_entity_invalid_handle();
     entity->target = ik_entity_invalid_handle();

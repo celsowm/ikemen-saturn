@@ -1,6 +1,31 @@
 #include "ikemen_saturn/ikemen_entity_runtime.h"
 #include "ikemen_saturn/ikemen_command.h"
 
+static int32_t scale_entity_life_add(
+    int64_t amount_q16,
+    const ik_cns_constants_t* constants,
+    int32_t custom_defense_q16,
+    int absolute
+) {
+    if (custom_defense_q16 <= 0) custom_defense_q16 = 65536;
+    int64_t adjusted_q16 = amount_q16;
+    if (!absolute) {
+        const int32_t defence = constants && constants->defence > 0
+            ? constants->defence : 100;
+        adjusted_q16 = amount_q16 * 100 * 65536 /
+            ((int64_t)defence * custom_defense_q16);
+    }
+    if (!absolute && adjusted_q16 < 0 && adjusted_q16 > -65536) {
+        return -1;
+    }
+    const int64_t rounded = adjusted_q16 >= 0
+        ? (adjusted_q16 + 32768) / 65536
+        : (adjusted_q16 - 32768) / 65536;
+    if (rounded > INT32_MAX) return INT32_MAX;
+    if (rounded < INT32_MIN) return INT32_MIN;
+    return (int32_t)rounded;
+}
+
 typedef struct ik_entity_runtime_expr_binding {
     const ik_entity_runtime_t* runtime;
     ik_entity_expr_binding_t entity;
@@ -1028,7 +1053,8 @@ static int process_controllers(
             } else if (ctrl->type == IK_CNS_CTRL_CHANGE_ANIM ||
                        ctrl->type == IK_CNS_CTRL_LIFE_ADD ||
                        ctrl->type == IK_CNS_CTRL_HIT_FALL_SET ||
-                       ctrl->type == IK_CNS_CTRL_ATTACK_MUL_SET) {
+                       ctrl->type == IK_CNS_CTRL_ATTACK_MUL_SET ||
+                       ctrl->type == IK_CNS_CTRL_DEFENCE_MUL_SET) {
                 evaluated_ctrl.value0 = value;
                 evaluated_ctrl.value4 = value;
             } else {
@@ -1098,8 +1124,16 @@ static int process_controllers(
                 break;
 
             case IK_CNS_CTRL_LIFE_ADD: {
-                const int32_t add = ctrl->value0_expr_count
-                    ? ctrl->value4 : ctrl->value0;
+                const int64_t add_q16 = ctrl->value0_expr_count
+                    ? ctrl->value4 : (int64_t)ctrl->value0 * 65536;
+                const int32_t custom_defense_q16 =
+                    entity->defense_mul_delay &&
+                    entity->move_type != IK_CNS_MOVE_HIT
+                        ? 65536
+                        : entity->custom_defense_q16;
+                const int32_t add = scale_entity_life_add(
+                    add_q16, &runtime->cns->constants,
+                    custom_defense_q16, ctrl->value1 != 0);
                 if (add == 0) break;
                 int64_t life = (int64_t)entity->life + add;
                 int32_t max_life = runtime->cns->constants.life;
@@ -1117,6 +1151,20 @@ static int process_controllers(
                 entity->attack_mul_q16 = ctrl->value0_expr_count
                     ? ctrl->value4 : ctrl->value0;
                 break;
+
+            case IK_CNS_CTRL_DEFENCE_MUL_SET: {
+                const int32_t value = ctrl->value0_expr_count
+                    ? ctrl->value4 : ctrl->value0;
+                if (value <= 0) {
+                    entity->custom_defense_q16 = INT32_MAX;
+                } else {
+                    const int64_t inverse = (INT64_C(1) << 32) / value;
+                    entity->custom_defense_q16 = inverse > INT32_MAX
+                        ? INT32_MAX : (int32_t)inverse;
+                }
+                entity->defense_mul_delay = (uint8_t)(ctrl->value2 != 0);
+                break;
+            }
 
             case IK_CNS_CTRL_VAR_SET:
                 if (ctrl->value0 >= 0 &&

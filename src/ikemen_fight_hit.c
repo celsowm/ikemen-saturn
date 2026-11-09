@@ -128,8 +128,10 @@ void ikf_apply_guard(ik_fight_t* fight, int victim,
 
     int guard_ko = 0;
     if (hitdef->guard_damage > 0) {
-        const int32_t damage = ikf_scale_attack_damage(
-            hitdef->guard_damage, a->attack_mul_q16);
+        const int32_t damage = ikf_scale_character_damage(
+            hitdef->guard_damage, a->attack_mul_q16,
+            constants_for_fighter(fight, a), constants_for_fighter(fight, v),
+            ikf_active_custom_defense_q16(v));
         v->hp = (int16_t)(v->hp - damage);
         if (v->hp <= 0) {
             if (hitdef->guard_kill &&
