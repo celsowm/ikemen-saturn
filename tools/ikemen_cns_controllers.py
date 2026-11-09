@@ -69,6 +69,7 @@ def compile_runtime_controller(
         "attackmulset",
         "defencemulset",
         "hitfalldamage",
+        "hitfallvel",
         "hitfallset",
         "fallenvshake",
         "sysfvarset",
@@ -366,6 +367,26 @@ def compile_runtime_controller(
         return {
             "state_number": state_no,
             "type": "IK_CNS_CTRL_HIT_FALL_DAMAGE",
+            "trigger_kind": trig_kind,
+            "trigger_value": trig_value,
+            "trigger_value2": trig_value2,
+            "value0": 0,
+            "value1": 0,
+            "flags": flag_expr(),
+        }
+
+    if ctype == "hitfallvel":
+        if any(
+            not key.strip().casefold().startswith("trigger") and
+            key.strip().casefold() not in {
+                "type", "ignorehitpause",
+            }
+            for key, _ in ctrl.values
+        ):
+            return None
+        return {
+            "state_number": state_no,
+            "type": "IK_CNS_CTRL_HIT_FALL_VEL",
             "trigger_kind": trig_kind,
             "trigger_value": trig_value,
             "trigger_value2": trig_value2,

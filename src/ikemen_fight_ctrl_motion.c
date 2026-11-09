@@ -152,6 +152,16 @@ int ikf_ctrl_apply_motion(const ik_ctrl_exec_t* x) {
             }
             break;
 
+        case IK_CNS_CTRL_HIT_FALL_VEL:
+            if (f->cur_move_type == IK_CNS_MOVE_HIT) {
+                if (f->gethit_fall_x_set) {
+                    f->vx_q8 =
+                        (int32_t)f->facing * f->gethit_fall_x_q8;
+                }
+                f->vy_q8 = f->gethit_fall_y_q8;
+            }
+            break;
+
         case IK_CNS_CTRL_FALL_BOUNCE_VEL:
             if (f->gethit_fall_x_set) {
                 f->vx_q8 =

@@ -215,7 +215,8 @@ typedef enum ik_cns_controller_type {
     IK_CNS_CTRL_HIT_FALL_SET,
     /* Q16.16 Damage/Defence multipliers used by subsequent contacts. */
     IK_CNS_CTRL_ATTACK_MUL_SET,
-    IK_CNS_CTRL_DEFENCE_MUL_SET
+    IK_CNS_CTRL_DEFENCE_MUL_SET,
+    IK_CNS_CTRL_HIT_FALL_VEL
 } ik_cns_controller_type_t;
 
 enum {
