@@ -142,7 +142,12 @@ def compile_explod_controller(
     fightfx_anims = services.get("FIGHTFX_ANIMS")
     if (anim_expr is None and use_fightfx and fightfx_anims is not None and
             anim_no not in fightfx_anims):
-        return reject(f"fightfx animation {anim_no} does not exist")
+        # The upstream runtime rejects an Explod whose animation cannot be
+        # resolved when it commits the entity. It never renders or updates it.
+        # Treat this as a known no-op rather than blocking the whole state.
+        ctrl.ignored_noop = True
+        ctrl.unsupported_reason = f"fightfx animation {anim_no} does not exist"
+        return None
     facing_text = ctrl.get("facing", ctrl.get("face"))
     try:
         facing = 1 if integer(facing_text, 1) >= 0 else -1

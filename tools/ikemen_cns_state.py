@@ -716,6 +716,8 @@ def compile_state(
                         ),
                     })
             else:
+                if getattr(ctrl, "ignored_noop", False):
+                    continue
                 unsupported.append(ctype)
                 unsupported_details.append({
                     "type": ctype,
