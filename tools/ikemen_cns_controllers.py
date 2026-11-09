@@ -71,6 +71,7 @@ def compile_runtime_controller(
         "hitfalldamage",
         "hitfallvel",
         "hitfallset",
+        "varrangeset",
         "fallenvshake",
         "sysfvarset",
         "sysfvaradd",
@@ -987,6 +988,35 @@ def compile_runtime_controller(
             "trigger_value2": trig_value2,
             "value0": var_index,
             "value1": var_value,
+            "flags": flag_expr(),
+        }
+
+    if ctype == "varrangeset":
+        allowed = {
+            "type", "trigger1", "trigger2", "trigger3", "trigger4",
+            "trigger5", "trigger6", "trigger7", "trigger8", "triggerall",
+            "value", "fvalue", "first", "last", "ignorehitpause",
+        }
+        if any(key.strip().casefold() not in allowed for key, _ in ctrl.values):
+            return None
+        if (ctrl.get("value") is None) == (ctrl.get("fvalue") is None):
+            return None
+        is_float = ctrl.get("fvalue") is not None
+        value = (
+            q16(number(ctrl.get("fvalue")))
+            if is_float else integer(ctrl.get("value"))
+        )
+        return {
+            "state_number": state_no,
+            "type": "IK_CNS_CTRL_VAR_RANGE_SET",
+            "trigger_kind": trig_kind,
+            "trigger_value": trig_value,
+            "trigger_value2": trig_value2,
+            "value0": integer(ctrl.get("first"), 0),
+            "value1": integer(ctrl.get("last"), 59),
+            "value2": 0 if is_float else value,
+            "value3": value if is_float else 0,
+            "value4": int(is_float),
             "flags": flag_expr(),
         }
 

@@ -86,6 +86,17 @@ def normalize_cns_expr(
         )
 
     normalized = _normalize_logical_operators(text)
+    def rounds_existed(match: re.Match[str]) -> str:
+        if re.search(
+            r"\b(?:p2|enemy|enemynear|target|parent|root)\s*,\s*$",
+            normalized[:match.start()], flags=re.I,
+        ):
+            return match.group(0)
+        return "(roundno > 1)"
+
+    normalized = re.sub(
+        r"\broundsexisted\b", rounds_existed, normalized, flags=re.I,
+    )
     def stage_author(match: re.Match[str]) -> str:
         operator, author = match.groups()
         expression = f"stageauthoris({character_name_hash(author)})"
@@ -188,6 +199,12 @@ def normalize_cns_expr(
     normalized = re.sub(
         r"\bconst\s*\(\s*([a-z][a-z0-9_.]*)\s*\)",
         expand_self_const,
+        normalized,
+        flags=re.I,
+    )
+    normalized = re.sub(
+        r"\b(p2|enemy|enemynear|target|parent|root)\s*,\s*alive\b",
+        lambda match: f"({match.group(1)},life > 0)",
         normalized,
         flags=re.I,
     )

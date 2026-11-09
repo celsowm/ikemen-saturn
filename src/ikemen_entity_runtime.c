@@ -1181,6 +1181,25 @@ static int process_controllers(
                 }
                 break;
 
+            case IK_CNS_CTRL_VAR_RANGE_SET: {
+                const int32_t limit = ctrl->value4 != 0
+                    ? (int32_t)IK_ENTITY_FVAR_COUNT
+                    : (int32_t)IK_ENTITY_VAR_COUNT;
+                const int32_t first = ctrl->value0;
+                int32_t last = ctrl->value1;
+                if (first < 0 || first > last || first >= limit) break;
+                if (last >= limit) last = limit - 1;
+                for (int32_t var_index = first;
+                     var_index <= last; ++var_index) {
+                    if (ctrl->value4 != 0) {
+                        entity->fvars_q16[var_index] = ctrl->value3;
+                    } else {
+                        entity->vars[var_index] = ctrl->value2;
+                    }
+                }
+                break;
+            }
+
             case IK_CNS_CTRL_VAR_RANDOM:
                 if (ctrl->value0 >= 0 &&
                     ctrl->value0 < (int32_t)IK_ENTITY_VAR_COUNT) {
