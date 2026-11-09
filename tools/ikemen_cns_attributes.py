@@ -78,11 +78,7 @@ def guard_mask(text: str | None) -> str:
 def no_hit_by_state_mask(text: str | None) -> str:
     value = (text or "").split(",", 1)[0].strip().upper()
     if value == "":
-        return (
-            "IK_CNS_REVERSAL_STATE_STAND | "
-            "IK_CNS_REVERSAL_STATE_CROUCH | "
-            "IK_CNS_REVERSAL_STATE_AIR"
-        )
+        return "0u"
     bits: list[str] = []
     if "S" in value:
         bits.append("IK_CNS_REVERSAL_STATE_STAND")
@@ -91,6 +87,11 @@ def no_hit_by_state_mask(text: str | None) -> str:
     if "A" in value:
         bits.append("IK_CNS_REVERSAL_STATE_AIR")
     return " | ".join(dict.fromkeys(bits)) if bits else "0u"
+
+
+def hit_by_state_mask(text: str | None) -> str:
+    """Compile the optional S/C/A attacker-state portion of HitBy.value."""
+    return no_hit_by_state_mask(text)
 
 
 def no_hit_by_attr_mask(text: str | None) -> str:

@@ -54,13 +54,15 @@ except ImportError:  # direct `python tools/ikemen_cns.py` invocation
 try:
     from .ikemen_cns_attributes import (
         attack_attr_mask, attack_state_mask, guard_mask, hit_mask,
-        no_hit_by_attr_mask, no_hit_by_state_mask, priority_type_code,
+        hit_by_state_mask, no_hit_by_attr_mask, no_hit_by_state_mask,
+        priority_type_code,
         reversal_state_mask,
     )
 except ImportError:  # direct `python tools/ikemen_cns.py` invocation
     from ikemen_cns_attributes import (
         attack_attr_mask, attack_state_mask, guard_mask, hit_mask,
-        no_hit_by_attr_mask, no_hit_by_state_mask, priority_type_code,
+        hit_by_state_mask, no_hit_by_attr_mask, no_hit_by_state_mask,
+        priority_type_code,
         reversal_state_mask,
     )
 try:

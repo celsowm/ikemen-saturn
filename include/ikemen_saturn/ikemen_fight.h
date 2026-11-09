@@ -252,7 +252,10 @@ typedef struct ik_fighter {
     uint64_t one_shot_controller_mask;
     uint8_t not_hit_by_mask;
     uint16_t not_hit_by_attr_mask;
-    uint16_t not_hit_by_time;
+    int32_t not_hit_by_time;
+    uint8_t hit_by_state_mask;
+    uint16_t hit_by_attr_mask;
+    int32_t hit_by_time;
     int8_t target_index;
     int8_t hitdef_target;
     int8_t juggle_owner;

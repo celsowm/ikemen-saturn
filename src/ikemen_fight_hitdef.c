@@ -23,19 +23,25 @@ int ikf_fighter_not_hit_by_blocks(
     uint8_t attacker_state_bit,
     const ik_cns_hitdef_t* incoming
 ) {
-    if (!fight || !victim || !incoming ||
-        victim->not_hit_by_time == 0u ||
-        victim->not_hit_by_mask == 0u) {
+    if (!fight || !victim || !incoming) {
         return 0;
     }
-    if ((victim->not_hit_by_mask & attacker_state_bit) == 0u) {
-        return 0;
-    }
-    if (victim->not_hit_by_attr_mask == 0u) {
+    if (victim->hit_by_time != 0 &&
+        (victim->hit_by_state_mask == 0u ||
+         (victim->hit_by_state_mask & attacker_state_bit) == 0u ||
+         victim->hit_by_attr_mask == 0u ||
+         (victim->hit_by_attr_mask & incoming->attack_attr_mask) == 0u)) {
         return 1;
     }
-    return (victim->not_hit_by_attr_mask &
-            incoming->attack_attr_mask) != 0u;
+    if (victim->not_hit_by_time != 0) {
+        const int state_match =
+            (victim->not_hit_by_mask & attacker_state_bit) != 0u;
+        const int attr_match =
+            victim->not_hit_by_attr_mask != 0u &&
+            (victim->not_hit_by_attr_mask & incoming->attack_attr_mask) != 0u;
+        if (state_match || attr_match) return 1;
+    }
+    return 0;
 }
 
 const ik_cns_reversaldef_t* ikf_active_reversaldef(

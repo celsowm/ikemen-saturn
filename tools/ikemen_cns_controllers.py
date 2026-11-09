@@ -82,6 +82,7 @@ def compile_runtime_controller(
         "pause",
         "superpause",
         "nothitby",
+        "hitby",
         "envshake",
         "envcolor",
         "afterimage",
@@ -438,11 +439,14 @@ def compile_runtime_controller(
             "flags": flag_expr(),
         }
 
-    if ctype == "nothitby":
+    if ctype in {"hitby", "nothitby"}:
         raw = ctrl.get("value")
         if raw is None:
             raw = ctrl.get("value2")
-        state_mask = no_hit_by_state_mask(raw)
+        state_mask = (
+            services["hit_by_state_mask"](raw)
+            if ctype == "hitby" else no_hit_by_state_mask(raw)
+        )
         attr_mask = no_hit_by_attr_mask(raw)
         if state_mask == "0u" and attr_mask == "0u":
             return None
@@ -453,7 +457,10 @@ def compile_runtime_controller(
         )
         return {
             "state_number": state_no,
-            "type": "IK_CNS_CTRL_NOT_HIT_BY",
+            "type": (
+                "IK_CNS_CTRL_HIT_BY" if ctype == "hitby" else
+                "IK_CNS_CTRL_NOT_HIT_BY"
+            ),
             "trigger_kind": trig_kind,
             "trigger_value": trig_value,
             "trigger_value2": trig_value2,

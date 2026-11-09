@@ -42,6 +42,13 @@ static void tick_effect_timers(
             f->not_hit_by_attr_mask = 0u;
         }
     }
+    if (f->hit_by_time > 0) {
+        --f->hit_by_time;
+        if (f->hit_by_time == 0) {
+            f->hit_by_state_mask = 0u;
+            f->hit_by_attr_mask = 0u;
+        }
+    }
     if (controls && !controls->up) {
         f->up_latched = 0u;
     }

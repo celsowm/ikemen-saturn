@@ -113,7 +113,10 @@ static void fighter_spawn(ik_fight_t* fight, ik_fighter_t* f,
     f->one_shot_controller_mask = 0u;
     f->not_hit_by_mask = 0u;
     f->not_hit_by_attr_mask = 0u;
-    f->not_hit_by_time = 0u;
+    f->not_hit_by_time = 0;
+    f->hit_by_state_mask = 0u;
+    f->hit_by_attr_mask = 0u;
+    f->hit_by_time = 0;
     f->target_index = -1;
     f->hitdef_target = -1;
     f->juggle_owner = -1;

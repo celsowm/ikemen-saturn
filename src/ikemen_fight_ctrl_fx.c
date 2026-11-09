@@ -251,9 +251,14 @@ int ikf_ctrl_apply_fx(const ik_ctrl_exec_t* x) {
             f->not_hit_by_mask = (uint8_t)(ctrl->value0 & 0xff);
             f->not_hit_by_attr_mask =
                 (uint16_t)(((uint32_t)ctrl->value0 >> 8) & 0xffffu);
-            f->not_hit_by_time = (uint16_t)(
-                ctrl->value1 <= 0 ? 1 :
-                ctrl->value1 > 65535 ? 65535 : ctrl->value1);
+            f->not_hit_by_time = ctrl->value1;
+            break;
+
+        case IK_CNS_CTRL_HIT_BY:
+            f->hit_by_state_mask = (uint8_t)(ctrl->value0 & 0xff);
+            f->hit_by_attr_mask =
+                (uint16_t)(((uint32_t)ctrl->value0 >> 8) & 0xffffu);
+            f->hit_by_time = ctrl->value1;
             break;
 
         default:
