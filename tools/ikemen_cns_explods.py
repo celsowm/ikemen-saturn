@@ -116,6 +116,9 @@ def compile_explod_controller(
         int(fightfx_match.group(1))
         if fightfx_match else integer(anim_text, 0)
     )
+    fightfx_anims = services.get("FIGHTFX_ANIMS")
+    if use_fightfx and fightfx_anims is not None and anim_no not in fightfx_anims:
+        return None
     explod = {
         "anim_no": anim_no,
         "id": max(0, integer(ctrl.get("id"), 0)),

@@ -98,6 +98,7 @@ LOCALCOORD_X = 320.0
 CONST_VALUES: dict[str, float] = {}
 CHARACTER_NAME_HASH = 0
 SELF_ANIMS: set[int] | None = None
+FIGHTFX_ANIMS: set[int] | None = None
 _SELF_ANIM_TERM = re.compile(
     r"(!?)\s*SelfAnimExist\s*\(\s*(\d+)\s*\)", re.I)
 

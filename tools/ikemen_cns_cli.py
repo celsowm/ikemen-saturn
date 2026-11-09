@@ -35,6 +35,8 @@ def main(argv: list[str] | None = None, *, services: dict) -> int:
     parser.add_argument("--common-zss", type=Path)
     parser.add_argument("--air", type=Path,
                         help="the character's .air file (SelfAnimExist)")
+    parser.add_argument("--fightfx-air", type=Path,
+                        help="shared fightfx .air file for F-prefixed Explods")
     parser.add_argument("--common-states", default="")
     parser.add_argument(
         "--strict", action="store_true",
@@ -79,6 +81,9 @@ def main(argv: list[str] | None = None, *, services: dict) -> int:
 
     if args.air is not None:
         globals_dict["SELF_ANIMS"] = services["load_air_actions"](args.air)
+    if args.fightfx_air is not None:
+        globals_dict["FIGHTFX_ANIMS"] = services["load_air_actions"](
+            args.fightfx_air)
 
     services["configure_runtime_values"](globals_dict)
 
