@@ -26,7 +26,7 @@ typedef struct ik_sprite_source {
 } ik_sprite_source_t;
 
 typedef struct ik_frame {
-    uint16_t action;
+    int32_t action;
     uint16_t index;
     uint16_t w;
     uint16_t h;

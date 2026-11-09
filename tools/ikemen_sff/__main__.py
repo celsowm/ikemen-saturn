@@ -235,7 +235,10 @@ def cmd_char(args) -> int:
     frames: list[emit_mod.FrameAsset] = []
     sprite_assets: dict[tuple[int, int], emit_mod.SpriteAsset] = {}
     missing: list[str] = []
-    for action in args.actions:
+    selected_actions = (
+        sorted(actions) if args.actions == "all" else args.actions
+    )
+    for action in selected_actions:
         act = actions.get(action)
         if act is None or not act.frames:
             missing.append(str(action))
@@ -328,7 +331,7 @@ def cmd_char(args) -> int:
         "sff": args.sff,
         "air": args.air,
         "actions": {str(a): len(actions[a].frames)
-                    for a in args.actions if a in actions},
+                    for a in selected_actions if a in actions},
         "frames": len(frames),
         "unique_sprites": len(sprite_assets),
         "pixel_bytes": raw_blob,
@@ -338,9 +341,9 @@ def cmd_char(args) -> int:
         "max_sprite_bytes": max_sprite,
         "max_sprite_source_bytes": max(len(s.data) for s in sprite_assets.values()),
         "clsn1_default": {str(a): actions[a].clsn1_default
-                           for a in args.actions if a in actions},
+                           for a in selected_actions if a in actions},
         "clsn2_default": {str(a): actions[a].clsn2_default
-                           for a in args.actions if a in actions},
+                           for a in selected_actions if a in actions},
         "missing": missing,
     }
     (out_prefix.parent / f"{out_prefix.name}.json").write_text(
@@ -374,7 +377,10 @@ def cmd_fx(args) -> int:
     palette_words: list[list[int]] = []
     missing: list[str] = []
 
-    for action in args.actions:
+    selected_actions = (
+        sorted(actions) if args.actions == "all" else args.actions
+    )
+    for action in selected_actions:
         act = actions.get(action)
         if act is None or not act.frames:
             missing.append(str(action))
@@ -458,7 +464,7 @@ def cmd_fx(args) -> int:
         "sff": args.sff,
         "air": args.air,
         "actions": {str(a): len(actions[a].frames)
-                    for a in args.actions if a in actions},
+                    for a in selected_actions if a in actions},
         "frames": len(frames),
         "unique_sprites": len(sprite_assets),
         "palettes": len(palette_words),
@@ -522,7 +528,9 @@ def cmd_stage(args) -> int:
     return 0
 
 
-def _parse_actions(text: str) -> list[int]:
+def _parse_actions(text: str) -> list[int] | str:
+    if text.strip().casefold() == "all":
+        return "all"
     return [int(v) for v in text.split(",") if v.strip()]
 
 
@@ -538,7 +546,7 @@ def main(argv=None) -> int:
     char.add_argument("--sff", required=True)
     char.add_argument("--air", required=True)
     char.add_argument("--actions", type=_parse_actions, required=True,
-                      help="comma-separated AIR action numbers")
+                      help="comma-separated AIR action numbers, or 'all'")
     char.add_argument("--act-palettes", default=None,
                        help="semicolon-separated .act files used instead of "
                             "embedded SFF v1 palettes; first is the default")
@@ -557,7 +565,7 @@ def main(argv=None) -> int:
     fx.add_argument("--sff", required=True)
     fx.add_argument("--air", required=True)
     fx.add_argument("--actions", type=_parse_actions, required=True,
-                    help="comma-separated AIR action numbers")
+                    help="comma-separated AIR action numbers, or 'all'")
     fx.add_argument("--out-prefix", required=True)
     fx.add_argument("--symbol", required=True)
     fx.add_argument("--sprite-bin",
