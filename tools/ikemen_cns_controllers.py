@@ -1436,7 +1436,7 @@ def compile_explod_controller(
     pair = services['pair']
     q8 = services['q8']
     supported_keys = {
-        "type", "anim", "postype", "pos", "velocity", "accel",
+        "type", "anim", "id", "supermove", "postype", "pos", "velocity", "accel",
         "removetime", "sprpriority", "persistent", "ignorehitpause",
         "ownpal", "pausemovetime", "supermovetime", "bindtime",
         "removeongethit", "removeonchangestate", "facing", "vfacing",
@@ -1478,9 +1478,17 @@ def compile_explod_controller(
 
     alpha_src, _alpha_dst = pair(ctrl.get("alpha"), 256, 256)
     alpha_value = max(0, min(255, int(round(float(alpha_src) * 255.0 / 256.0))))
+    if ctrl.get("supermovetime") is not None:
+        super_move_time = max(0, integer(ctrl.get("supermovetime"), 0))
+    else:
+        super_move_time = (
+            0xFFFFFFFF if integer(ctrl.get("supermove"), 0) else 0
+        )
+    super_move_time = min(super_move_time, 0xFFFFFFFF)
 
     explod = {
         "anim_no": integer(ctrl.get("anim"), 0),
+        "id": max(0, integer(ctrl.get("id"), 0)),
         "pos_x_q8": q8(px, wide=True),
         "pos_y_q8": q8(py, wide=True),
         "vel_x_q8": q8(vx, wide=True),
@@ -1492,7 +1500,7 @@ def compile_explod_controller(
         "postype": postype,
         "ownpal": integer(ctrl.get("ownpal"), 0),
         "pause_move_time": max(0, integer(ctrl.get("pausemovetime"), 0)),
-        "super_move_time": max(0, integer(ctrl.get("supermovetime"), 0)),
+        "super_move_time": super_move_time,
         "bind_time": integer(ctrl.get("bindtime"), 0),
         "remove_on_gethit": integer(ctrl.get("removeongethit"), 0),
         "remove_on_state_change": integer(
