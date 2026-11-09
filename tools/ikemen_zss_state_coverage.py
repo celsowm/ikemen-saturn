@@ -17,7 +17,7 @@ from pathlib import Path
 if not __package__:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from tools.ikemen_cns import parse_zss_states
+from tools.ikemen_cns_common import parse_zss_states
 from tools.ikemen_zss_character_states import CHARACTER_STATES, HIT_STATES
 
 ROOT = sys.path[0]

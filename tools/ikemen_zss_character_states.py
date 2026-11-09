@@ -16,8 +16,9 @@ import re
 import hashlib
 from pathlib import Path
 
-from tools.ikemen_cns import (Section, State, _common_ctrl, parse_zss_states,
-                              no_hit_by_attr_mask, no_hit_by_state_mask, q8, q16)
+from tools.ikemen_cns import (Section, State, no_hit_by_attr_mask,
+                              no_hit_by_state_mask, q8, q16)
+from tools.ikemen_cns_common import _common_ctrl, parse_zss_states
 
 # Supported source bodies with every controller lowered in the exact order.
 # Normalization discards insignificant spacing and ZSS '#' comments, but no
@@ -337,7 +338,7 @@ def zss_row_patch(state: int) -> dict:
     state keeps exactly the row its own StateDef produces.
     """
     if state in (20, 100):
-        from tools.ikemen_cns import locomotion_row_patch
+        from tools.ikemen_cns_common import locomotion_row_patch
         return locomotion_row_patch(state)
     return {}
 
@@ -348,7 +349,7 @@ def _controllers(state: int, const: dict[str, int] | None = None) -> list[dict]:
             raise ValueError(
                 f"state {state}: locomotion lowering requires the resolved "
                 "velocity constants")
-        from tools.ikemen_cns import locomotion_ctrl_rows
+        from tools.ikemen_cns_common import locomotion_ctrl_rows
         return locomotion_ctrl_rows(state, const)
     if state == 170:
         # Invulnerable to S/C/A attackers for one tick (refreshed each tick).

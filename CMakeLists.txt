@@ -128,6 +128,7 @@ install(FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/tools/ikemen_cmd.py"
     "${CMAKE_CURRENT_SOURCE_DIR}/tools/ikemen_zss_ai.py"
     "${CMAKE_CURRENT_SOURCE_DIR}/tools/ikemen_cns.py"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tools/ikemen_cns_common.py"
     "${CMAKE_CURRENT_SOURCE_DIR}/tools/ikemen_cns_emit.py"
     "${CMAKE_CURRENT_SOURCE_DIR}/tools/ikemen_cns_expr.py"
     "${CMAKE_CURRENT_SOURCE_DIR}/tools/ikemen_cns_parse.py"
