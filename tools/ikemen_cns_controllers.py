@@ -630,9 +630,24 @@ def compile_runtime_controller(
             raise ValueError(
                 f"[{ctrl.name}] {'sysvar' if var_is_system else 'var'} "
                 f"index outside 0..{var_count - 1}")
-        var_value = integer(var_value_text)
+        try:
+            var_value = integer(var_value_text)
+            var_value_expr = None
+        except ValueError:
+            try:
+                # CNS VarSet/VarAdd expressions produce integer values. Keep
+                # their bytecode unscaled so the full int32 variable range is
+                # available at runtime.
+                var_value_expr = compile_cns_expr(
+                    var_value_text, q16=False)
+                var_value = 0
+            except ValueError:
+                if STRICT_CONVERSION:
+                    raise
+                return None
         if var_value < -2147483648 or var_value > 2147483647:
             raise ValueError(f"[{ctrl.name}] var value outside int32")
+        ctrl.runtime_value1_expr = var_value_expr
         return {
             "state_number": state_no,
             "type": (
