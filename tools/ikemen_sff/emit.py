@@ -73,6 +73,13 @@ def _c_boxes(boxes: list[tuple[int, int, int, int]]) -> str:
     )
 
 
+def _c_frame_ticks(ticks: int) -> int:
+    """Keep MUGEN's zero/infinite-duration meaning in the uint16 frame ABI."""
+    if ticks <= 0 or ticks >= 0xFFFF:
+        return 0
+    return ticks
+
+
 def emit_frames(prefix: str, symbol: str, frames: list[FrameAsset],
                 sprite_assets: dict[tuple[int, int], SpriteAsset],
                 palettes: dict[str, list[int]], source_name: str) -> tuple[str, str, bytes]:
@@ -123,7 +130,7 @@ def emit_frames(prefix: str, symbol: str, frames: list[FrameAsset],
     symbol = _sanitize(symbol)
     frames_init = "\n".join(
         f"{INDENT}{{{f.action}u, {f.index}u, {f.width}u, {f.height}u, "
-        f"{f.ax}, {f.ay}, {max(f.ticks, 0)}u, "
+        f"{f.ax}, {f.ay}, {_c_frame_ticks(f.ticks)}u, "
         f"{(1 if f.flip_h else 0) | (2 if f.flip_v else 0) | (4 if f.blend_mode == 1 else 0) | (8 if f.blend_mode == 2 else 0) | (16 if f.loop_start else 0)}u, "
         f"{f.sprite_index}u, {meta[0]}u, {meta[1]}u, {meta[2]}u, {meta[3]}u, "
         f"{f.air_x}, {f.air_y}}},"

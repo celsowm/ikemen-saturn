@@ -84,8 +84,36 @@ sat_result_t ik_asset_store_load_blob(
     return refresh_cart_info(store);
 }
 
+sat_result_t ik_asset_store_open_file(
+    ik_asset_store_t* store,
+    uint8_t slot,
+    const char* disc_path,
+    uint32_t expected_bytes
+) {
+    if (store == 0 || slot >= IK_ASSET_SLOT_COUNT || disc_path == 0) {
+        return SAT_ERR_INVALID_ARG;
+    }
+    if (store->blobs[slot].loaded) return SAT_ERR_ALREADY_EXISTS;
+
+    sat_cdfs_file_t file = {0u, 0u, 0u, {0u, 0u, 0u}};
+    g_ikemen_asset_last_step = 1u;
+    SAT_TRY(sat_cdfs_lookup(&store->volume, disc_path, &file));
+    if (file.directory != 0u || file.size == 0u ||
+        (expected_bytes != 0u && file.size != expected_bytes)) {
+        return SAT_ERR_VERSION;
+    }
+
+    ik_asset_blob_t* blob = &store->blobs[slot];
+    blob->file = file;
+    blob->bytes = file.size;
+    blob->streamed = 1u;
+    blob->loaded = 1u;
+    g_ikemen_asset_last_step = 5u;
+    return SAT_OK;
+}
+
 sat_result_t ik_asset_store_read(
-    const ik_asset_store_t* store,
+    ik_asset_store_t* store,
     uint8_t slot,
     uint32_t offset,
     void* destination,
@@ -99,6 +127,13 @@ sat_result_t ik_asset_store_read(
     if (!blob->loaded) return SAT_ERR_NOT_INITIALIZED;
     if (offset > blob->bytes || bytes > blob->bytes - offset) {
         return SAT_ERR_IO;
+    }
+    if (blob->streamed) {
+        uint32_t read = 0u;
+        const sat_result_t st = sat_cdfs_read_at(
+            &store->volume, &blob->file, offset, destination, bytes, &read);
+        if (st != SAT_OK) return st;
+        return read == bytes ? SAT_OK : SAT_ERR_IO;
     }
     return sat_ram_cart_buffer_read_at(
         &blob->buffer, offset, destination, bytes);
@@ -115,6 +150,7 @@ sat_result_t ik_asset_store_map(
     }
     const ik_asset_blob_t* blob = &store->blobs[slot];
     if (!blob->loaded) return SAT_ERR_NOT_INITIALIZED;
+    if (blob->streamed) return SAT_ERR_UNSUPPORTED;
     if (!blob->buffer.bank[0] || blob->buffer.bank[1]) {
         return SAT_ERR_UNSUPPORTED;
     }
@@ -124,7 +160,7 @@ sat_result_t ik_asset_store_map(
 }
 
 sat_result_t ik_asset_store_read_sprite(
-    const ik_asset_store_t* store,
+    ik_asset_store_t* store,
     uint8_t slot,
     const ik_sprite_source_t* source,
     uint8_t* destination,
@@ -158,6 +194,7 @@ sat_result_t ik_asset_store_load_memory(
         &blob->buffer, 0u, data, bytes));
 
     blob->bytes = bytes;
+    blob->streamed = 0u;
     blob->loaded = 1u;
     return refresh_cart_info(store);
 }

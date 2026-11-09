@@ -27,8 +27,10 @@ extern "C" {
 
 typedef struct ik_asset_blob {
     sat_ram_cart_buffer_t buffer;
+    sat_cdfs_file_t file;
     uint32_t bytes;
     uint8_t loaded;
+    uint8_t streamed;
 } ik_asset_blob_t;
 
 typedef struct ik_asset_store {
@@ -55,6 +57,15 @@ sat_result_t ik_asset_store_load_blob(
     uint8_t* staging,
     uint32_t staging_bytes);
 
+/* Opens a disc file as a streamed slot without copying it into the RAM cart.
+ * Reads from this slot go through CDFS and use the same byte offsets as a
+ * resident blob. Use for large sprite payloads that exceed cart capacity. */
+sat_result_t ik_asset_store_open_file(
+    ik_asset_store_t* store,
+    uint8_t slot,
+    const char* disc_path,
+    uint32_t expected_bytes);
+
 /* Loads raw bytes from memory into a resident cart slot, bypassing the CD
  * transport. Useful when the disc filesystem is unavailable or when assets
  * are embedded in the application binary. */
@@ -65,7 +76,7 @@ sat_result_t ik_asset_store_load_memory(
     uint32_t bytes);
 
 sat_result_t ik_asset_store_read(
-    const ik_asset_store_t* store,
+    ik_asset_store_t* store,
     uint8_t slot,
     uint32_t offset,
     void* destination,
@@ -80,7 +91,7 @@ sat_result_t ik_asset_store_map(
     uint32_t* out_bytes);
 
 sat_result_t ik_asset_store_read_sprite(
-    const ik_asset_store_t* store,
+    ik_asset_store_t* store,
     uint8_t slot,
     const ik_sprite_source_t* source,
     uint8_t* destination,
