@@ -153,6 +153,10 @@ def compile_runtime_controller(
             "noautoturn": "IK_CNS_ASSERT_NO_AUTO_TURN",
             "noairguard": "IK_CNS_ASSERT_NO_AIR_GUARD",
             "noshadow": "IK_CNS_ASSERT_NO_SHADOW",
+            "nobg": "IK_CNS_ASSERT_NO_BG",
+            "nofg": "IK_CNS_ASSERT_NO_FG",
+            "nobardisplay": "IK_CNS_ASSERT_NO_BAR_DISPLAY",
+            "invisible": "IK_CNS_ASSERT_INVISIBLE",
         }
         if all(flag in flag_bits for flag in flag_values):
             flag_value = " | ".join(dict.fromkeys(
