@@ -130,6 +130,15 @@ static int ikf_expr_read_field(
         return 1;
     }
     if (field == IK_EXPR_FIELD_CHARACTER_NAME_HASH) {
+        if (redirect == IK_EXPR_REDIRECT_SELF && !binding->fighter) {
+            const ik_entity_t* entity = ik_entity_get_const(
+                binding->entity.pool, binding->entity.self);
+            if (entity && entity->type == IK_ENTITY_HELPER &&
+                entity->name_hash != 0u) {
+                *out_value = (int32_t)entity->name_hash;
+                return 1;
+            }
+        }
         uint8_t owner = 2u;
         if (binding->fighter) {
             owner = ikf_fighter_player_index(

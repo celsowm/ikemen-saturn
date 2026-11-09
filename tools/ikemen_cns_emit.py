@@ -478,7 +478,8 @@ def emit_cns_source_files(
         f"{h['facing']}, {h['postype']}, "
         f"{h['keyctrl']}u, {h['ownpal']}u, "
         f"{h.get('pause_move_time', 0)}u, "
-        f"{h.get('super_move_time', 0)}u"
+        f"{h.get('super_move_time', 0)}u, "
+        f"{h.get('name_hash', 0)}u, {h.get('spr_priority', 0)}"
         "},"
         for h in helpers
     ]

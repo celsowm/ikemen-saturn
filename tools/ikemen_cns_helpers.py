@@ -18,10 +18,11 @@ def compile_helper_controller(
     integer = services['integer']
     pair = services['pair']
     q8 = services['q8']
+    character_name_hash = services['character_name_hash']
     supported_keys = {
-        "type", "helpertype", "postype", "ownpal", "stateno",
+        "type", "helpertype", "postype", "ownpal", "stateno", "name",
         "keyctrl", "id", "pos", "facing", "ignorehitpause",
-        "pausemovetime", "supermovetime",
+        "pausemovetime", "supermovetime", "persistent", "sprpriority",
     }
     for key, _ in ctrl.values:
         lowered = key.strip().lower()
@@ -55,7 +56,12 @@ def compile_helper_controller(
         "state_no": integer(ctrl.get("stateno"), 0),
         "pos_x_q8": q8(px),
         "pos_y_q8": q8(py),
+        "name_hash": character_name_hash(
+            (ctrl.get("name") or "").strip().strip('"'))
+            if ctrl.get("name") else 0,
         "facing": facing,
+        "spr_priority": max(-127, min(127, integer(
+            ctrl.get("sprpriority"), 0))),
         "postype": postype,
         # MUGEN booleans commonly use 99999 for true. These fields are
         # represented as uint8_t flags in the runtime, so preserve truth
@@ -72,7 +78,7 @@ def compile_helper_controller(
         "trigger_value": trig_value,
         "trigger_value2": trig_value2,
         "value0": helper_index,
-        "value1": 0,
+        "value1": 1 if integer(ctrl.get("persistent"), 1) == 0 else 0,
         "flags": (
             "IK_CNS_CTRL_IGNORE_HIT_PAUSE"
             if integer(ctrl.get("ignorehitpause"), 0)

@@ -417,8 +417,10 @@ int ik_entity_runtime_spawn_helper(
     entity->x_q8 =
         base->x_q8 + (int32_t)base->facing * helper->pos_x_q8;
     entity->y_q8 = base->y_q8 + helper->pos_y_q8;
+    entity->name_hash = helper->name_hash;
     entity->facing =
         (int8_t)(parent->facing * (helper->facing < 0 ? -1 : 1));
+    entity->spr_priority = helper->spr_priority;
     entity->life = runtime->cns->constants.life;
     entity->power = parent->power;
     entity->push_back = runtime->cns->constants.ground_back;

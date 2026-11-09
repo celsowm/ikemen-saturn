@@ -36,6 +36,7 @@ typedef struct ik_entity {
     uint8_t state_owner;
     uint8_t anim_owner;
     int32_t id;
+    uint32_t name_hash;
 
     ik_entity_handle_t parent;
     ik_entity_handle_t root;

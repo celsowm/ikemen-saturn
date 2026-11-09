@@ -964,6 +964,8 @@ typedef struct ik_cns_helper {
     uint8_t ownpal;
     uint32_t pause_move_time;
     uint32_t super_move_time;
+    uint32_t name_hash;
+    int8_t spr_priority;
 } ik_cns_helper_t;
 
 typedef struct ik_cns_asset {

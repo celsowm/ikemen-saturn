@@ -92,6 +92,11 @@ int ikf_ctrl_apply_spawn(const ik_ctrl_exec_t* x) {
         }
 
         case IK_CNS_CTRL_HELPER: {
+            if (ctrl->value1 != 0 && x->index < 64u) {
+                const uint64_t bit = UINT64_C(1) << x->index;
+                if ((f->one_shot_controller_mask & bit) != 0u) break;
+                f->one_shot_controller_mask |= bit;
+            }
             if (!fight->entities || !state_cns->helpers ||
                 ctrl->value0 < 0 ||
                 ctrl->value0 >= state_cns->helper_count) {
