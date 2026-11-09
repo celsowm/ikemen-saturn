@@ -316,7 +316,12 @@ void ikf_apply_damage(ik_fight_t* fight, int victim,
         a->prev_state == hitdef->alt_damage_prev_state) {
         damage = hitdef->alt_damage;
     }
-    v->pending_damage = (int16_t)(v->pending_damage + damage);
+    int pending_damage = v->pending_damage + damage;
+    if ((v->assert_controller_flags & IK_CNS_ASSERT_NO_KO) != 0u &&
+        v->hp > 0 && pending_damage >= v->hp) {
+        pending_damage = v->hp - 1;
+    }
+    v->pending_damage = (int16_t)pending_damage;
     const int hp_after = v->hp - v->pending_damage;
     const int ko = hp_after <= 0;
     if (ko) {
@@ -382,10 +387,13 @@ void ikf_apply_damage(ik_fight_t* fight, int victim,
      * the air-juggle budget. The deciding hit above already established it. */
     if (!victim_was_dead) {
         if (was_juggle_target) {
-            v->juggle_points = (int16_t)(
-                v->juggle_points > attack_juggle
-                    ? v->juggle_points - attack_juggle
-                    : 0);
+            if ((a->assert_controller_flags &
+                 IK_CNS_ASSERT_NO_JUGGLE_CHECK) == 0u) {
+                v->juggle_points = (int16_t)(
+                    v->juggle_points > attack_juggle
+                        ? v->juggle_points - attack_juggle
+                        : 0);
+            }
         } else if ((hitdef->flags & IK_CNS_HITDEF_FALL) != 0u || ko) {
             /* A KO forces fallflag upstream even when the connecting ground
              * HitDef is not itself a fall hit. That also starts the victim's

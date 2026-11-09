@@ -115,7 +115,7 @@ int ikf_ctrl_apply_fx(const ik_ctrl_exec_t* x) {
             break;
 
         case IK_CNS_CTRL_ASSERT_FLAGS:
-            f->assert_controller_flags |= (uint8_t)ctrl->value0;
+            f->assert_controller_flags |= (uint16_t)ctrl->value0;
             break;
 
         case IK_CNS_CTRL_PAL_FX: {

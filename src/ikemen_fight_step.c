@@ -133,6 +133,13 @@ static int enter_guard_stance(const ik_step_t* s) {
          IK_CNS_ASSERT_NO_AIR_GUARD) != 0u) {
         return 0;
     }
+    const uint8_t guard_type = ikf_guard_type_for(fight, f, controls);
+    if ((guard_type == IK_CNS_STATE_CROUCH &&
+         (f->assert_controller_flags &
+          IK_CNS_ASSERT_NO_CROUCH_GUARD) != 0u) ||
+        (guard_type == IK_CNS_STATE_STAND &&
+         (f->assert_controller_flags &
+          IK_CNS_ASSERT_NO_STAND_GUARD) != 0u)) return 0;
     if (controls->back && threat && f->ctrl &&
         !is_attack_fighter(fight, f) &&
         !ikf_in_guard_state(f->state) &&

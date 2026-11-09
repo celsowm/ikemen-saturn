@@ -281,6 +281,9 @@ int ikf_juggle_allows_target(const ik_fight_t* fight,
                                 const ik_fighter_t* victim,
                                 const ik_cns_hitdef_t* hitdef) {
     if (!ikf_is_juggle_target(fight, victim)) return 1;
+    if (attacker &&
+        (attacker->assert_controller_flags &
+         IK_CNS_ASSERT_NO_JUGGLE_CHECK) != 0u) return 1;
     return ikf_juggle_cost(fight, attacker, hitdef) <= victim->juggle_points;
 }
 
@@ -315,6 +318,9 @@ int ikf_entity_juggle_allows_target(
     const ik_cns_hitdef_t* hitdef
 ) {
     if (!ikf_is_juggle_target(fight, victim)) return 1;
+    if (fight && attacker && attacker->owner_player < 2u &&
+        (fight->fighters[attacker->owner_player].assert_controller_flags &
+         IK_CNS_ASSERT_NO_JUGGLE_CHECK) != 0u) return 1;
     return ikf_entity_juggle_cost(fight, attacker, hitdef) <=
            victim->juggle_points;
 }
@@ -429,11 +435,26 @@ int ikf_can_guard_hit(const ik_fight_t* fight,
         return 0;
     }
     const uint8_t type = ikf_guard_type_for(fight, victim, controls);
+    if (fight) {
+        uint8_t owner = 2u;
+        for (uint8_t i = 0u; i < 2u; ++i) {
+            if (&fight->fighters[i] == victim) owner = i;
+        }
+        if (owner < 2u &&
+            (fight->fighters[owner ^ 1u].assert_controller_flags &
+             IK_CNS_ASSERT_UNGUARDABLE) != 0u) return 0;
+    }
     if (type == IK_CNS_STATE_AIR &&
         (victim->assert_controller_flags &
          IK_CNS_ASSERT_NO_AIR_GUARD) != 0u) {
         return 0;
     }
+    if (type == IK_CNS_STATE_CROUCH &&
+        (victim->assert_controller_flags &
+         IK_CNS_ASSERT_NO_CROUCH_GUARD) != 0u) return 0;
+    if (type == IK_CNS_STATE_STAND &&
+        (victim->assert_controller_flags &
+         IK_CNS_ASSERT_NO_STAND_GUARD) != 0u) return 0;
     return (hitdef->guard_flags & guard_mask_for_type(type)) != 0u;
 }
 

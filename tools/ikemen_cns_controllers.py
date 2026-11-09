@@ -174,6 +174,11 @@ def compile_runtime_controller(
             "nofg": "IK_CNS_ASSERT_NO_FG",
             "nobardisplay": "IK_CNS_ASSERT_NO_BAR_DISPLAY",
             "invisible": "IK_CNS_ASSERT_INVISIBLE",
+            "nocrouchguard": "IK_CNS_ASSERT_NO_CROUCH_GUARD",
+            "nojugglecheck": "IK_CNS_ASSERT_NO_JUGGLE_CHECK",
+            "noko": "IK_CNS_ASSERT_NO_KO",
+            "nostandguard": "IK_CNS_ASSERT_NO_STAND_GUARD",
+            "unguardable": "IK_CNS_ASSERT_UNGUARDABLE",
         }
         if all(flag in flag_bits for flag in flag_values):
             flag_value = " | ".join(dict.fromkeys(

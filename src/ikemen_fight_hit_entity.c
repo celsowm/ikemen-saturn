@@ -71,7 +71,8 @@ void ikf_apply_guard_from_entity(
     if (hitdef->guard_damage > 0) {
         v->hp = (int16_t)(v->hp - hitdef->guard_damage);
         if (v->hp <= 0) {
-            if (hitdef->guard_kill) {
+            if (hitdef->guard_kill &&
+                (v->assert_controller_flags & IK_CNS_ASSERT_NO_KO) == 0u) {
                 v->hp = 0;
                 guard_ko = 1;
             } else {

@@ -249,7 +249,12 @@ void ikf_apply_damage_from_entity(
         damage = hitdef->alt_damage;
     }
 
-    v->pending_damage = (int16_t)(v->pending_damage + damage);
+    int pending_damage = v->pending_damage + damage;
+    if ((v->assert_controller_flags & IK_CNS_ASSERT_NO_KO) != 0u &&
+        v->hp > 0 && pending_damage >= v->hp) {
+        pending_damage = v->hp - 1;
+    }
+    v->pending_damage = (int16_t)pending_damage;
     const int hp_after = v->hp - v->pending_damage;
     /* Upstream's HitOver is hittime < 0, so it takes hit_time + 1 ticks. */
     ikf_record_received_hit(v);
@@ -293,7 +298,9 @@ void ikf_apply_damage_from_entity(
     v->gethit_fall_envshake_freq = hitdef->fall_envshake_freq;
     v->fall_time = 0u;
 
-    if (was_juggle_target) {
+    if (was_juggle_target && attacker->owner_player < 2u &&
+        (fight->fighters[attacker->owner_player].assert_controller_flags &
+         IK_CNS_ASSERT_NO_JUGGLE_CHECK) == 0u) {
         v->juggle_points = (int16_t)(
             v->juggle_points > attack_juggle
                 ? v->juggle_points - attack_juggle : 0);

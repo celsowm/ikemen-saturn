@@ -431,7 +431,12 @@ enum {
     IK_CNS_ASSERT_NO_BG = 1u << 4,
     IK_CNS_ASSERT_NO_FG = 1u << 5,
     IK_CNS_ASSERT_NO_BAR_DISPLAY = 1u << 6,
-    IK_CNS_ASSERT_INVISIBLE = 1u << 7
+    IK_CNS_ASSERT_INVISIBLE = 1u << 7,
+    IK_CNS_ASSERT_NO_CROUCH_GUARD = 1u << 8,
+    IK_CNS_ASSERT_NO_JUGGLE_CHECK = 1u << 9,
+    IK_CNS_ASSERT_NO_KO = 1u << 10,
+    IK_CNS_ASSERT_NO_STAND_GUARD = 1u << 11,
+    IK_CNS_ASSERT_UNGUARDABLE = 1u << 12
 };
 
 typedef struct ik_cns_state {
