@@ -801,6 +801,16 @@ class _ExprCompiler(_ExprParser):
 
         if lower in ("true", "false"):
             return [{"op": "IK_EXPR_PUSH_CONST", "value0": int(lower == "true")}]
+        if lower == "screenpos":
+            axis = self._take()[1].lower()
+            if axis != "y":
+                raise ValueError(
+                    "ScreenPos X is unsupported without horizontal camera projection")
+            # The fight runtime has a fixed vertical camera, so screen-space Y
+            # is the entity's world-space Y in this engine.
+            return self._load_runtime_field("IK_EXPR_FIELD_POS_Y_Q8")
+        if lower == "screenposy":
+            return self._load_runtime_field("IK_EXPR_FIELD_POS_Y_Q8")
         if lower == "numtarget":
             return self._load_runtime_field("IK_EXPR_FIELD_NUM_TARGETS", -1)
         if lower in ("p2statetype", "p2movetype"):
