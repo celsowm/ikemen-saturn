@@ -139,7 +139,8 @@ typedef enum ik_expr_op {
     IK_EXPR_TRUNC_Q8,
     IK_EXPR_SELF_ANIM_EXISTS,
     IK_EXPR_LOAD_PLAYER_FIELD,
-    IK_EXPR_LOAD_PLAYER_FIELD_DYNAMIC_INDEX
+    IK_EXPR_LOAD_PLAYER_FIELD_DYNAMIC_INDEX,
+    IK_EXPR_EXP_Q16
 } ik_expr_op_t;
 
 typedef struct ik_expr_instr {

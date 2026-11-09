@@ -8,6 +8,31 @@ static int push(int32_t* stack, uint8_t* sp, int32_t value) {
     return 1;
 }
 
+static int32_t exp_q16(int32_t x) {
+    const int64_t one = 65536;
+    if (x < -16 * one) return 0;
+
+    uint8_t reductions = 0u;
+    while (x > 8192 || x < -8192) {
+        x /= 2;
+        ++reductions;
+    }
+
+    int64_t term = one;
+    int64_t result = one;
+    for (int32_t i = 1; i <= 12; ++i) {
+        term = (term * x) / (one * i);
+        result += term;
+    }
+    if (result < 0) result = 0;
+    while (reductions > 0u) {
+        result = (result * result) / one;
+        if (result > INT32_MAX) return INT32_MAX;
+        --reductions;
+    }
+    return (int32_t)result;
+}
+
 static int unary(int32_t* stack, uint8_t sp, uint8_t op) {
     if (!stack || sp < 1u) return 0;
     switch ((ik_expr_op_t)op) {
@@ -40,6 +65,9 @@ static int unary(int32_t* stack, uint8_t sp, uint8_t op) {
         case IK_EXPR_ABS:
             if (stack[sp - 1u] == INT32_MIN) stack[sp - 1u] = INT32_MAX;
             else if (stack[sp - 1u] < 0) stack[sp - 1u] = -stack[sp - 1u];
+            return 1;
+        case IK_EXPR_EXP_Q16:
+            stack[sp - 1u] = exp_q16(stack[sp - 1u]);
             return 1;
         default:
             return 0;
@@ -247,6 +275,7 @@ int ik_expr_eval(
             case IK_EXPR_TRUNC_Q16:
             case IK_EXPR_TRUNC_Q8:
             case IK_EXPR_ABS:
+            case IK_EXPR_EXP_Q16:
                 if (!unary(stack, sp, ins->op)) return 0;
                 break;
 

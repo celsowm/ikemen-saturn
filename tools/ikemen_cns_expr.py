@@ -1056,6 +1056,10 @@ class _ExprCompiler(_ExprParser):
                 ]
             if lower == "abs" and len(args) == 1:
                 return args[0] + [{"op": "IK_EXPR_ABS"}]
+            if lower == "exp" and len(args) == 1:
+                if not self.q16:
+                    raise ValueError("Exp() requires a fixed-point expression")
+                return args[0] + [{"op": "IK_EXPR_EXP_Q16"}]
             if lower == "ishelper" and len(args) == 1:
                 helper_id = self._integer_arg(args[0], name)
                 scale = 65536 if self.q16 else 1

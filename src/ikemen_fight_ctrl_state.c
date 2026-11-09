@@ -40,12 +40,32 @@ int ikf_ctrl_apply_state(const ik_ctrl_exec_t* x) {
             break;
         }
 
-        case IK_CNS_CTRL_SYSVAR_SET: {
+        case IK_CNS_CTRL_SYSVAR_SET:
+        case IK_CNS_CTRL_SYSVAR_ADD: {
             ik_entity_t* entity = ikf_fighter_entity(fight, f);
             const int32_t index = ctrl->value0;
             if (entity && index >= 0 &&
                 index < (int32_t)IK_ENTITY_SYSVAR_COUNT) {
-                entity->sysvars[index] = ctrl->value1;
+                if (ctrl->type == IK_CNS_CTRL_SYSVAR_SET) {
+                    entity->sysvars[index] = ctrl->value1;
+                } else {
+                    entity->sysvars[index] += ctrl->value1;
+                }
+            }
+            break;
+        }
+
+        case IK_CNS_CTRL_FVAR_SET:
+        case IK_CNS_CTRL_FVAR_ADD: {
+            ik_entity_t* entity = ikf_fighter_entity(fight, f);
+            const int32_t index = ctrl->value0;
+            if (entity && index >= 0 &&
+                index < (int32_t)IK_ENTITY_FVAR_COUNT) {
+                if (ctrl->type == IK_CNS_CTRL_FVAR_SET) {
+                    entity->fvars_q16[index] = ctrl->value1;
+                } else {
+                    entity->fvars_q16[index] += ctrl->value1;
+                }
             }
             break;
         }

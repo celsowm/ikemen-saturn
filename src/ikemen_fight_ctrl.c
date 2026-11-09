@@ -291,6 +291,9 @@ int ikf_process_cns_controllers(
             } else if (ctrl->type == IK_CNS_CTRL_VAR_SET ||
                        ctrl->type == IK_CNS_CTRL_VAR_ADD ||
                        ctrl->type == IK_CNS_CTRL_SYSVAR_SET ||
+                       ctrl->type == IK_CNS_CTRL_SYSVAR_ADD ||
+                       ctrl->type == IK_CNS_CTRL_FVAR_SET ||
+                       ctrl->type == IK_CNS_CTRL_FVAR_ADD ||
                        ctrl->type == IK_CNS_CTRL_SYSFVAR_SET ||
                        ctrl->type == IK_CNS_CTRL_SYSFVAR_ADD) {
                 evaluated_ctrl.value1 = value;

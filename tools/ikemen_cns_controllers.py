@@ -654,7 +654,7 @@ def compile_runtime_controller(
             assignments = []
             for key, value in ctrl.values:
                 match = re.fullmatch(
-                    r"(sysfvar|sysvar|var)\((\d+)\)",
+                    r"(sysfvar|sysvar|fvar|var)\((\d+)\)",
                     key.strip(), flags=re.I)
                 if match:
                     kind = match.group(1).casefold()
@@ -710,7 +710,15 @@ def compile_runtime_controller(
                 "IK_CNS_CTRL_SYSFVAR_SET"
             )
         elif var_is_system:
-            variable_controller = "IK_CNS_CTRL_SYSVAR_SET"
+            variable_controller = (
+                "IK_CNS_CTRL_SYSVAR_ADD" if ctype == "varadd" else
+                "IK_CNS_CTRL_SYSVAR_SET"
+            )
+        elif var_is_float:
+            variable_controller = (
+                "IK_CNS_CTRL_FVAR_ADD" if ctype == "varadd" else
+                "IK_CNS_CTRL_FVAR_SET"
+            )
         else:
             variable_controller = (
                 "IK_CNS_CTRL_VAR_SET" if ctype == "varset" else
