@@ -196,6 +196,32 @@ const ik_cns_hitdef_t* ikf_current_hitdef(
     return &state_cns->hitdefs[(uint16_t)fighter->active_hitdef_global];
 }
 
+static int hitdef_expression_now(
+    const ik_fight_t* fight,
+    const ik_fighter_t* fighter,
+    const ik_cns_asset_t* cns,
+    uint16_t offset,
+    uint8_t count
+) {
+    if (!count) return 0;
+    int32_t value = 0;
+    return ikf_eval_cns_expr(fight, fighter, cns, offset, count, &value) &&
+           value != 0;
+}
+
+static int entity_hitdef_expression_now(
+    const ik_fight_t* fight,
+    const ik_entity_t* entity,
+    const ik_cns_asset_t* cns,
+    uint16_t offset,
+    uint8_t count
+) {
+    if (!count) return 0;
+    int32_t value = 0;
+    return ikf_eval_cns_entity_expr(
+               fight, entity, cns, offset, count, &value) && value != 0;
+}
+
 const ik_cns_hitdef_t* ikf_active_hitdef(ik_fight_t* fight,
                                             const ik_frame_table_t* frames,
                                             ik_fighter_t* fighter,
@@ -248,18 +274,26 @@ const ik_cns_hitdef_t* ikf_active_hitdef(ik_fight_t* fight,
         const uint16_t global = (uint16_t)(state->hitdef_ofs + i);
         if (global >= state_cns->hitdef_count) break;
         const ik_cns_hitdef_t* hitdef = &state_cns->hitdefs[global];
-        const int primary_now = ikf_hitdef_trigger_now(
+        const int primary_now = hitdef->trigger_expr_count
+            ? hitdef_expression_now(
+                fight, fighter, state_cns, hitdef->trigger_expr_ofs,
+                hitdef->trigger_expr_count)
+            : ikf_hitdef_trigger_now(
             frames, fighter->anim,
             eval_state_time, fighter->anim_time,
             element, element_time, anim_ended,
             hitdef->trigger_kind, hitdef->trigger_value);
         const int secondary_now =
             hitdef->has_trigger2 &&
-            ikf_hitdef_trigger_now(
+            (hitdef->trigger2_expr_count
+                ? hitdef_expression_now(
+                    fight, fighter, state_cns, hitdef->trigger2_expr_ofs,
+                    hitdef->trigger2_expr_count)
+                : ikf_hitdef_trigger_now(
                 frames, fighter->anim,
                 eval_state_time, fighter->anim_time,
                 element, element_time, anim_ended,
-                hitdef->trigger2_kind, hitdef->trigger2_value);
+                hitdef->trigger2_kind, hitdef->trigger2_value));
         if (!primary_now && !secondary_now) continue;
         if (!ikf_hitdef_p2_dist_allows(hitdef, p2_dist)) continue;
 
@@ -354,18 +388,26 @@ const ik_cns_hitdef_t* ikf_active_entity_hitdef(
         if (global >= state_cns->hitdef_count) break;
         const ik_cns_hitdef_t* hitdef =
             &state_cns->hitdefs[global];
-        const int primary_now = ikf_hitdef_trigger_now(
+        const int primary_now = hitdef->trigger_expr_count
+            ? entity_hitdef_expression_now(
+                fight, entity, state_cns, hitdef->trigger_expr_ofs,
+                hitdef->trigger_expr_count)
+            : ikf_hitdef_trigger_now(
             frames, entity->anim_no,
             eval_time, entity->anim_time,
             element, element_time, anim_ended,
             hitdef->trigger_kind, hitdef->trigger_value);
         const int secondary_now =
             hitdef->has_trigger2 &&
-            ikf_hitdef_trigger_now(
+            (hitdef->trigger2_expr_count
+                ? entity_hitdef_expression_now(
+                    fight, entity, state_cns, hitdef->trigger2_expr_ofs,
+                    hitdef->trigger2_expr_count)
+                : ikf_hitdef_trigger_now(
                 frames, entity->anim_no,
                 eval_time, entity->anim_time,
                 element, element_time, anim_ended,
-                hitdef->trigger2_kind, hitdef->trigger2_value);
+                hitdef->trigger2_kind, hitdef->trigger2_value));
         if (!primary_now && !secondary_now) continue;
         if (!ikf_hitdef_p2_dist_allows(hitdef, p2_dist)) continue;
 

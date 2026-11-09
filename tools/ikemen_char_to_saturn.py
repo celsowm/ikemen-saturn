@@ -18,8 +18,13 @@ Usage:
 from __future__ import annotations
 import argparse
 import configparser
+import io
 import re
 from pathlib import Path
+try:
+    from tools.ikemen_text import read_mugen_text
+except ModuleNotFoundError:  # direct script invocation from the repository root
+    from ikemen_text import read_mugen_text
 
 SUPPORTED_STATES = {0, 20, 40, 50, 200, 210, 500, 510, 550}
 
@@ -27,7 +32,7 @@ SUPPORTED_STATES = {0, 20, 40, 50, 200, 210, 500, 510, 550}
 def parse_air(path: Path):
     actions: dict[int, list[dict]] = {}
     cur = None
-    for raw in path.read_text(encoding="utf-8", errors="ignore").splitlines():
+    for raw in read_mugen_text(path).splitlines():
         line = raw.strip()
         if not line or line.startswith(";"):
             continue
@@ -54,7 +59,7 @@ def parse_air(path: Path):
 
 def parse_cns_states(path: Path):
     states: list[int] = []
-    for raw in path.read_text(encoding="utf-8", errors="ignore").splitlines():
+    for raw in read_mugen_text(path).splitlines():
         line = raw.strip()
         m = re.match(r"\[Statedef\s+(-?\d+)", line, re.I)
         if m:
@@ -73,7 +78,7 @@ def main() -> int:
     base = def_path.parent
     cfg = configparser.ConfigParser(strict=False, interpolation=None)
     cfg.optionxform = str  # keep case
-    cfg.read(def_path, encoding="utf-8", errors="ignore")
+    cfg.read_file(io.StringIO(read_mugen_text(def_path)), source=str(def_path))
 
     def get(section: str, key: str, default: str = "") -> str:
         try:

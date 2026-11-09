@@ -344,6 +344,7 @@ static void apply_contact_reversal(
             ik_entity_get(fight->entities, candidate->entity);
         if (!attacker) return;
         attacker->move_contact = 1u;
+        attacker->move_reversed = 1u;
         attacker->hit_pause = reversal->pause_p2;
         defender->hit_pause = reversal->pause_p1;
         if (reversal->p2_spr_priority != -128) {

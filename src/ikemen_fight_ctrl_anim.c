@@ -10,7 +10,8 @@ int ikf_ctrl_apply_anim(const ik_ctrl_exec_t* x) {
     switch ((ik_cns_controller_type_t)ctrl->type) {
         case IK_CNS_CTRL_CHANGE_ANIM:
             f->anim_owner = f->owner_player;
-            f->anim = ctrl->value0;
+            f->anim = (int16_t)(ctrl->value0_expr_count
+                ? ctrl->value4 / 65536 : ctrl->value0);
             f->anim_time = ikf_anim_element_start_tick(
                 frames_for_fighter(fight, f), f->anim,
                 (uint16_t)(ctrl->value1 < 1 ? 1 : ctrl->value1));

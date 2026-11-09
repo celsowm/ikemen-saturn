@@ -11,6 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 import re
+from tools.ikemen_text import read_mugen_text
 
 _BEGIN = re.compile(r"\[Begin Action\s+(-?\d+)\]", re.I)
 _FRAME = re.compile(
@@ -90,7 +91,7 @@ def parse(path: Path) -> dict[int, AirAction]:
         else:
             current.clsn2_default = value
 
-    for raw in Path(path).read_text(encoding="utf-8", errors="ignore").splitlines():
+    for raw in read_mugen_text(path).splitlines():
         line = _strip_comment(raw).strip()
         if not line:
             continue

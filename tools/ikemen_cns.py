@@ -14,11 +14,22 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
+try:
+    from tools.ikemen_text import read_mugen_text
+    from tools.ikemen_cmd import parse_cmd
+except ModuleNotFoundError:  # direct `python tools/ikemen_cns.py` invocation
+    from ikemen_text import read_mugen_text
+    from ikemen_cmd import parse_cmd
 
 Q8 = 256
+STRICT_CONVERSION = False
+COMMAND_IDS: dict[str, int] = {}
+LOCALCOORD_X = 320.0
+CONST_VALUES: dict[str, float] = {}
 
 STATE_TYPE = {
     "S": "IK_CNS_STATE_STAND",
@@ -55,6 +66,9 @@ GROUND_TYPE = {
 class Section:
     name: str
     values: list[tuple[str, str]] = field(default_factory=list)
+    runtime_trigger_expr: list[dict] | None = None
+    runtime_value0_expr: list[dict] | None = None
+    runtime_value1_expr: list[dict] | None = None
 
     def all(self, key: str) -> list[str]:
         key = key.lower()
@@ -79,7 +93,7 @@ def strip_comment(line: str) -> str:
 def parse_sections(path: Path) -> list[Section]:
     sections: list[Section] = []
     current: Section | None = None
-    for raw in path.read_text(encoding="utf-8-sig", errors="strict").splitlines():
+    for raw in read_mugen_text(path).splitlines():
         line = strip_comment(raw)
         if not line:
             continue
@@ -91,6 +105,17 @@ def parse_sections(path: Path) -> list[Section]:
             key, value = line.split("=", 1)
             current.values.append((key.strip(), value.strip()))
     return sections
+
+
+def select_state_numbers(spec: str, sources: list[Path]) -> list[int]:
+    """Resolve an explicit state list or every Statedef in the source files."""
+    if spec.strip().casefold() != "all":
+        return [int(value.strip()) for value in spec.split(",") if value.strip()]
+    sections: list[Section] = []
+    for source in sources:
+        sections.extend(parse_sections(source))
+    _, states = collect_states(sections)
+    return sorted({state.number for state in states})
 
 
 def collect_states(
@@ -114,10 +139,887 @@ def collect_states(
     return globals_, states
 
 
+
+
+# MUGEN expression parser for CNS parameters.
+# Supports arithmetic, comparisons, logical operators, ifelse(), var(), sysvar(), fvar(), const(), GetHitVar().
+_EXPR_TOK_RE = re.compile(
+    r"\s*(?:"
+    r"(?P<num>(?:\d+(?:\.\d*)?|\.\d+))|"
+    r"(?P<ident>[A-Za-z_][A-Za-z0-9_.]*)|"
+    r"(?P<op>\+\+|\*\*|==|!=|>=|<=|&&|\|\||[!()+\-*/%=<>,])"
+    r")"
+)
+
+
+class _ExprParser:
+    def __init__(self, text: str):
+        self.text = text
+        self.tokens: list[tuple[str, str]] = []
+        self.i = 0
+        self._tokenize()
+
+    def _tokenize(self):
+        pos = 0
+        while pos < len(self.text):
+            m = _EXPR_TOK_RE.match(self.text, pos)
+            if not m:
+                raise ValueError(f"unexpected expression token at {pos}: {self.text[pos:]!r}")
+            kind = m.lastgroup
+            value = m.group(kind)
+            if kind == "num":
+                self.tokens.append(("num", value))
+            elif kind == "ident":
+                self.tokens.append(("ident", value))
+            elif kind == "op":
+                self.tokens.append(("op", value))
+            pos = m.end()
+
+    def _peek(self) -> tuple[str, str] | None:
+        if self.i < len(self.tokens):
+            return self.tokens[self.i]
+        return None
+
+    def _take(self):
+        tok = self.tokens[self.i]
+        self.i += 1
+        return tok
+
+    def parse(self) -> float:
+        result = self._or()
+        if self._peek() is not None:
+            tok = self._peek()
+            raise ValueError(f"unexpected token in expression: {tok!r}")
+        return result
+
+    def _or(self) -> float:
+        left = self._and()
+        while self._peek() and self._peek()[1] in ("||",):
+            self._take()
+            right = self._and()
+            # MUGEN || returns first truthy value, or last value
+            left = right if right != 0 else left
+        return left
+
+    def _and(self) -> float:
+        left = self._equality()
+        while self._peek() and self._peek()[1] in ("&&",):
+            self._take()
+            right = self._equality()
+            left = right if left != 0 and right != 0 else 0
+        return left
+
+    def _equality(self) -> float:
+        left = self._rel()
+        while self._peek() and self._peek()[1] in ("==", "!=", "="):
+            op = self._take()[1]
+            right = self._rel()
+            if op in ("=", "=="):
+                left = 1.0 if left == right else 0.0
+            else:
+                left = 1.0 if left != right else 0.0
+        return left
+
+    def _rel(self) -> float:
+        left = self._add()
+        while self._peek() and self._peek()[1] in (">", "<", ">=", "<="):
+            op = self._take()[1]
+            right = self._add()
+            if op == ">":
+                left = 1.0 if left > right else 0.0
+            elif op == "<":
+                left = 1.0 if left < right else 0.0
+            elif op == ">=":
+                left = 1.0 if left >= right else 0.0
+            elif op == "<=":
+                left = 1.0 if left <= right else 0.0
+        return left
+
+    def _add(self) -> float:
+        left = self._mul()
+        while self._peek() and self._peek()[1] in ("+", "-"):
+            op = self._take()[1]
+            right = self._mul()
+            if op == "+":
+                left = left + right
+            else:
+                left = left - right
+        return left
+
+    def _mul(self) -> float:
+        left = self._power()
+        while self._peek() and self._peek()[1] in ("*", "/", "%"):
+            op = self._take()[1]
+            right = self._power()
+            if op == "*":
+                left = left * right
+            elif op == "/":
+                left = left / right if right != 0 else 0
+            else:
+                left = left % right if right != 0 else 0
+        return left
+
+    def _power(self) -> float:
+        left = self._unary()
+        if self._peek() and self._peek()[1] == "**":
+            self._take()
+            right = self._power()
+            left = left ** right
+        return left
+
+    def _unary(self) -> float:
+        if self._peek() and self._peek()[1] == "-":
+            self._take()
+            return -self._primary()
+        if self._peek() and self._peek()[1] == "+":
+            self._take()
+            return self._primary()
+        return self._primary()
+
+    def _primary(self) -> float:
+        tok = self._peek()
+        if tok is None:
+            raise ValueError("unexpected end of expression")
+        if tok[0] == "num":
+            self._take()
+            return float(tok[1])
+        if tok[0] == "ident":
+            name = self._take()[1]
+            # Check for function call
+            if self._peek() == ("op", "("):
+                self._take()  # consume (
+                args = self._parse_args()
+                if self._peek() == ("op", ")"):
+                    self._take()  # consume )
+                else:
+                    raise ValueError(f"missing closing paren in {name}()")
+                return self._call_function(name, args)
+            raise ValueError(f"unsupported symbol in expression: {name}")
+        if tok == ("op", "("):
+            self._take()
+            val = self._or()
+            if self._peek() == ("op", ")"):
+                self._take()
+            else:
+                raise ValueError("missing closing parenthesis")
+            return val
+        raise ValueError(f"unexpected token in expression: {tok!r}")
+
+    def _parse_args(self) -> list[float]:
+        args = []
+        if self._peek() == ("op", ")"):
+            return args
+        args.append(self._or())
+        while self._peek() and self._peek()[1] == ",":
+            self._take()
+            args.append(self._or())
+        return args
+
+    def _call_function(self, name: str, args: list[float]) -> float:
+        nl = name.lower()
+        if nl == "ifelse":
+            if len(args) != 3:
+                raise ValueError(f"ifelse expects 3 args, got {len(args)}")
+            return args[1] if args[0] != 0 else args[2]
+        raise ValueError(f"unsupported function in expression: {name}")
+
+
+_RUNTIME_EXPR_FIELDS = {
+    "stateno": "IK_EXPR_FIELD_STATE_NO",
+    "prevstateno": "IK_EXPR_FIELD_PREV_STATE_NO",
+    "time": "IK_EXPR_FIELD_STATE_TIME",
+    "gametime": "IK_EXPR_FIELD_GAME_TIME",
+    "roundstate": "IK_EXPR_FIELD_ROUND_STATE",
+    "power": "IK_EXPR_FIELD_POWER",
+    "life": "IK_EXPR_FIELD_LIFE",
+    "ctrl": "IK_EXPR_FIELD_CTRL",
+    "movecontact": "IK_EXPR_FIELD_MOVE_CONTACT",
+    "movehit": "IK_EXPR_FIELD_MOVE_HIT",
+    "movereversed": "IK_EXPR_FIELD_MOVE_REVERSED",
+    "statetype": "IK_EXPR_FIELD_STATE_TYPE",
+    "movetype": "IK_EXPR_FIELD_MOVE_TYPE",
+    "p2statetype": "IK_EXPR_FIELD_STATE_TYPE",
+    "p2movetype": "IK_EXPR_FIELD_MOVE_TYPE",
+    "frontedgedist": "IK_EXPR_FIELD_FRONT_EDGE_DIST",
+    "anim": "IK_EXPR_FIELD_ANIM_NO",
+    "animelem": "IK_EXPR_FIELD_ANIM_ELEM",
+    "animtime": "IK_EXPR_FIELD_ANIM_TIME",
+    "hitpausetime": "IK_EXPR_FIELD_HIT_PAUSE_TIME",
+    "hitover": "IK_EXPR_FIELD_HIT_OVER",
+    "inguarddist": "IK_EXPR_FIELD_IN_GUARD_DIST",
+    "random": "IK_EXPR_FIELD_RANDOM",
+    "numenemy": "IK_EXPR_FIELD_NUM_ENEMIES",
+    "teamside": "IK_EXPR_FIELD_TEAM_SIDE",
+}
+
+
+class _ExprCompiler(_ExprParser):
+    """Compile the integer/runtime CNS expression subset to postfix bytecode."""
+
+    def __init__(self, text: str, q16: bool = False):
+        super().__init__(text)
+        self.q16 = q16
+
+    def _load_runtime_field(
+        self,
+        field: str,
+        index: int = 0,
+        redirect: str = "IK_EXPR_REDIRECT_SELF",
+    ) -> list[dict]:
+        code = self._load(field, index)
+        if redirect != "IK_EXPR_REDIRECT_SELF":
+            for instruction in code:
+                if instruction.get("op") == "IK_EXPR_LOAD_FIELD":
+                    instruction["redirect"] = redirect
+        if not self.q16 or field == "IK_EXPR_FIELD_FVAR_Q16":
+            return code
+        factor = (256 if field.endswith("_Q8") else 65536)
+        return code + [
+            {"op": "IK_EXPR_PUSH_CONST", "value0": factor},
+            {"op": "IK_EXPR_MUL"},
+        ]
+
+    def parse(self) -> list[dict]:
+        code = self._or()
+        if self._peek() is not None:
+            raise ValueError(f"unexpected token in expression: {self._peek()!r}")
+        return code
+
+    def _or(self) -> list[dict]:
+        code = self._and()
+        while self._peek() and self._peek()[1] == "||":
+            self._take()
+            code += self._and()
+            code.append({"op": "IK_EXPR_OR"})
+        return code
+
+    def _and(self) -> list[dict]:
+        code = self._equality()
+        while self._peek() and self._peek()[1] == "&&":
+            self._take()
+            code += self._equality()
+            code.append({"op": "IK_EXPR_AND"})
+        return code
+
+    def _equality(self) -> list[dict]:
+        code = self._rel()
+        while self._peek() and self._peek()[1] in ("=", "==", "!="):
+            op = self._take()[1]
+            code += self._rel()
+            code.append({"op": "IK_EXPR_NE" if op == "!=" else "IK_EXPR_EQ"})
+        return code
+
+    def _rel(self) -> list[dict]:
+        code = self._add()
+        while self._peek() and self._peek()[1] in (">", "<", ">=", "<="):
+            op = self._take()[1]
+            code += self._add()
+            code.append({"op": {
+                ">": "IK_EXPR_GT", "<": "IK_EXPR_LT",
+                ">=": "IK_EXPR_GE", "<=": "IK_EXPR_LE",
+            }[op]})
+        return code
+
+    def _add(self) -> list[dict]:
+        code = self._mul()
+        while self._peek() and self._peek()[1] in ("+", "-"):
+            op = self._take()[1]
+            code += self._mul()
+            code.append({"op": "IK_EXPR_ADD" if op == "+" else "IK_EXPR_SUB"})
+        return code
+
+    def _mul(self) -> list[dict]:
+        code = self._power()
+        while self._peek() and self._peek()[1] in ("*", "/", "%"):
+            op = self._take()[1]
+            code += self._power()
+            code.append({"op": {
+                "*": "IK_EXPR_MUL_Q16" if self.q16 else "IK_EXPR_MUL",
+                "/": "IK_EXPR_DIV_Q16" if self.q16 else "IK_EXPR_DIV",
+                "%": "IK_EXPR_MOD",
+            }[op]})
+        return code
+
+    def _power(self) -> list[dict]:
+        code = self._unary()
+        if self._peek() and self._peek()[1] == "**":
+            self._take()
+            code += self._power()
+            code.append({"op": "IK_EXPR_POW"})
+        return code
+
+    def _unary(self) -> list[dict]:
+        if self._peek() and self._peek()[1] in ("-", "+", "!"):
+            op = self._take()[1]
+            code = self._unary()
+            if op == "-":
+                code.append({"op": "IK_EXPR_NEG"})
+            elif op == "!":
+                code.append({"op": "IK_EXPR_NOT"})
+            return code
+        return self._primary()
+
+    @staticmethod
+    def _load(field: str, index: int = 0) -> list[dict]:
+        return [{"op": "IK_EXPR_LOAD_FIELD", "field": field,
+                 "value0": index}]
+
+    def _args(self) -> list[list[dict]]:
+        args: list[list[dict]] = []
+        if self._peek() and self._peek()[1] == ")":
+            return args
+        args.append(self._or())
+        while self._peek() and self._peek()[1] == ",":
+            self._take()
+            args.append(self._or())
+        return args
+
+    @staticmethod
+    def _constant_arg(code: list[dict], function: str) -> int:
+        if len(code) != 1 or code[0].get("op") != "IK_EXPR_PUSH_CONST":
+            raise ValueError(f"{function}() index must be a constant integer")
+        return int(code[0]["value0"])
+
+    def _integer_arg(self, code: list[dict], function: str) -> int:
+        value = self._constant_arg(code, function)
+        if self.q16:
+            if value % 65536:
+                raise ValueError(f"{function}() argument must be an integer")
+            value //= 65536
+        return value
+
+    def _primary(self) -> list[dict]:
+        tok = self._peek()
+        if tok is None:
+            raise ValueError("unexpected end of expression")
+        if tok == ("op", "("):
+            self._take()
+            code = self._or()
+            if self._peek() != ("op", ")"):
+                raise ValueError("missing closing parenthesis")
+            self._take()
+            return code
+        if tok[0] == "num":
+            self._take()
+            value = float(tok[1])
+            if not self.q16 and int(value) != value:
+                raise ValueError("runtime CNS expression requires integer constants")
+            scaled = int(round(value * 65536)) if self.q16 else int(value)
+            return [{"op": "IK_EXPR_PUSH_CONST", "value0": scaled}]
+        if tok[0] != "ident":
+            raise ValueError(f"unexpected token in expression: {tok!r}")
+
+        name = self._take()[1]
+        lower = name.lower()
+        redirects = {
+            "p2": "IK_EXPR_REDIRECT_P2",
+            "enemy": "IK_EXPR_REDIRECT_P2",
+            "enemynear": "IK_EXPR_REDIRECT_P2",
+            "parent": "IK_EXPR_REDIRECT_PARENT",
+            "root": "IK_EXPR_REDIRECT_ROOT",
+        }
+        if lower in redirects and self._peek() == ("op", ","):
+            self._take()
+            if self._peek() is None or self._peek()[0] != "ident":
+                raise ValueError(f"missing redirected field after {name},")
+            field_name = self._take()[1]
+            field_lower = field_name.lower()
+            redirect = redirects[lower]
+            if self._peek() == ("op", "("):
+                self._take()
+                args = self._args()
+                if self._peek() != ("op", ")"):
+                    raise ValueError(
+                        f"missing closing parenthesis in {name},{field_name}()")
+                self._take()
+                if field_lower in ("var", "sysvar", "fvar") and len(args) == 1:
+                    index = self._constant_arg(args[0], field_name)
+                    if self.q16:
+                        if index % 65536:
+                            raise ValueError(
+                                f"{field_name}() index must be an integer constant")
+                        index //= 65536
+                    max_count = 60 if field_lower == "var" else 40
+                    if index < 0 or index >= max_count:
+                        raise ValueError(
+                            f"{field_name}({index}) is outside the supported "
+                            f"range 0..{max_count - 1}")
+                    runtime_field = {
+                        "var": "IK_EXPR_FIELD_VAR",
+                        "sysvar": "IK_EXPR_FIELD_SYSVAR",
+                        "fvar": "IK_EXPR_FIELD_FVAR_Q16",
+                    }[field_lower]
+                    return self._load_runtime_field(
+                        runtime_field, index, redirect)
+                if field_lower == "numtarget" and len(args) == 1:
+                    target_id = self._constant_arg(args[0], field_name)
+                    if self.q16:
+                        if target_id % 65536:
+                            raise ValueError(
+                                "NumTarget() id must be an integer constant")
+                        target_id //= 65536
+                    return self._load_runtime_field(
+                        "IK_EXPR_FIELD_NUM_TARGETS", target_id, redirect)
+                if field_lower == "animelemtime" and len(args) == 1:
+                    elem = self._integer_arg(args[0], field_name)
+                    if elem < 1 or elem > 65535:
+                        raise ValueError(
+                            "AnimElemTime() index must be in the range 1..65535")
+                    return self._load_runtime_field(
+                        "IK_EXPR_FIELD_ANIM_ELEM_TIME", elem, redirect)
+                raise ValueError(
+                    f"unsupported redirected function {name},{field_name}()")
+            if field_lower in _RUNTIME_EXPR_FIELDS:
+                return self._load_runtime_field(
+                    _RUNTIME_EXPR_FIELDS[field_lower], redirect=redirect)
+            if field_lower in ("pos", "vel"):
+                axis = self._take()[1].lower()
+                if axis not in ("x", "y"):
+                    raise ValueError(
+                        f"unsupported {name},{field_name} axis {axis!r}")
+                field = {
+                    ("pos", "x"): "IK_EXPR_FIELD_POS_X_Q8",
+                    ("pos", "y"): "IK_EXPR_FIELD_POS_Y_Q8",
+                    ("vel", "x"): "IK_EXPR_FIELD_VEL_X_Q8",
+                    ("vel", "y"): "IK_EXPR_FIELD_VEL_Y_Q8",
+                }[(field_lower, axis)]
+                return self._load_runtime_field(field, redirect=redirect)
+            raise ValueError(
+                f"unsupported redirected symbol in runtime expression: "
+                f"{name},{field_name}")
+        if lower == "gethitvar" and self._peek() == ("op", "("):
+            self._take()
+            argument = self._peek()
+            if argument is None or argument[0] != "ident":
+                raise ValueError("GetHitVar() requires a supported field name")
+            field_name = self._take()[1].casefold()
+            if self._peek() != ("op", ")"):
+                raise ValueError("GetHitVar() takes exactly one field name")
+            self._take()
+            fields = {
+                "animtype": "IK_EXPR_FIELD_GET_HIT_ANIM_TYPE",
+                "groundtype": "IK_EXPR_FIELD_GET_HIT_GROUND_TYPE",
+                "slidetime": "IK_EXPR_FIELD_GET_HIT_SLIDE_TIME",
+                "ctrltime": "IK_EXPR_FIELD_GET_HIT_CTRL_TIME",
+                "xvel": "IK_EXPR_FIELD_GET_HIT_XVEL_Q8",
+                "yvel": "IK_EXPR_FIELD_GET_HIT_YVEL_Q8",
+                "yaccel": "IK_EXPR_FIELD_GET_HIT_YACCEL_Q16",
+                "fall": "IK_EXPR_FIELD_GET_HIT_FALL",
+                "fall.xvel": "IK_EXPR_FIELD_GET_HIT_FALL_XVEL_Q8",
+                "fall.yvel": "IK_EXPR_FIELD_GET_HIT_FALL_YVEL_Q8",
+                "fall.recover": "IK_EXPR_FIELD_GET_HIT_FALL_RECOVER",
+                "isbound": "IK_EXPR_FIELD_GET_HIT_IS_BOUND",
+            }
+            if field_name not in fields:
+                raise ValueError(
+                    f"unsupported GetHitVar field {field_name!r}")
+            return self._load_runtime_field(fields[field_name])
+
+        if self._peek() == ("op", "("):
+            self._take()
+            args = self._args()
+            if self._peek() != ("op", ")"):
+                raise ValueError(f"missing closing parenthesis in {name}()")
+            self._take()
+            if lower == "animelemtime" and len(args) == 1:
+                index = self._integer_arg(args[0], name)
+                if index < 1 or index > 65535:
+                    raise ValueError(
+                        f"{name}() index must be in the range 1..65535")
+                return self._load_runtime_field(
+                    "IK_EXPR_FIELD_ANIM_ELEM_TIME", index)
+            if lower == "animelemno" and len(args) == 1:
+                if self._integer_arg(args[0], name) != 0:
+                    raise ValueError("AnimElemNo currently supports only argument 0")
+                return self._load_runtime_field("IK_EXPR_FIELD_ANIM_ELEM")
+            if lower == "numtarget" and len(args) == 1:
+                target_id = self._integer_arg(args[0], name)
+                return self._load_runtime_field(
+                    "IK_EXPR_FIELD_NUM_TARGETS", target_id)
+            if lower == "abs" and len(args) == 1:
+                return args[0] + [{"op": "IK_EXPR_ABS"}]
+            if lower == "ishelper" and len(args) == 1:
+                helper_id = self._integer_arg(args[0], name)
+                return (
+                    self._load_runtime_field("IK_EXPR_FIELD_ENTITY_TYPE") +
+                    [{"op": "IK_EXPR_PUSH_CONST", "value0": 2},
+                     {"op": "IK_EXPR_EQ"}] +
+                    self._load_runtime_field("IK_EXPR_FIELD_ENTITY_ID") +
+                    [{"op": "IK_EXPR_PUSH_CONST", "value0": helper_id},
+                     {"op": "IK_EXPR_EQ"}, {"op": "IK_EXPR_AND"}]
+                )
+            if lower == "ceil" and len(args) == 1:
+                code = args[0]
+                if any(ins.get("field") == "IK_EXPR_FIELD_FVAR_Q16"
+                       for ins in code):
+                    return code + [{"op": "IK_EXPR_CEIL_Q16"}]
+                return code
+            if lower == "floor" and len(args) == 1:
+                return args[0]
+            if lower == "command" and len(args) == 1:
+                command_id = self._integer_arg(args[0], name)
+                if command_id < 0 or command_id >= 128:
+                    raise ValueError("command() id is outside 0..127")
+                code = [{"op": "IK_EXPR_LOAD_COMMAND", "value0": command_id}]
+                if self.q16:
+                    code.extend([
+                        {"op": "IK_EXPR_PUSH_CONST", "value0": 65536},
+                        {"op": "IK_EXPR_MUL"},
+                    ])
+                return code
+            if lower in ("var", "sysvar", "fvar") and len(args) == 1:
+                index = self._constant_arg(args[0], name)
+                if self.q16:
+                    if index % 65536:
+                        raise ValueError(
+                            f"{name}() index must be an integer constant")
+                    index //= 65536
+                max_count = 60 if lower == "var" else 40
+                if index < 0 or index >= max_count:
+                    raise ValueError(
+                        f"{name}({index}) is outside the supported range 0..{max_count - 1}")
+                field = {
+                    "var": "IK_EXPR_FIELD_VAR",
+                    "sysvar": "IK_EXPR_FIELD_SYSVAR",
+                    "fvar": "IK_EXPR_FIELD_FVAR_Q16",
+                }[lower]
+                return self._load_runtime_field(field, index)
+            if lower == "ifelse" and len(args) == 3:
+                condition, when_true, when_false = args
+                return (when_false + condition + when_true + when_false +
+                        [{"op": "IK_EXPR_SUB"}, {"op": "IK_EXPR_MUL"},
+                         {"op": "IK_EXPR_ADD"}])
+            raise ValueError(f"unsupported function in runtime expression: {name}")
+
+        if lower in ("true", "false"):
+            return [{"op": "IK_EXPR_PUSH_CONST", "value0": int(lower == "true")}]
+        if lower == "numtarget":
+            return self._load_runtime_field("IK_EXPR_FIELD_NUM_TARGETS", -1)
+        if lower in ("p2statetype", "p2movetype"):
+            return self._load_runtime_field(
+                _RUNTIME_EXPR_FIELDS[lower],
+                redirect="IK_EXPR_REDIRECT_P2",
+            )
+        if lower in _RUNTIME_EXPR_FIELDS:
+            return self._load_runtime_field(_RUNTIME_EXPR_FIELDS[lower])
+        if lower == "p2stateno":
+            return self._load_runtime_field(
+                "IK_EXPR_FIELD_STATE_NO",
+                redirect="IK_EXPR_REDIRECT_P2",
+            )
+        if lower in ("pos", "vel"):
+            axis = self._take()[1].lower()
+            if axis not in ("x", "y"):
+                raise ValueError(f"unsupported {name} axis {axis!r}")
+            field = {
+                ("pos", "x"): "IK_EXPR_FIELD_POS_X_Q8",
+                ("pos", "y"): "IK_EXPR_FIELD_POS_Y_Q8",
+                ("vel", "x"): "IK_EXPR_FIELD_VEL_X_Q8",
+                ("vel", "y"): "IK_EXPR_FIELD_VEL_Y_Q8",
+            }[(lower, axis)]
+            return self._load_runtime_field(field)
+        raise ValueError(f"unsupported symbol in runtime expression: {name}")
+
+
+def compile_cns_expr(text: str, q16: bool = False) -> list[dict]:
+    def expand_state_range(match: re.Match[str]) -> str:
+        field, operator, low, high = match.groups()
+        field = field.lower()
+        if operator == "=":
+            return f"(({field}>={low}) && ({field}<={high}))"
+        return f"(({field}<{low}) || ({field}>{high}))"
+
+    normalized = text
+    if SELF_ANIMS is not None:
+        normalized = expand_dynamic_self_anim_exist(normalized)
+    normalized = re.sub(
+        r"\bconst\s*\(\s*([a-z][a-z0-9_.]*)\s*\)",
+        lambda match: str(CONST_VALUES[match.group(1).casefold()])
+        if match.group(1).casefold() in CONST_VALUES else match.group(0),
+        normalized,
+        flags=re.I,
+    )
+    normalized = re.sub(r"\balive\b", "(life > 0)", normalized, flags=re.I)
+    def const_720p(match: re.Match[str]) -> str:
+        value = float(match.group(1)) * LOCALCOORD_X / 1280.0
+        if not q16 and int(value) != value:
+            raise ValueError(
+                f"Const720p({match.group(1)}) is fractional in "
+                f"localcoord.x={LOCALCOORD_X:g}; expression needs Q16 context")
+        return str(int(value) if int(value) == value else value)
+
+    normalized = re.sub(
+        r"\bconst720p\s*\(\s*(-?\d+(?:\.\d+)?)\s*\)",
+        const_720p,
+        normalized,
+        flags=re.I,
+    )
+    def command_name(match: re.Match[str]) -> str:
+        name = match.group(2)
+        command_id = COMMAND_IDS.get(name.casefold())
+        if command_id is None:
+            raise ValueError(
+                f"command {name!r} has no matching --command-source entry")
+        return f"command({command_id}) {match.group(1)} 1"
+
+    normalized = re.sub(
+        r"\bcommand\s*(=|!=|==)\s*\"([^\"]+)\"",
+        command_name,
+        normalized,
+        flags=re.I,
+    )
+    normalized = re.sub(
+        r"\bfloor\s*\(\s*(\d+)\s*\*\s*ifelse\s*\(\s*"
+        r"(.+?)\s*,\s*(-?\d+(?:\.\d+)?)\s*,\s*"
+        r"(-?\d+(?:\.\d+)?)\s*\)\s*\)",
+        lambda match: f"IfElse({match.group(2)},"
+        f"{int(math.floor(int(match.group(1)) * float(match.group(3))))},"
+        f"{int(math.floor(int(match.group(1)) * float(match.group(4))))})",
+        normalized,
+        flags=re.I,
+    )
+    normalized = re.sub(
+        r"\bceil\s*\(\s*(\d+(?:\.\d+)?)\s*\*\s*"
+        r"(parent|root|p2)\s*,\s*fvar\s*\(\s*(\d+)\s*\)"
+        r"\s*\*\s*(\d+)\s*\)",
+        lambda match: (
+            f"Ceil({match.group(2)},FVar({match.group(3)})*"
+            f"{int(round(float(match.group(1)) * int(match.group(4))))})"
+        ),
+        normalized,
+        flags=re.I,
+    )
+    normalized = re.sub(
+        r"\banimelemno\s*\(\s*0\s*\)\s*(!=|=)\s*"
+        r"\[\s*(-?\d+)\s*,\s*(-?\d+)\s*\]",
+        lambda match: (
+            f"((animelem >= {match.group(2)}) && "
+            f"(animelem <= {match.group(3)}))"
+            if match.group(1) == "=" else
+            f"((animelem < {match.group(2)}) || "
+            f"(animelem > {match.group(3)}))"
+        ),
+        normalized,
+        flags=re.I,
+    )
+    normalized = re.sub(
+        r"\b(p2?stateno|prevstateno|anim)\s*(!=|=)\s*"
+        r"\[\s*(-?\d+)\s*,\s*(-?\d+)\s*\]",
+        expand_state_range,
+        normalized,
+        flags=re.I,
+    )
+    normalized = re.sub(
+        r"\b((?:(?:parent|root|p2)\s*,\s*)?"
+        r"(?:var|sysvar|fvar)\s*\(\s*\d+\s*\))"
+        r"\s*(!=|=)\s*\[\s*(-?\d+)\s*,\s*(-?\d+)\s*\]",
+        lambda match: (
+            f"(({match.group(1)} >= {match.group(3)}) && "
+            f"({match.group(1)} <= {match.group(4)}))"
+            if match.group(2) == "=" else
+            f"(({match.group(1)} < {match.group(3)}) || "
+            f"({match.group(1)} > {match.group(4)}))"
+        ),
+        normalized,
+        flags=re.I,
+    )
+    normalized = re.sub(
+        r"\b(gethitvar\s*\(\s*[a-z][a-z0-9_.]*\s*\))"
+        r"\s*(!=|=)\s*\[\s*(-?\d+)\s*,\s*(-?\d+)\s*\]",
+        lambda match: (
+            f"(({match.group(1)} >= {match.group(3)}) && "
+            f"({match.group(1)} <= {match.group(4)}))"
+            if match.group(2) == "=" else
+            f"(({match.group(1)} < {match.group(3)}) || "
+            f"({match.group(1)} > {match.group(4)}))"
+        ),
+        normalized,
+        flags=re.I,
+    )
+    state_types = {"u": 0, "s": 1, "c": 2, "a": 3, "l": 4}
+    move_types = {"u": 0, "i": 1, "a": 2, "h": 3}
+    for field in ("p2statetype", "statetype"):
+        normalized = re.sub(
+            rf"\b{field}\s*(=|!=)\s*([UCALS])\b",
+            lambda match: f"{field}{match.group(1)}"
+            f"{state_types[match.group(2).lower()]}",
+            normalized,
+            flags=re.I,
+        )
+    for field in ("p2movetype", "movetype"):
+        normalized = re.sub(
+            rf"\b{field}\s*(=|!=)\s*([UIAH])\b",
+            lambda match: f"{field}{match.group(1)}"
+            f"{move_types[match.group(2).lower()]}",
+            normalized,
+            flags=re.I,
+        )
+    normalized = re.sub(
+        r"\banimelem\s*=\s*(\d+)\s*,\s*(<=|<|>=|>|=)\s*(-?\d+)",
+        lambda match: (
+            f"animelemtime({match.group(1)}) "
+            f"{match.group(2)} {match.group(3)}"
+        ),
+        normalized,
+        flags=re.I,
+    )
+    code = _ExprCompiler(normalized, q16=q16).parse()
+    if len(code) > 255:
+        raise ValueError("runtime CNS expression exceeds 255 instructions")
+    return code
+
+
+def integer_or_runtime_expr(
+    text: str | None,
+    default: int = 0,
+) -> tuple[int, list[dict] | None]:
+    if text is None or not text.strip():
+        return default, None
+    try:
+        value = _ExprParser(text).parse()
+        if int(value) != value:
+            raise ValueError(f"expected integer expression, got {text!r}")
+        return int(value), None
+    except ValueError:
+        return 0, compile_cns_expr(text)
+
+
+def number_or_runtime_expr(
+    text: str | None, default: float
+) -> tuple[float, list[dict] | None]:
+    if text is None:
+        return default, None
+    try:
+        return number(text), None
+    except ValueError:
+        return default, compile_cns_expr(text, q16=True)
+
+
+def pair_integer_runtime_expr(
+    text: str | None,
+    default_x: int = 0,
+    default_y: int = 0,
+) -> tuple[int, int, list[dict] | None, list[dict] | None]:
+    if text is None:
+        return default_x, default_y, None, None
+    parts = _split_top_level(text)
+    if len(parts) == 1:
+        parts.append(str(default_y))
+    if len(parts) not in (2, 3):
+        raise ValueError(f"expected scalar or pair, got {text!r}")
+    x, x_expr = integer_or_runtime_expr(parts[0], default_x)
+    y, y_expr = integer_or_runtime_expr(parts[1], default_y)
+    return x, y, x_expr, y_expr
+
+
+def pair_runtime_expr(
+    text: str | None,
+    default_x: float = 0.0,
+    default_y: float = 0.0,
+) -> tuple[float, float, list[dict] | None, list[dict] | None]:
+    if text is None or not text.strip():
+        return default_x, default_y, None, None
+    if SELF_ANIMS is not None:
+        text = _SELF_ANIM_TERM.sub(
+            lambda match: str(
+                int(int(match.group(2)) in SELF_ANIMS) ^
+                int(bool(match.group(1)))
+            ),
+            text,
+        )
+    parts = _split_top_level(text)
+    if not parts or len(parts) > 3:
+        raise ValueError(f"expected value pair, got {text!r}")
+    if len(parts) == 3:
+        # The Saturn fight simulation is a 2D plane. MUGEN permits a third
+        # depth velocity component for 3D-style effects; it has no spatial
+        # coordinate or collision counterpart in this runtime.
+        parts.pop()
+    if len(parts) == 1:
+        parts.append(parts[0])
+    values: list[float] = []
+    expressions: list[list[dict] | None] = []
+    for part, default in zip(parts, (default_x, default_y)):
+        try:
+            values.append(_ExprParser(part).parse())
+            expressions.append(None)
+        except ValueError:
+            expressions.append(compile_cns_expr(part, q16=True))
+            values.append(default)
+    return values[0], values[1], expressions[0], expressions[1]
+
+
+def compile_controller_trigger_expr(ctrl: Section) -> list[dict]:
+    """Compile triggerall and triggerN lines with MUGEN's AND/OR grouping."""
+    common = [f"({expr})" for expr in ctrl.all("triggerall")]
+    groups: list[str] = []
+    for index in range(1, 9):
+        expressions = ctrl.all(f"trigger{index}")
+        if not expressions:
+            continue
+        pieces = common + [f"({expr})" for expr in expressions]
+        groups.append("(" + " && ".join(pieces) + ")")
+    if not groups:
+        raise ValueError(f"{ctrl.name}: missing trigger lines")
+    return compile_cns_expr(" || ".join(groups), q16=True)
+
+
+def eval_expr(text: str | None, default: float = 0.0) -> float:
+    if text is None:
+        return default
+    text = text.strip()
+    if not text:
+        return default
+    try:
+        return _ExprParser(text).parse()
+    except ValueError:
+        if STRICT_CONVERSION:
+            raise
+        return default
+
+
+def eval_int(text: str | None, default: int = 0) -> int:
+    value = eval_expr(text, float(default))
+    if int(value) != value:
+        raise ValueError(f"expected integer expression, got {text!r}")
+    return int(value)
+
+
+def dynamic_power_add_expr(
+    text: str | None,
+    divisor: int = 1,
+) -> list[dict] | None:
+    """Compile a dynamic integer expression, optionally dividing its result."""
+    if text is None:
+        return None
+    try:
+        _ExprParser(text).parse()
+        return None
+    except ValueError:
+        pass
+    if divisor < 1:
+        raise ValueError("dynamic expression divisor must be positive")
+    try:
+        code = compile_cns_expr(text)
+    except ValueError as exc:
+        if STRICT_CONVERSION:
+            raise ValueError(f"unsupported dynamic integer expression {text!r}: {exc}") from exc
+        return None
+    if divisor != 1:
+        code += [
+            {"op": "IK_EXPR_PUSH_CONST", "value0": divisor},
+            {"op": "IK_EXPR_DIV"},
+        ]
+    return code
+
+
 def number(text: str | None, default: float = 0.0) -> float:
     if text is None:
         return default
     value = text.strip()
+    # MUGEN allows string references like s4000 for sparkno/guard.sparkno.
+    if value[:1].casefold() == "s":
+        value = value[1:]
     if not re.fullmatch(r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)", value):
         raise ValueError(f"expected numeric literal, got {text!r}")
     return float(value)
@@ -140,6 +1042,16 @@ def _split_top_level(text: str) -> list[str]:
         elif ch == ")":
             depth -= 1
         elif ch == "," and depth == 0:
+            redirect_prefix = re.search(
+                r"\b(?:parent|root|p2|enemy)\s*$",
+                text[start:i], re.I,
+            )
+            redirected_field = re.match(
+                r"\s*(?:var|sysvar|fvar|pos|vel|stateno|statetype|movetype)\b",
+                text[i + 1:], re.I,
+            )
+            if redirect_prefix and redirected_field:
+                continue
             parts.append(text[start:i].strip())
             start = i + 1
     parts.append(text[start:].strip())
@@ -157,9 +1069,9 @@ def pair(
     parts = _split_top_level(text)
     if len(parts) == 1:
         return number(parts[0]), default_y
-    if len(parts) != 2:
-        raise ValueError(f"expected scalar or pair, got {text!r}")
-    return number(parts[0]), number(parts[1])
+    if len(parts) == 2 or len(parts) == 3:
+        return number(parts[0]), number(parts[1])
+    raise ValueError(f"expected scalar or pair, got {text!r}")
 
 
 def dist_fields(ctrl: Section) -> dict:
@@ -193,11 +1105,22 @@ def power_fields(ctrl: Section) -> dict:
         if text is None:
             continue
         parts = _split_top_level(text)
-        hit = integer(parts[0], 0)
-        guard = (integer(parts[1], 0) if len(parts) > 1 and parts[1]
-                 else int(hit * 0.5))
+        hit_expr = dynamic_power_add_expr(parts[0])
+        hit = 0 if hit_expr else integer(parts[0], 0)
+        guard_text = parts[1] if len(parts) > 1 and parts[1] else None
+        if guard_text is not None:
+            guard_expr = dynamic_power_add_expr(guard_text)
+            guard = 0 if guard_expr else integer(guard_text, 0)
+        elif hit_expr is not None:
+            guard_expr = dynamic_power_add_expr(parts[0], 2)
+            guard = 0
+        else:
+            guard_expr = None
+            guard = int(hit * 0.5)
         out[f"{name}_power_hit"] = hit
         out[f"{name}_power_guard"] = guard
+        out[f"_{name}_power_hit_expr"] = hit_expr
+        out[f"_{name}_power_guard_expr"] = guard_expr
         out["power_flags"] |= bit
     return out
 
@@ -206,6 +1129,8 @@ def spark_pair(text: str | None) -> tuple[float, float, float]:
     if text is None:
         return 0.0, 0.0, 0.0
     parts = _split_top_level(text)
+    if len(parts) == 1:
+        return number(parts[0]), 0.0, 0.0
     if len(parts) != 2:
         raise ValueError(f"expected spark pair, got {text!r}")
     x = number(parts[0])
@@ -223,6 +1148,24 @@ def spark_pair(text: str | None) -> tuple[float, float, float]:
         if not m:
             raise
         return x, float(m.group(1)), float(m.group(2))
+
+
+def spark_pair_runtime(text: str | None):
+    """Compile sparkxy coordinates that are runtime CNS expressions."""
+    if text is None:
+        return 0, 0, 0, None, None, None
+    parts = _split_top_level(text)
+    if len(parts) not in (1, 2):
+        raise ValueError(f"expected spark pair, got {text!r}")
+    x, x_expr = integer_or_runtime_expr(parts[0], 0)
+    if len(parts) == 1:
+        return x, 0, 0, x_expr, None, None
+    try:
+        y, y2 = spark_pair("0," + parts[1])[1:]
+        return x, int(y), int(y2), x_expr, None, None
+    except ValueError:
+        y, y_expr = integer_or_runtime_expr(parts[1], 0)
+        return x, y, y, x_expr, y_expr, y_expr
 
 
 def q8(value: float, wide: bool = False) -> int:
@@ -420,9 +1363,27 @@ def sound_pair(
     if value[:1].lower() in ("s", "f"):
         value = value[1:]
     parts = [p.strip() for p in value.split(",")]
+    if len(parts) == 1:
+        return integer(parts[0]), -1
     if len(parts) != 2:
         raise ValueError(f"expected sound group,item, got {text!r}")
     return integer(parts[0]), integer(parts[1])
+
+
+def sound_pair_runtime(text: str | None):
+    if text is None:
+        return -1, -1, None, None
+    value = text.strip()
+    if value[:1].lower() in ("s", "f"):
+        value = value[1:]
+    parts = _split_top_level(value)
+    if len(parts) not in (1, 2):
+        raise ValueError(f"expected sound group,item, got {text!r}")
+    group, group_expr = integer_or_runtime_expr(parts[0], -1)
+    if len(parts) == 1:
+        return group, -1, group_expr, None
+    item, item_expr = integer_or_runtime_expr(parts[1], -1)
+    return group, item, group_expr, item_expr
 
 
 def simple_trigger(section: Section) -> tuple[str, int, int]:
@@ -434,7 +1395,7 @@ def simple_trigger(section: Section) -> tuple[str, int, int]:
             f"[{section.name}] unsupported trigger conjunction {triggers!r}"
         )
 
-    expr = triggers[0].strip()
+    expr = _strip_outer_parens(triggers[0].strip())
 
     if expr == "1":
         return "IK_CNS_TRIGGER_ALWAYS", 0, 0
@@ -443,9 +1404,21 @@ def simple_trigger(section: Section) -> tuple[str, int, int]:
     if m:
         return "IK_CNS_TRIGGER_TIME_EQ", int(m.group(1)), 0
 
-    m = re.fullmatch(r"AnimElem\s*=\s*(\d+)", expr, flags=re.I)
+    m = re.fullmatch(r"AnimElem\s*=\s*(\d+)(?:,\s*=\s*(-?\d+))?", expr, flags=re.I)
     if m:
-        return "IK_CNS_TRIGGER_ANIM_ELEM_EQ", int(m.group(1)), 0
+        elem = int(m.group(1))
+        time = m.group(2)
+        if time is not None:
+            offset = int(time)
+            if elem < 1 or elem > 255 or offset < -128 or offset > 127:
+                raise ValueError(
+                    f"[{section.name}] AnimElemTime packed trigger out of range"
+                )
+            packed = (elem << 8) | (offset & 0xff)
+            if packed >= 32768:
+                packed -= 65536
+            return "IK_CNS_TRIGGER_ANIM_ELEM_TIME_EQ_PACKED", packed, 0
+        return "IK_CNS_TRIGGER_ANIM_ELEM_EQ", elem, 0
 
     m = re.fullmatch(
         r"AnimElemTime\s*\(\s*(\d+)\s*\)\s*=\s*(-?\d+)",
@@ -467,63 +1440,87 @@ def simple_trigger(section: Section) -> tuple[str, int, int]:
     if re.fullmatch(r"AnimTime\s*=\s*0", expr, flags=re.I):
         return "IK_CNS_TRIGGER_ANIM_END", 0, 0
 
-    raise ValueError(f"[{section.name}] unsupported trigger expression {expr!r}")
+    message = (
+        f"[{section.name}] unsupported trigger expression {expr!r}; "
+        "the converter will not replace it with an always-true trigger"
+    )
+    if STRICT_CONVERSION:
+        raise ValueError(message)
+    import sys
+    print(f"[WARN] {message}; using compatibility fallback", file=sys.stderr)
+    return "IK_CNS_TRIGGER_ALWAYS", 0, 0
 
 
 def hitdef_trigger(
     section: Section,
-) -> tuple[str, int, int, int, str, int]:
-    triggers = section.all("trigger1")
+) -> tuple[str, int, int, int, str, int, list[dict] | None, list[dict] | None]:
+    triggers = section.all("trigger1") or ["1"]
     trigger2 = section.all("trigger2")
-    if not triggers:
-        triggers = ["1"]
-
-    base: str | None = None
-    base_value = 0
+    trigger_all = section.all("triggerall")
     dist_op = "IK_CNS_P2_DIST_NONE"
     dist_value = 0
 
-    for expr in triggers:
-        value = _strip_outer_parens(expr)
-        m = re.fullmatch(
-            r"p2bodydist\s+X\s*(<|<=|>|>=)\s*(-?\d+)",
-            value,
-            flags=re.I,
-        )
-        if m:
+    def strip_distance(values: list[str]) -> list[str]:
+        nonlocal dist_op, dist_value
+        result = []
+        for expr in values:
+            value = _strip_outer_parens(expr)
+            match = re.fullmatch(
+                r"p2bodydist\s+X\s*(<|<=|>|>=)\s*(-?\d+)",
+                value,
+                flags=re.I,
+            )
+            if not match:
+                result.append(expr)
+                continue
             if dist_op != "IK_CNS_P2_DIST_NONE":
                 raise ValueError(
-                    f"[{section.name}] multiple p2bodydist predicates"
-                )
+                    f"[{section.name}] multiple p2bodydist predicates")
             dist_op = {
                 "<": "IK_CNS_P2_DIST_LT",
                 "<=": "IK_CNS_P2_DIST_LE",
                 ">": "IK_CNS_P2_DIST_GT",
                 ">=": "IK_CNS_P2_DIST_GE",
-            }[m.group(1)]
-            dist_value = int(m.group(2))
-            continue
+            }[match.group(1)]
+            dist_value = int(match.group(2))
+        return result
 
-        probe = Section(section.name, [("trigger1", expr)])
-        kind, trigger_value, _ = simple_trigger(probe)
-        if base is not None:
+    def compile_group(values: list[str]) -> tuple[str, int, list[dict] | None]:
+        if not values:
+            return "IK_CNS_TRIGGER_ALWAYS", 0, None
+        if len(values) == 1:
+            expr = values[0]
+            try:
+                kind, value, _ = simple_trigger(
+                    Section(section.name, [("trigger1", expr)]))
+                if (kind != "IK_CNS_TRIGGER_ALWAYS" or
+                        expr.strip().casefold() in {"1", "1.0", "true"}):
+                    return kind, value, None
+            except ValueError:
+                if not STRICT_CONVERSION:
+                    raise
+        conjunction = " && ".join(f"({expr})" for expr in values)
+        try:
+            code = compile_cns_expr(conjunction, q16=True)
+        except ValueError as exc:
             raise ValueError(
-                f"[{section.name}] unsupported HitDef trigger conjunction"
-            )
-        base = kind
-        base_value = trigger_value
+                f"[{section.name}] unsupported HitDef trigger conjunction "
+                f"{conjunction!r}: {exc}") from exc
+        return "IK_CNS_TRIGGER_ALWAYS", 0, code
+
+    primary_values = strip_distance([*trigger_all, *triggers])
+    if not primary_values:
+        primary_values = ["1"]
+    base, base_value, base_expr = compile_group(primary_values)
 
     second_kind = 255
     second_value = 0
+    second_expr: list[dict] | None = None
     if trigger2:
-        if len(trigger2) != 1:
-            raise ValueError(
-                f"[{section.name}] multiple trigger2 HitDef expressions"
-            )
-        probe = Section(section.name, [("trigger1", trigger2[0])])
-        kind, value, _ = simple_trigger(probe)
-        second_kind = kind
-        second_value = value
+        secondary_values = strip_distance([*trigger_all, *trigger2])
+        if not secondary_values:
+            secondary_values = ["1"]
+        second_kind, second_value, second_expr = compile_group(secondary_values)
 
     return (
         base or "IK_CNS_TRIGGER_ALWAYS",
@@ -532,6 +1529,8 @@ def hitdef_trigger(
         second_value,
         dist_op,
         dist_value,
+        base_expr,
+        second_expr,
     )
 
 
@@ -610,12 +1609,79 @@ _SELF_ANIM_TERM = re.compile(
 
 
 def load_air_actions(path: Path) -> set[int]:
-    text = path.read_text(encoding="utf-8-sig", errors="replace")
+    text = read_mugen_text(path)
     return {
         int(m.group(1))
         for m in re.finditer(r"^\s*\[Begin Action\s+(\d+)\s*\]", text,
                              re.I | re.M)
     }
+
+
+def expand_dynamic_self_anim_exist(text: str) -> str:
+    """Fold dynamic SelfAnimExist expressions against this character's AIR.
+
+    The runtime only has the current animation number, not the source AIR
+    action table. Expand the two common arithmetic forms into exact boolean
+    expressions so missing actions remain false at runtime.
+    """
+    assert SELF_ANIMS is not None
+
+    def terms_for_values(values: set[int], field: str) -> str:
+        if not values:
+            return "0"
+        ordered = sorted(values)
+        ranges: list[tuple[int, int]] = []
+        start = previous = ordered[0]
+        for value in ordered[1:]:
+            if value == previous + 1:
+                previous = value
+                continue
+            ranges.append((start, previous))
+            start = previous = value
+        ranges.append((start, previous))
+        checks = [
+            f"({field}>={low})" if low == high else
+            f"(({field}>={low}) && ({field}<={high}))"
+            for low, high in ranges
+        ]
+        return "(" + " || ".join(checks) + ")"
+
+    def replace(match: re.Match[str]) -> str:
+        negated, expression = match.groups()
+        expression = re.sub(r"\s+", "", expression).casefold()
+        if expression in {"anim", "anim+0"}:
+            result = terms_for_values(SELF_ANIMS, "anim")
+        else:
+            anim_offset = re.fullmatch(r"anim([+-])(\d+)", expression)
+            hit_offset = re.fullmatch(
+                r"(\d+)\+gethitvar\(animtype\)", expression)
+            if anim_offset:
+                sign, amount = anim_offset.groups()
+                offset = int(amount) * (1 if sign == "+" else -1)
+                result = terms_for_values(
+                    {action - offset for action in SELF_ANIMS}, "anim")
+            elif hit_offset:
+                base = int(hit_offset.group(1))
+                values = sorted(
+                    hit_type for hit_type in range(0, 16)
+                    if base + hit_type in SELF_ANIMS)
+                if len(values) > 8:
+                    raise ValueError(
+                        "SelfAnimExist dynamic animtype has too many cases")
+                result = "(" + " || ".join(
+                    f"(gethitvar(animtype)={value})" for value in values
+                ) + ")" if values else "0"
+            else:
+                raise ValueError(
+                    f"unsupported dynamic SelfAnimExist({expression})")
+        return f"!({result})" if negated else result
+
+    return re.sub(
+        r"(!?)\s*SelfAnimExist\s*\(\s*([^()]+)\s*\)",
+        replace,
+        text,
+        flags=re.I,
+    )
 
 
 def fold_self_anim_exist(ctrl: Section) -> Section | None:
@@ -1189,8 +2255,10 @@ def constants(globals_: dict[str, Section]) -> dict[str, int]:
         "air_jump_fwd_q8": q8(number(vel.get("airjump.fwd"), 2.5)),
         "air_jump_num": integer(movement.get("airjump.num"), 0),
         "air_jump_height": integer(movement.get("airjump.height"), 35),
-        "yaccel_q8": q8(number(movement.get("yaccel"), .44)),
-        "yaccel_q16": q16(number(movement.get("yaccel"), .44)),
+        "yaccel_q8": q8(
+            number(movement.get("yaccel"), .44) * 320.0 / LOCALCOORD_X),
+        "yaccel_q16": q16(
+            number(movement.get("yaccel"), .44) * 320.0 / LOCALCOORD_X),
         "stand_friction_q16": q16(
             number(movement.get("stand.friction"), .85)),
         "crouch_friction_q16": q16(
@@ -1290,6 +2358,7 @@ def compile_runtime_controller(
         "sprpriority",
         "changeanim",
         "changeanim2",
+        "statetypeset",
         "width",
         "varset",
         "varadd",
@@ -1315,11 +2384,35 @@ def compile_runtime_controller(
         "afterimagetime",
         "palfx",
         "assertspecial",
+        "makedust",
+        "gravity",
+        "poweradd",
     }
     if ctype not in supported:
         return None
 
-    trig_kind, trig_value, trig_value2 = controller_trigger(ctrl, ctype)
+    ctrl.runtime_trigger_expr = None
+    ctrl.runtime_value0_expr = None
+    ctrl.runtime_value1_expr = None
+    try:
+        trig_kind, trig_value, trig_value2 = controller_trigger(ctrl, ctype)
+    except ValueError:
+        ctrl.runtime_trigger_expr = compile_controller_trigger_expr(ctrl)
+        trig_kind, trig_value, trig_value2 = "IK_CNS_TRIGGER_ALWAYS", 0, 0
+    if trig_kind == "IK_CNS_TRIGGER_ALWAYS":
+        trigger_texts = [
+            expr.strip().casefold()
+            for trigger_index in range(1, 9)
+            for expr in ctrl.all(f"trigger{trigger_index}")
+        ]
+        if trigger_texts and any(
+            expr not in {"1", "1.0", "true"} for expr in trigger_texts
+        ):
+            try:
+                ctrl.runtime_trigger_expr = compile_controller_trigger_expr(ctrl)
+            except ValueError:
+                if STRICT_CONVERSION:
+                    raise
 
     flags: list[str] = []
     if integer(ctrl.get("ignorehitpause"), 0):
@@ -1339,6 +2432,55 @@ def compile_runtime_controller(
             "trigger_value": trig_value,
             "trigger_value2": trig_value2,
             "value0": 0,
+            "value1": 0,
+            "flags": flag_expr(),
+        }
+
+    if ctype == "makedust":
+        pos = pair(ctrl.get("pos"), 0, 0)
+        spacing = integer(ctrl.get("spacing"), 0)
+        if spacing not in (0, 1):
+            return None
+        return {
+            "state_number": state_no,
+            "type": "IK_CNS_CTRL_MAKE_DUST",
+            "trigger_kind": trig_kind,
+            "trigger_value": trig_value,
+            "trigger_value2": trig_value2,
+            "value0": integer(ctrl.get("anim"), 0),
+            "value1": int(pos[0]),
+            "value2": int(pos[1]),
+            "flags": flag_expr(),
+        }
+
+    if ctype == "gravity":
+        return {
+            "state_number": state_no,
+            "type": "IK_CNS_CTRL_GRAVITY",
+            "trigger_kind": trig_kind,
+            "trigger_value": trig_value,
+            "trigger_value2": trig_value2,
+            "value0": 0,
+            "value1": 0,
+            "flags": flag_expr(),
+        }
+
+    if ctype == "poweradd":
+        value_text = ctrl.get("value") or "0"
+        try:
+            value = eval_int(value_text)
+            value_expr = None
+        except ValueError:
+            value = 0
+            value_expr = compile_cns_expr(value_text, q16=True)
+        ctrl.runtime_value0_expr = value_expr
+        return {
+            "state_number": state_no,
+            "type": "IK_CNS_CTRL_POWER_ADD",
+            "trigger_kind": trig_kind,
+            "trigger_value": trig_value,
+            "trigger_value2": trig_value2,
+            "value0": value,
             "value1": 0,
             "flags": flag_expr(),
         }
@@ -1552,13 +2694,21 @@ def compile_runtime_controller(
         has_ctrl = ctrl.get("ctrl") is not None
         if has_ctrl:
             flags.append("IK_CNS_CTRL_HAS_CTRL")
+        value_text = ctrl.get("value") or "-1"
+        try:
+            state_no = eval_int(value_text)
+            state_expr = None
+        except ValueError:
+            state_no = 0
+            state_expr = compile_cns_expr(value_text, q16=True)
+        ctrl.runtime_value0_expr = state_expr
         return {
             "state_number": state_no,
             "type": "IK_CNS_CTRL_CHANGE_STATE",
             "trigger_kind": trig_kind,
             "trigger_value": trig_value,
             "trigger_value2": trig_value2,
-            "value0": integer(ctrl.get("value")),
+            "value0": state_no,
             "value1": integer(ctrl.get("ctrl"), 0),
             "flags": flag_expr(),
         }
@@ -1594,8 +2744,9 @@ def compile_runtime_controller(
                 "value1": 0,
                 "flags": flag_expr(),
             }
-        x = number(x_text, 0)
-        y = number(ctrl.get("y"), 0)
+        x, y, ctrl.runtime_value0_expr, ctrl.runtime_value1_expr = \
+            pair_runtime_expr(
+                f"{x_text},{ctrl.get('y') or '0'}", 0, 0)
         return {
             "state_number": state_no,
             "type": "IK_CNS_CTRL_POS_ADD",
@@ -1640,13 +2791,21 @@ def compile_runtime_controller(
         }
 
     if ctype == "changeanim":
+        value_text = ctrl.get("value") or "-1"
+        try:
+            anim_no = eval_int(value_text)
+            anim_expr = None
+        except ValueError:
+            anim_no = 0
+            anim_expr = compile_cns_expr(value_text, q16=True)
+        ctrl.runtime_value0_expr = anim_expr
         return {
             "state_number": state_no,
             "type": "IK_CNS_CTRL_CHANGE_ANIM",
             "trigger_kind": trig_kind,
             "trigger_value": trig_value,
             "trigger_value2": trig_value2,
-            "value0": integer(ctrl.get("value")),
+            "value0": anim_no,
             "value1": integer(ctrl.get("elem"), 1),
             "flags": flag_expr(),
         }
@@ -1660,6 +2819,30 @@ def compile_runtime_controller(
             "trigger_value2": trig_value2,
             "value0": integer(ctrl.get("value")),
             "value1": 1,
+            "flags": flag_expr(),
+        }
+
+    if ctype == "statetypeset":
+        state_type = (ctrl.get("statetype") or "U").strip().upper()
+        move_type = (ctrl.get("movetype") or "U").strip().upper()
+        physics = (ctrl.get("physics") or "U").strip().upper()
+        set_flags = []
+        if state_type not in ("", "U"):
+            set_flags.append("IK_CNS_CTRL_SET_STATE_TYPE")
+        if move_type not in ("", "U"):
+            set_flags.append("IK_CNS_CTRL_SET_MOVE_TYPE")
+        if physics not in ("", "U"):
+            set_flags.append("IK_CNS_CTRL_SET_PHYSICS")
+        return {
+            "state_number": state_no,
+            "type": "IK_CNS_CTRL_STATE_TYPE_SET",
+            "trigger_kind": trig_kind,
+            "trigger_value": trig_value,
+            "trigger_value2": trig_value2,
+            "value0": STATE_TYPE.get(state_type, "IK_CNS_STATE_UNCHANGED"),
+            "value1": MOVE_TYPE.get(move_type, "IK_CNS_MOVE_UNCHANGED"),
+            "value2": PHYSICS.get(physics, "IK_CNS_PHYS_BY_TYPE"),
+            "value3": " | ".join(set_flags) if set_flags else "0u",
             "flags": flag_expr(),
         }
 
@@ -1682,6 +2865,7 @@ def compile_runtime_controller(
 
         var_index = None
         var_value_text = None
+        var_is_system = False
         if ctrl.get("v") is not None and ctrl.get("value") is not None:
             var_index = integer(ctrl.get("v"))
             var_value_text = ctrl.get("value")
@@ -1690,20 +2874,30 @@ def compile_runtime_controller(
             for key, value in ctrl.values:
                 match = re.fullmatch(r"var\((\d+)\)", key.strip(), flags=re.I)
                 if match:
-                    assignments.append((int(match.group(1)), value))
+                    assignments.append((int(match.group(1)), value, False))
+                match = re.fullmatch(r"sysvar\((\d+)\)", key.strip(), flags=re.I)
+                if match:
+                    assignments.append((int(match.group(1)), value, True))
             if len(assignments) == 1:
-                var_index, var_value_text = assignments[0]
+                var_index, var_value_text, var_is_system = assignments[0]
 
         if var_index is None or var_value_text is None:
             return None
-        if var_index < 0 or var_index >= 60:
-            raise ValueError(f"[{ctrl.name}] var index outside 0..59")
+        var_count = 4 if var_is_system else 60
+        if var_index < 0 or var_index >= var_count:
+            raise ValueError(
+                f"[{ctrl.name}] {'sysvar' if var_is_system else 'var'} "
+                f"index outside 0..{var_count - 1}")
         var_value = integer(var_value_text)
         if var_value < -2147483648 or var_value > 2147483647:
             raise ValueError(f"[{ctrl.name}] var value outside int32")
         return {
             "state_number": state_no,
-            "type": "IK_CNS_CTRL_VAR_SET" if ctype == "varset" else "IK_CNS_CTRL_VAR_ADD",
+            "type": (
+                "IK_CNS_CTRL_SYSVAR_SET" if var_is_system else
+                "IK_CNS_CTRL_VAR_SET" if ctype == "varset" else
+                "IK_CNS_CTRL_VAR_ADD"
+            ),
             "trigger_kind": trig_kind,
             "trigger_value": trig_value,
             "trigger_value2": trig_value2,
@@ -1881,8 +3075,10 @@ def compile_runtime_controller(
                 flags=re.I,
             )
         )
-        x = number(x_text, 0)
-        y = 0 if use_yaccel else number(y_text, 0)
+        x, y, ctrl.runtime_value0_expr, ctrl.runtime_value1_expr = \
+            pair_runtime_expr(
+                f"{x_text or '0'},"
+                f"{'0' if use_yaccel else (y_text or '0')}", 0, 0)
         axis: list[str] = []
         if ctrl.get("x") is not None:
             axis.append("IK_CNS_CTRL_AXIS_X")
@@ -1904,8 +3100,9 @@ def compile_runtime_controller(
         }
 
     if ctype == "velset":
-        x = number(ctrl.get("x"), 0)
-        y = number(ctrl.get("y"), 0)
+        x, y, ctrl.runtime_value0_expr, ctrl.runtime_value1_expr = \
+            pair_runtime_expr(
+                f"{ctrl.get('x') or '0'},{ctrl.get('y') or '0'}", 0, 0)
         axis: list[str] = []
         if ctrl.get("x") is not None:
             axis += ["IK_CNS_CTRL_AXIS_X", "IK_CNS_CTRL_LOCAL_X"]
@@ -2057,8 +3254,11 @@ def compile_helper_controller(
         "pos_y_q8": q8(py),
         "facing": facing,
         "postype": postype,
-        "keyctrl": integer(ctrl.get("keyctrl"), 0),
-        "ownpal": integer(ctrl.get("ownpal"), 0),
+        # MUGEN booleans commonly use 99999 for true. These fields are
+        # represented as uint8_t flags in the runtime, so preserve truth
+        # semantics instead of truncating the source integer (99999 -> 159).
+        "keyctrl": int(integer(ctrl.get("keyctrl"), 0) != 0),
+        "ownpal": int(integer(ctrl.get("ownpal"), 0) != 0),
         "pause_move_time": max(0, integer(ctrl.get("pausemovetime"), 0)),
         "super_move_time": max(0, integer(ctrl.get("supermovetime"), 0)),
     }
@@ -2084,10 +3284,31 @@ def guard_times(ctrl: Section) -> tuple[int, int, int]:
     Mugen characters (classic KFM) default guard.hittime to ground.slidetime,
     not ground.hittime as documented; Ikemen's engine does the same for them.
     """
-    hit = integer(ctrl.get("guard.hittime"),
-                  integer(ctrl.get("ground.slidetime"), 0))
-    slide = integer(ctrl.get("guard.slidetime"), hit)
-    return hit, slide, integer(ctrl.get("guard.ctrltime"), slide)
+    hit = eval_int(ctrl.get("guard.hittime"),
+                  eval_int(ctrl.get("ground.slidetime"), 0))
+    slide = eval_int(ctrl.get("guard.slidetime"), hit)
+    return hit, slide, eval_int(ctrl.get("guard.ctrltime"), slide)
+
+
+def guard_times_runtime(
+    ctrl: Section,
+    ground_slide: int,
+    ground_slide_expr: list[dict] | None,
+) -> tuple[tuple[int, int, int], tuple[list[dict] | None, ...]]:
+    """Compile guarded hit clocks, preserving MUGEN's inherited defaults."""
+    if ctrl.get("guard.hittime") is not None:
+        hit, hit_expr = integer_or_runtime_expr(ctrl.get("guard.hittime"), 0)
+    else:
+        hit, hit_expr = ground_slide, ground_slide_expr
+    if ctrl.get("guard.slidetime") is not None:
+        slide, slide_expr = integer_or_runtime_expr(ctrl.get("guard.slidetime"), hit)
+    else:
+        slide, slide_expr = hit, hit_expr
+    if ctrl.get("guard.ctrltime") is not None:
+        control, control_expr = integer_or_runtime_expr(ctrl.get("guard.ctrltime"), slide)
+    else:
+        control, control_expr = slide, slide_expr
+    return (hit, slide, control), (hit_expr, slide_expr, control_expr)
 
 
 def _projectile_hitdef_row(
@@ -2106,6 +3327,8 @@ def _projectile_hitdef_row(
     sparkx, sparky, _ = spark_pair(ctrl.get("sparkxy"))
     hs = sound_pair(ctrl.get("hitsound"))
     gs = sound_pair(ctrl.get("guardsound"))
+    air_juggle, air_juggle_expr = integer_or_runtime_expr(
+        ctrl.get("air.juggle"), 0)
 
     attr_parts = [
         p.strip().upper()
@@ -2169,7 +3392,8 @@ def _projectile_hitdef_row(
         "fall_x_velocity_q8": q8(number(ctrl.get("fall.xvelocity"), 0)),
         "fall_y_velocity_q8": q8(number(ctrl.get("fall.yvelocity"), -4.5)),
         "fall_x_velocity_set": int(ctrl.get("fall.xvelocity") is not None),
-        "fall_recover": integer(ctrl.get("fall.recover"), 1),
+        "fall_recover": integer(
+            ctrl.get("fall.recover"), integer(ctrl.get("air.recover"), 1)),
         "fall_recover_time": integer(ctrl.get("fall.recovertime"), 4),
         "down_hit_time": integer(ctrl.get("down.hittime"), 0),
         "down_velocity_x_q8": q8(down_x),
@@ -2177,7 +3401,8 @@ def _projectile_hitdef_row(
         "down_bounce": integer(ctrl.get("down.bounce"), 0),
         "hit_flags": hit_mask(ctrl.get("hitflag")),
         "priority_type": priority_type_code(ctrl.get("priority")),
-        "air_juggle": integer(ctrl.get("air.juggle"), 0),
+        "air_juggle": air_juggle,
+        "_air_juggle_expr": air_juggle_expr,
         "p1_state_no": integer(ctrl.get("p1stateno"), -1),
         "p2_state_no": integer(ctrl.get("p2stateno"), -1),
         "guard_dist": integer(ctrl.get("guard.dist"), -1),
@@ -2230,6 +3455,7 @@ def compile_projectile_controller(
 ) -> tuple[dict, dict, dict] | None:
     supported = {
         "type", "projid", "projanim", "projhitanim", "projremanim",
+        "projshadow",
         "projcancelanim", "postype", "offset", "velocity", "velmul",
         "accel", "projremove", "projremovetime", "projhits",
         "projmisstime", "projpriority", "projsprpriority",
@@ -2242,10 +3468,11 @@ def compile_projectile_controller(
         "forcestand", "forcenofall", "guardflag", "hitflag",
         "ground.type", "ground.slidetime", "ground.hittime",
         "ground.velocity", "air.hittime", "air.velocity",
+        "getpower", "givepower",
         "guard.velocity", "airguard.velocity", "guard.slidetime",
         "guard.hittime", "guard.ctrltime", "guard.kill",
         "fall.xvelocity", "fall.yvelocity", "fall.recover",
-        "fall.recovertime", "down.hittime", "down.velocity",
+        "fall.recovertime", "air.recover", "down.hittime", "down.velocity",
         "down.bounce", "air.juggle", "p1stateno", "p2stateno",
         "guard.dist", "p1facing", "p2facing", "p1sprpriority",
         "yaccel", "ground.cornerpush.veloff", "fall.damage",
@@ -2275,6 +3502,11 @@ def compile_projectile_controller(
     vx, vy = pair(ctrl.get("velocity"), 0, 0)
     vmx, vmy = pair(ctrl.get("velmul"), 1, 1)
     ax, ay = pair(ctrl.get("accel"), 0, 0)
+    shadow_parts = _split_top_level(ctrl.get("projshadow") or "0,0,0")
+    while len(shadow_parts) < 3:
+        shadow_parts.append("0")
+    shadow_rgb = tuple(
+        max(0, min(255, integer(part, 0))) for part in shadow_parts[:3])
 
     projectile = {
         "id": integer(ctrl.get("projid"), 0),
@@ -2307,6 +3539,10 @@ def compile_projectile_controller(
         "remove_on_gethit": integer(ctrl.get("removeongethit"), 0),
         "remove_on_state_change": integer(
             ctrl.get("removeonchangestate"), 0),
+        "has_shadow": int(ctrl.get("projshadow") is not None),
+        "shadow_r": shadow_rgb[0],
+        "shadow_g": shadow_rgb[1],
+        "shadow_b": shadow_rgb[2],
     }
     controller = {
         "state_number": state_no,
@@ -2563,7 +3799,8 @@ def parse_state(
     if state_type is None or move_type is None or physics is None:
         raise ValueError(f"state {state.number}: unsupported Statedef type")
 
-    vx, vy = pair(sd.get("velset"))
+    vx, vy, velset_x_expr, velset_y_expr = pair_runtime_expr(
+        sd.get("velset"), 0, 0)
     has_velset = sd.get("velset") is not None
 
     hitdefs: list[dict] = []
@@ -2579,6 +3816,7 @@ def parse_state(
     hitoverrides: list[dict] = []
     open_reversal: dict | None = None
     unsupported: list[str] = []
+    assert_special_flags = 0
 
     def attach_target_query_selector(
         controller: dict,
@@ -2606,6 +3844,11 @@ def parse_state(
         ctrl = folded
         ctype = (ctrl.get("type", "") or "").strip().lower()
 
+        # MUGEN's Null controller deliberately disables the controller body.
+        # It has no runtime effect and must not block strict conversion.
+        if ctype == "null":
+            continue
+
         if ctype == "hitdef":
             (
                 trig_kind,
@@ -2614,6 +3857,8 @@ def parse_state(
                 trig2_value,
                 p2_dist_op,
                 p2_dist_x,
+                trigger_expr,
+                trigger2_expr,
             ) = hitdef_trigger(ctrl)
 
             damage_text = ctrl.get("damage") or "0,0"
@@ -2631,11 +3876,35 @@ def parse_state(
                 alt_damage_prev_state = int(damage_expr.group(2))
                 alt_damage = damage + int(damage_expr.group(3))
                 guard_damage = int(damage_expr.group(4))
+                damage_runtime_expr = None
+                guard_damage_runtime_expr = None
             else:
-                damage, guard_damage = pair(damage_text, 0, 0)
-            pause1, pause2 = pair(ctrl.get("pausetime"), 0, 0)
-            gx, gy = pair(ctrl.get("ground.velocity"), 0, 0)
-            ax, ay = pair(ctrl.get("air.velocity"), gx, gy)
+                (damage, guard_damage, damage_runtime_expr,
+                 guard_damage_runtime_expr) = pair_integer_runtime_expr(
+                    damage_text, 0, 0)
+            (pause1, pause2, pause_p1_expr,
+             pause_p2_expr) = pair_integer_runtime_expr(
+                ctrl.get("pausetime"), 0, 0)
+            gx, gy, ground_vx_expr, ground_vy_expr = pair_runtime_expr(
+                ctrl.get("ground.velocity"), 0, 0)
+            if ctrl.get("air.velocity") is None:
+                ax, ay = gx, gy
+                air_vx_expr, air_vy_expr = ground_vx_expr, ground_vy_expr
+            else:
+                ax, ay, air_vx_expr, air_vy_expr = pair_runtime_expr(
+                    ctrl.get("air.velocity"), gx, gy)
+            ground_slide_time, ground_slide_time_expr = \
+                integer_or_runtime_expr(ctrl.get("ground.slidetime"), 0)
+            ground_hit_time, ground_hit_time_expr = \
+                integer_or_runtime_expr(ctrl.get("ground.hittime"), 0)
+            if ctrl.get("air.hittime") is not None:
+                air_hit_time, air_hit_time_expr = integer_or_runtime_expr(
+                    ctrl.get("air.hittime"), ground_hit_time)
+            else:
+                air_hit_time, air_hit_time_expr = (
+                    ground_hit_time, ground_hit_time_expr)
+            guard_times_values, guard_times_exprs = guard_times_runtime(
+                ctrl, ground_slide_time, ground_slide_time_expr)
             guardx = number(ctrl.get("guard.velocity"), gx)
             agx, agy = pair(
                 ctrl.get("airguard.velocity"),
@@ -2643,13 +3912,34 @@ def parse_state(
                 ay / 2.0,
             )
             fall_x_text = ctrl.get("fall.xvelocity")
-            fall_x = number(fall_x_text, 0)
-            fall_y = number(ctrl.get("fall.yvelocity"), -4.5)
+            fall_x, fall_x_expr = number_or_runtime_expr(fall_x_text, 0)
+            fall_y, fall_y_expr = number_or_runtime_expr(
+                ctrl.get("fall.yvelocity"), -4.5)
             down_x, down_y = pair(ctrl.get("down.velocity"), ax, ay)
             down_hit_time = integer(ctrl.get("down.hittime"), 0)
-            sparkx, sparky, spark2y = spark_pair(ctrl.get("sparkxy"))
-            hs = sound_pair(ctrl.get("hitsound"))
-            gs = sound_pair(ctrl.get("guardsound"))
+            (sparkx, sparky, spark2y, sparkx_expr, sparky_expr,
+             spark2y_expr) = spark_pair_runtime(ctrl.get("sparkxy"))
+            hs_group, hs_item, hs_group_expr, hs_item_expr = \
+                sound_pair_runtime(ctrl.get("hitsound"))
+            gs_group, gs_item, gs_group_expr, gs_item_expr = \
+                sound_pair_runtime(ctrl.get("guardsound"))
+            recover_text = ctrl.get("fall.recover")
+            if recover_text is None:
+                recover_text = ctrl.get("air.recover")
+            fall_recover, fall_recover_expr = integer_or_runtime_expr(
+                recover_text, 1)
+            fall_recover_time, fall_recover_time_expr = \
+                integer_or_runtime_expr(ctrl.get("fall.recovertime"), 4)
+            spark_no_text = ctrl.get("sparkno")
+            guard_spark_no_text = ctrl.get("guard.sparkno")
+            if spark_no_text and spark_no_text[:1].casefold() in {"s", "f"}:
+                spark_no_text = spark_no_text[1:]
+            if guard_spark_no_text and guard_spark_no_text[:1].casefold() in {"s", "f"}:
+                guard_spark_no_text = guard_spark_no_text[1:]
+            spark_no, spark_no_expr = integer_or_runtime_expr(
+                spark_no_text, default_spark_no)
+            guard_spark_no, guard_spark_no_expr = integer_or_runtime_expr(
+                guard_spark_no_text, default_guard_spark_no)
 
             flags: list[str] = []
             if integer(ctrl.get("fall"), 0):
@@ -2663,6 +3953,8 @@ def parse_state(
             attr_parts = [p.strip().upper() for p in (ctrl.get("attr") or "").split(",")]
             if len(attr_parts) > 1 and attr_parts[1].endswith("T"):
                 flags.append("IK_CNS_HITDEF_THROW")
+            air_juggle, air_juggle_expr = integer_or_runtime_expr(
+                ctrl.get("air.juggle"), 0)
 
             hitdefs.append(
                 {
@@ -2671,6 +3963,36 @@ def parse_state(
                     "trigger_value": trig_value,
                     "trigger2_kind": trig2_kind,
                     "trigger2_value": trig2_value,
+                    "_trigger_expr": trigger_expr,
+                    "_trigger2_expr": trigger2_expr,
+                    "_air_juggle_expr": air_juggle_expr,
+                    "_damage_expr": damage_runtime_expr,
+                    "_guard_damage_expr": guard_damage_runtime_expr,
+                    "_pause_p1_expr": pause_p1_expr,
+                    "_pause_p2_expr": pause_p2_expr,
+                    "_spark_x_expr": sparkx_expr,
+                    "_spark_y_expr": sparky_expr,
+                    "_trigger2_spark_y_expr": spark2y_expr,
+                    "_hit_sound_group_expr": hs_group_expr,
+                    "_hit_sound_item_expr": hs_item_expr,
+                    "_guard_sound_group_expr": gs_group_expr,
+                    "_guard_sound_item_expr": gs_item_expr,
+                    "_fall_recover_expr": fall_recover_expr,
+                    "_fall_recover_time_expr": fall_recover_time_expr,
+                    "_spark_no_expr": spark_no_expr,
+                    "_guard_spark_no_expr": guard_spark_no_expr,
+                    "_fall_x_velocity_expr": fall_x_expr,
+                    "_fall_y_velocity_expr": fall_y_expr,
+                    "_ground_velocity_x_expr": ground_vx_expr,
+                    "_ground_velocity_y_expr": ground_vy_expr,
+                    "_air_velocity_x_expr": air_vx_expr,
+                    "_air_velocity_y_expr": air_vy_expr,
+                    "_ground_slide_time_expr": ground_slide_time_expr,
+                    "_ground_hit_time_expr": ground_hit_time_expr,
+                    "_air_hit_time_expr": air_hit_time_expr,
+                    "_guard_hit_time_expr": guard_times_exprs[0],
+                    "_guard_slide_time_expr": guard_times_exprs[1],
+                    "_guard_ctrl_time_expr": guard_times_exprs[2],
                     "has_trigger2": int(trig2_kind != 255),
                     "damage": int(damage),
                     "guard_damage": int(guard_damage),
@@ -2687,38 +4009,29 @@ def parse_state(
                         ).strip().lower(),
                         "IK_CNS_GROUND_NORMAL",
                     ),
-                    "ground_slide_time": integer(
-                        ctrl.get("ground.slidetime"), 0
-                    ),
-                    "ground_hit_time": integer(
-                        ctrl.get("ground.hittime"), 0
-                    ),
-                    "air_hit_time": integer(
-                        ctrl.get("air.hittime"),
-                        integer(ctrl.get("ground.hittime"), 0),
-                    ),
+                    "ground_slide_time": ground_slide_time,
+                    "ground_hit_time": ground_hit_time,
+                    "air_hit_time": air_hit_time,
                     "ground_velocity_x_q8": q8(gx),
                     "ground_velocity_y_q8": q8(gy),
                     "air_velocity_x_q8": q8(ax),
                     "air_velocity_y_q8": q8(ay),
-                    "spark_no": integer(
-                        ctrl.get("sparkno"), default_spark_no),
-                    "guard_spark_no": integer(
-                        ctrl.get("guard.sparkno"), default_guard_spark_no),
+                    "spark_no": spark_no,
+                    "guard_spark_no": guard_spark_no,
                     "spark_x": int(sparkx),
                     "spark_y": int(sparky),
                     "trigger2_spark_y": int(spark2y),
-                    "hit_sound_group": hs[0],
-                    "hit_sound_item": hs[1],
-                    "guard_sound_group": gs[0],
-                    "guard_sound_item": gs[1],
+                    "hit_sound_group": hs_group,
+                    "hit_sound_item": hs_item,
+                    "guard_sound_group": gs_group,
+                    "guard_sound_item": gs_item,
                     "flags": " | ".join(flags) if flags else "0u",
                     "guard_flags": guard_mask(ctrl.get("guardflag")),
                     "guard_kill": integer(ctrl.get("guard.kill"), 1),
                     "hit_flags": hit_mask(ctrl.get("hitflag")),
-                    "guard_slide_time": guard_times(ctrl)[1],
-                    "guard_hit_time": guard_times(ctrl)[0],
-                    "guard_ctrl_time": guard_times(ctrl)[2],
+                    "guard_slide_time": guard_times_values[1],
+                    "guard_hit_time": guard_times_values[0],
+                    "guard_ctrl_time": guard_times_values[2],
                     "guard_velocity_x_q8": q8(guardx),
                     "air_guard_velocity_x_q8": q8(agx),
                     "air_guard_velocity_y_q8": q8(agy),
@@ -2730,15 +4043,13 @@ def parse_state(
                     "fall_x_velocity_q8": q8(fall_x),
                     "fall_y_velocity_q8": q8(fall_y),
                     "fall_x_velocity_set": int(fall_x_text is not None),
-                    "fall_recover": integer(ctrl.get("fall.recover"), 1),
-                    "fall_recover_time": integer(
-                        ctrl.get("fall.recovertime"), 4
-                    ),
+                    "fall_recover": fall_recover,
+                    "fall_recover_time": fall_recover_time,
                     "down_hit_time": down_hit_time,
                     "down_velocity_x_q8": q8(down_x),
                     "down_velocity_y_q8": q8(down_y),
                     "down_bounce": integer(ctrl.get("down.bounce"), 0),
-                    "air_juggle": integer(ctrl.get("air.juggle"), 0),
+                    "air_juggle": air_juggle,
                     "p1_state_no": integer(ctrl.get("p1stateno"), -1),
                     "p2_state_no": integer(ctrl.get("p2stateno"), -1),
                     "guard_dist": integer(ctrl.get("guard.dist"), -1),
@@ -2916,29 +4227,66 @@ def parse_state(
             })
 
         elif ctype == "playsnd":
-            group, item = sound_pair(ctrl.get("value"))
-            trigger_exprs: list[str] = []
+            sound_parts = _split_top_level(ctrl.get("value") or "")
+            if len(sound_parts) != 2:
+                raise ValueError(
+                    f"expected sound group,item, got {ctrl.get('value')!r}")
+            group_text = sound_parts[0].strip()
+            if group_text[:1].casefold() in {"s", "f"}:
+                group_text = group_text[1:]
+            sound_group, group_expr = integer_or_runtime_expr(group_text, 0)
+            item, item_expr = integer_or_runtime_expr(sound_parts[1], 0)
+            triggerall = [f"({expr})" for expr in ctrl.all("triggerall")]
+            has_trigger_group = False
             for trigger_index in range(1, 9):
-                trigger_exprs.extend(ctrl.all(f"trigger{trigger_index}"))
-            if not trigger_exprs:
-                trigger_exprs = ["1"]
-            try:
-                for expr in trigger_exprs:
-                    probe = Section(
-                        ctrl.name, [("trigger1", expr)]
-                    )
-                    trig_kind, trig_value, _ = simple_trigger(probe)
-                    sounds.append(
-                        {
-                            "state_number": state.number,
-                            "trigger_kind": trig_kind,
-                            "trigger_value": trig_value,
-                            "group": group,
-                            "item": item,
-                        }
-                    )
-            except ValueError:
-                unsupported.append("playsnd")
+                trigger_group = ctrl.all(f"trigger{trigger_index}")
+                if not trigger_group:
+                    continue
+                has_trigger_group = True
+                trigger_exprs = triggerall + [
+                    f"({expr})" for expr in trigger_group
+                ]
+                try:
+                    if len(trigger_exprs) == 1:
+                        probe = Section(
+                            ctrl.name, [("trigger1", trigger_exprs[0])]
+                        )
+                        trig_kind, trig_value, _ = simple_trigger(probe)
+                        trigger_expr = None
+                    else:
+                        raise ValueError("combined trigger expression")
+                except ValueError:
+                    expression_text = " && ".join(trigger_exprs) or "1"
+                    trigger_expr = compile_cns_expr(
+                        expression_text, q16=True)
+                    trig_kind, trig_value = "IK_CNS_TRIGGER_ALWAYS", 0
+                sounds.append(
+                    {
+                        "state_number": state.number,
+                        "trigger_kind": trig_kind,
+                        "trigger_value": trig_value,
+                        "group": sound_group,
+                        "item": item,
+                        "_group_expr": group_expr,
+                        "_item_expr": item_expr,
+                        "_trigger_expr": trigger_expr,
+                    }
+                )
+            if not has_trigger_group:
+                sounds.append({
+                    "state_number": state.number,
+                    "trigger_kind": "IK_CNS_TRIGGER_ALWAYS",
+                    "trigger_value": 0,
+                    "group": sound_group,
+                    "item": item,
+                    "_group_expr": group_expr,
+                    "_item_expr": item_expr,
+                    "_trigger_expr": (
+                        compile_cns_expr(
+                            " && ".join(triggerall), q16=True)
+                        if triggerall else None
+                    ),
+                })
 
         elif ctype == "helper":
             try:
@@ -3012,6 +4360,21 @@ def parse_state(
             else:
                 unsupported.append(ctype)
 
+        elif ctype == "assertspecial":
+            flag = (ctrl.get("flag") or "").strip().casefold()
+            trigger_lines = [
+                value.strip() for key, value in ctrl.values
+                if key.casefold().startswith("trigger")
+            ]
+            if flag in {"nowalk", "noautoturn"} and trigger_lines and all(
+                value == "1" for value in trigger_lines
+            ) and not ctrl.all("triggerall"):
+                assert_special_flags |= (
+                    1 if flag == "nowalk" else 2
+                )
+            else:
+                unsupported.append(ctype)
+
         else:
             try:
                 compiled = compile_runtime_controller(state.number, ctrl)
@@ -3019,17 +4382,26 @@ def parse_state(
                 compiled = None
 
             if compiled is not None:
+                if ctrl.runtime_trigger_expr is not None:
+                    compiled["trigger_expr"] = ctrl.runtime_trigger_expr
+                if ctrl.runtime_value0_expr is not None:
+                    compiled["value0_expr"] = ctrl.runtime_value0_expr
+                if ctrl.runtime_value1_expr is not None:
+                    compiled["value1_expr"] = ctrl.runtime_value1_expr
                 controllers.append(
                     attach_target_query_selector(compiled, ctrl)
                 )
                 if ctype == "superpause" and ctrl.get("sound") is not None:
-                    group, item = sound_pair(ctrl.get("sound"))
+                    group, item, group_expr, item_expr = sound_pair_runtime(
+                        ctrl.get("sound"))
                     sounds.append({
                         "state_number": state.number,
                         "trigger_kind": compiled["trigger_kind"],
                         "trigger_value": compiled["trigger_value"],
                         "group": group,
                         "item": item,
+                        "_group_expr": group_expr,
+                        "_item_expr": item_expr,
                     })
             elif ctype:
                 unsupported.append(ctype)
@@ -3048,17 +4420,56 @@ def parse_state(
         )
     hitdefs.extend(projectile_hitdefs)
 
+    power_add_expr = dynamic_power_add_expr(sd.get("poweradd"))
+    juggle_expr = dynamic_power_add_expr(sd.get("juggle"))
+    unsupported_state_fields: list[str] = []
+    if sd.get("poweradd") is not None and power_add_expr is None:
+        try:
+            power_add = eval_int(sd.get("poweradd"), 0)
+        except ValueError:
+            if STRICT_CONVERSION:
+                raise
+            power_add = 0
+            unsupported_state_fields.append("statedef.poweradd")
+    else:
+        power_add = 0 if power_add_expr else eval_int(sd.get("poweradd"), 0)
+    if sd.get("juggle") is not None and juggle_expr is None:
+        try:
+            juggle_value = eval_int(sd.get("juggle"), 0)
+        except ValueError:
+            if STRICT_CONVERSION:
+                raise
+            juggle_value = 0
+            unsupported_state_fields.append("statedef.juggle")
+    else:
+        juggle_value = 0 if juggle_expr else eval_int(sd.get("juggle"), 0)
+
+    anim_expr = None
+    try:
+        anim_no = eval_int(sd.get("anim"), -1)
+    except ValueError:
+        if STRICT_CONVERSION:
+            anim_expr = compile_cns_expr(sd.get("anim") or "-1")
+            anim_no = -1
+        else:
+            anim_no = -1
+            unsupported_state_fields.append("statedef.anim")
+
     state_row = {
         "number": state.number,
-        "anim": integer(sd.get("anim"), -1),
-        "power_add": integer(sd.get("poweradd"), 0),
+        "anim": anim_no,
+        "anim_expr": anim_expr,
+        "velset_x_expr": velset_x_expr,
+        "velset_y_expr": velset_y_expr,
+        "power_add": power_add,
+        "power_add_expr": power_add_expr,
         "velset_x_q8": q8(vx),
         "velset_y_q8": q8(vy),
         "state_type": state_type,
         "move_type": move_type,
         "physics": physics,
-        "ctrl": integer(sd.get("ctrl"), 0),
-        "spr_priority": integer(sd.get("sprpriority"), 0),
+        "ctrl": eval_int(sd.get("ctrl"), 0),
+        "spr_priority": eval_int(sd.get("sprpriority"), 0),
         "has_velset": int(has_velset),
         "hitdef_ofs": hitdef_ofs,
         "hitdef_count": direct_hitdef_count,
@@ -3066,20 +4477,29 @@ def parse_state(
         "playsnd_count": len(sounds),
         "controller_ofs": controller_ofs,
         "controller_count": len(controllers),
-        "juggle": integer(sd.get("juggle"), 0),
+        "juggle": juggle_value,
+        "juggle_expr": juggle_expr,
         "has_juggle": int(sd.get("juggle") is not None),
         "owns_air_accel": int(any(
             c["type"] == "IK_CNS_CTRL_VEL_ADD" and
             "IK_CNS_CTRL_AXIS_Y" in c["flags"]
             for c in controllers
         )),
-        "hitdef_persist": integer(sd.get("hitdefpersist"), 0),
+        "hitdef_persist": eval_int(sd.get("hitdefpersist"), 0),
         "reversal_ofs": 0,
         "reversal_count": len(reversals),
         "hitoverride_ofs": 0,
         "hitoverride_count": len(hitoverrides),
-        "assert_special_flags": "0u",
-        "unsupported_controllers": sorted(set(unsupported)),
+        "assert_special_flags": (
+            " | ".join(
+                name for bit, name in (
+                    (1, "IK_CNS_STATE_ASSERT_NO_WALK"),
+                    (2, "IK_CNS_STATE_ASSERT_NO_AUTO_TURN"),
+                ) if assert_special_flags & bit
+            ) or "0u"
+        ),
+        "unsupported_controllers": sorted(
+            set(unsupported + unsupported_state_fields)),
     }
 
     return (
@@ -3097,9 +4517,10 @@ class ZssState:
 
 
 def parse_zss_states(path: Path) -> dict[int, ZssState]:
-    text = path.read_text(encoding="utf-8-sig", errors="strict")
+    text = read_mugen_text(path)
+    # Support both ZSS ([StateDef N;...]) and CNS ([Statedef N]) formats
     matches = list(re.finditer(
-        r"\[StateDef\s+(-?\d+)\s*;([^\]]*)\]",
+        r"\[(?:StateDef|Statedef)\s+(-?\d+)(?:\s*;([^\]]*))?\]",
         text,
         flags=re.I,
     ))
@@ -3107,8 +4528,9 @@ def parse_zss_states(path: Path) -> dict[int, ZssState]:
     for i, match in enumerate(matches):
         number_ = int(match.group(1))
         meta: dict[str, str] = {}
+        metadata_text = (match.group(2) or "").strip()
         metadata_text = "\n".join(line.split("#", 1)[0]
-                                  for line in match.group(2).splitlines())
+                                  for line in metadata_text.splitlines())
         for part in metadata_text.split(";"):
             part = part.strip()
             if not part or ":" not in part:
@@ -3283,6 +4705,8 @@ def compile_common_states(
             "number": n,
             "anim": anim,
             "power_add": 0,
+        "power_add_expr": None,
+        "juggle_expr": None,
             "velset_x_q8": 0,
             "velset_y_q8": 0,
             "state_type": stype,
@@ -4266,8 +5690,12 @@ def emit(
     constants_source: Path | None = None,
     character_zss: Path | None = None,
     hits_zss: Path | None = None,
+    states_sources: list[Path] | None = None,
 ) -> dict:
-    globals_, states = collect_states(parse_sections(path))
+    state_sections = parse_sections(path)
+    for source in states_sources or []:
+        state_sections.extend(parse_sections(source))
+    globals_, states = collect_states(state_sections)
     by_number = {state.number: state for state in states}
 
     # Ikemen ZSS characters can keep [Data]/[Size]/[Velocity]/[Movement]
@@ -4282,6 +5710,46 @@ def emit(
             raise ValueError(
                 f"{constants_source}: missing constants sections: {sorted(missing)}")
     const = constants(const_globals)
+    global CONST_VALUES
+    CONST_VALUES = {}
+    for section_name in ("data", "size", "velocity", "movement"):
+        section = const_globals.get(section_name)
+        if section is None:
+            continue
+        for key, value in section.values:
+            try:
+                parts = _split_top_level(value)
+                values = [_ExprParser(part).parse() for part in parts]
+            except ValueError:
+                continue
+            prefix = f"{section_name}.{key.casefold()}"
+            if section_name == "velocity":
+                scale = 320.0 / LOCALCOORD_X
+                values = [value * scale for value in values]
+            elif section_name == "movement" and (
+                key.casefold() == "yaccel" or
+                key.casefold().endswith(".threshold") or
+                key.casefold().endswith(".yaccel")
+            ):
+                values = [value * 320.0 / LOCALCOORD_X for value in values]
+            CONST_VALUES[prefix] = values[0]
+            if section_name == "velocity":
+                # Ikemen exposes velocity constants as named components even
+                # when the CNS declaration uses a scalar (for example,
+                # walk.fwd -> velocity.walk.fwd.x).
+                CONST_VALUES[f"{prefix}.x"] = values[0]
+                if len(values) > 1:
+                    CONST_VALUES[f"{prefix}.y"] = values[1]
+                if len(values) > 2:
+                    CONST_VALUES[f"{prefix}.z"] = values[2]
+                if key.casefold() in {"jump.neu", "airjump.neu"} and len(values) > 1:
+                    CONST_VALUES[f"velocity.{key.split('.')[0].casefold()}.y"] = values[1]
+                if key.casefold() == "runjump.fwd" and len(values) > 1:
+                    CONST_VALUES["velocity.runjump.y"] = values[1]
+    CONST_VALUES.setdefault(
+        "movement.stand.friction.threshold",
+        2.0 * 320.0 / LOCALCOORD_X)
+    CONST_VALUES.setdefault("movement.crouch.friction.threshold", 0.0)
     # Only strict, source-checked ZSS states are admitted. Every other P2
     # state deliberately keeps its original classic-CNS compatibility path.
     zss_overrides = {}
@@ -4393,6 +5861,98 @@ def emit(
     ident = re.sub(r"[^A-Za-z0-9_]", "_", symbol)
     macro = ident.upper()
 
+    expressions: list[dict] = []
+    expression_offsets: dict[tuple, tuple[int, int]] = {}
+
+    def intern_expression(code: list[dict] | None) -> tuple[int, int]:
+        if not code:
+            return 0, 0
+        key = tuple(tuple(sorted(ins.items())) for ins in code)
+        existing = expression_offsets.get(key)
+        if existing is not None:
+            return existing
+        result = (len(expressions), len(code))
+        expression_offsets[key] = result
+        expressions.extend(code)
+        return result
+
+    for row in state_rows:
+        (row["power_add_expr_ofs"],
+         row["power_add_expr_count"]) = intern_expression(
+            row.get("power_add_expr"))
+        (row["juggle_expr_ofs"],
+         row["juggle_expr_count"]) = intern_expression(
+            row.get("juggle_expr"))
+        (row["anim_expr_ofs"], row["anim_expr_count"]) = intern_expression(
+            row.get("anim_expr"))
+        for axis in ("x", "y"):
+            key = f"velset_{axis}"
+            (row[f"{key}_expr_ofs"], row[f"{key}_expr_count"]) = \
+                intern_expression(row.get(f"{key}_expr"))
+    hit_power_expr_keys = (
+        ("get", "hit"), ("get", "guard"),
+        ("give", "hit"), ("give", "guard"),
+    )
+    for hit in hitdefs:
+        (hit["trigger_expr_ofs"], hit["trigger_expr_count"]) = \
+            intern_expression(hit.pop("_trigger_expr", None))
+        (hit["trigger2_expr_ofs"], hit["trigger2_expr_count"]) = \
+            intern_expression(hit.pop("_trigger2_expr", None))
+        (hit["air_juggle_expr_ofs"], hit["air_juggle_expr_count"]) = \
+            intern_expression(hit.pop("_air_juggle_expr", None))
+        for prefix in ("ground_velocity", "air_velocity"):
+            for axis in ("x", "y"):
+                key = f"{prefix}_{axis}"
+                (hit[f"{key}_expr_ofs"], hit[f"{key}_expr_count"]) = \
+                    intern_expression(hit.pop(f"_{key}_expr", None))
+        for field in (
+            "damage", "guard_damage", "pause_p1", "pause_p2",
+            "ground_slide_time", "ground_hit_time", "air_hit_time",
+            "guard_hit_time", "guard_slide_time", "guard_ctrl_time",
+            "spark_x", "spark_y", "trigger2_spark_y",
+            "hit_sound_group", "hit_sound_item",
+            "guard_sound_group", "guard_sound_item",
+            "fall_recover", "fall_recover_time",
+            "spark_no", "guard_spark_no",
+            "fall_x_velocity", "fall_y_velocity",
+        ):
+            key = f"{field}_expr"
+            hit[f"{key}_ofs"], hit[f"{key}_count"] = intern_expression(
+                hit.pop(f"_{key}", None))
+        for prefix, suffix in hit_power_expr_keys:
+            code_key = f"_{prefix}_power_{suffix}_expr"
+            offset_key = f"{prefix}_power_{suffix}_expr_ofs"
+            count_key = f"{prefix}_power_{suffix}_expr_count"
+            hit[offset_key], hit[count_key] = intern_expression(
+                hit.pop(code_key, None))
+    for sound in sounds:
+        (sound["group_expr_ofs"], sound["group_expr_count"]) = \
+            intern_expression(sound.pop("_group_expr", None))
+        (sound["item_expr_ofs"], sound["item_expr_count"]) = \
+            intern_expression(sound.pop("_item_expr", None))
+        (sound["trigger_expr_ofs"], sound["trigger_expr_count"]) = \
+            intern_expression(sound.pop("_trigger_expr", None))
+    for controller in controllers:
+        (controller["trigger_expr_ofs"],
+         controller["trigger_expr_count"]) = intern_expression(
+            controller.pop("trigger_expr", None))
+        for value_index in (0, 1):
+            ofs_key = f"value{value_index}_expr_ofs"
+            count_key = f"value{value_index}_expr_count"
+            (controller[ofs_key], controller[count_key]) = intern_expression(
+                controller.pop(f"value{value_index}_expr", None))
+    if len(expressions) > 65535:
+        raise ValueError("CNS expression table exceeds the 16-bit offset limit")
+
+    expression_lines = [
+        "    {"
+        f"{ins['op']}, {ins.get('field', '0u')}, "
+        f"{ins.get('redirect', 'IK_EXPR_REDIRECT_SELF')}, 0u, "
+        f"{ins.get('value0', 0)}, {ins.get('value1', 0)}"
+        "},"
+        for ins in expressions
+    ]
+
     state_lines = [
         "    {"
         f"{r['number']}, {r['anim']}, {r['power_add']}, "
@@ -4415,7 +5975,17 @@ def emit(
         f"{r.get('hitoverride_count', 0)}u, "
         f"{r.get('assert_special_flags', '0u')}, "
         f"{r.get('land_before_move', 0)}u, "
-        f"{r.get('air_accel_q16', 0)}"
+        f"{r.get('air_accel_q16', 0)}, "
+        f"{r.get('power_add_expr_ofs', 0)}u, "
+        f"{r.get('power_add_expr_count', 0)}u, "
+        f"{r.get('juggle_expr_ofs', 0)}u, "
+        f"{r.get('juggle_expr_count', 0)}u, "
+        f"{r.get('anim_expr_ofs', 0)}u, "
+        f"{r.get('anim_expr_count', 0)}u, "
+        f"{r.get('velset_x_expr_ofs', 0)}u, "
+        f"{r.get('velset_x_expr_count', 0)}u, "
+        f"{r.get('velset_y_expr_ofs', 0)}u, "
+        f"{r.get('velset_y_expr_count', 0)}u"
         "},"
         for r in state_rows
     ]
@@ -4476,14 +6046,88 @@ def emit(
         f"{h.get('power_flags', 0)}u, "
         f"{h.get('mindist_x_q8', 0)}, {h.get('mindist_y_q8', 0)}, "
         f"{h.get('maxdist_x_q8', 0)}, {h.get('maxdist_y_q8', 0)}, "
-        f"{h.get('dist_flags', 0)}u"
+        f"{h.get('dist_flags', 0)}u, "
+        f"{h.get('get_power_hit_expr_ofs', 0)}u, "
+        f"{h.get('get_power_guard_expr_ofs', 0)}u, "
+        f"{h.get('give_power_hit_expr_ofs', 0)}u, "
+        f"{h.get('give_power_guard_expr_ofs', 0)}u, "
+        f"{h.get('get_power_hit_expr_count', 0)}u, "
+        f"{h.get('get_power_guard_expr_count', 0)}u, "
+        f"{h.get('give_power_hit_expr_count', 0)}u, "
+        f"{h.get('give_power_guard_expr_count', 0)}u, "
+        f"{h.get('trigger_expr_ofs', 0)}u, "
+        f"{h.get('trigger_expr_count', 0)}u, "
+        f"{h.get('trigger2_expr_ofs', 0)}u, "
+        f"{h.get('trigger2_expr_count', 0)}u, "
+        f"{h.get('air_juggle_expr_ofs', 0)}u, "
+        f"{h.get('air_juggle_expr_count', 0)}u, "
+        f"{h.get('ground_velocity_x_expr_ofs', 0)}u, "
+        f"{h.get('ground_velocity_x_expr_count', 0)}u, "
+        f"{h.get('ground_velocity_y_expr_ofs', 0)}u, "
+        f"{h.get('ground_velocity_y_expr_count', 0)}u, "
+        f"{h.get('air_velocity_x_expr_ofs', 0)}u, "
+        f"{h.get('air_velocity_x_expr_count', 0)}u, "
+        f"{h.get('air_velocity_y_expr_ofs', 0)}u, "
+        f"{h.get('air_velocity_y_expr_count', 0)}u, "
+        f"{h.get('ground_slide_time_expr_ofs', 0)}u, "
+        f"{h.get('ground_slide_time_expr_count', 0)}u, "
+        f"{h.get('ground_hit_time_expr_ofs', 0)}u, "
+        f"{h.get('ground_hit_time_expr_count', 0)}u, "
+        f"{h.get('air_hit_time_expr_ofs', 0)}u, "
+        f"{h.get('air_hit_time_expr_count', 0)}u, "
+        f"{h.get('guard_hit_time_expr_ofs', 0)}u, "
+        f"{h.get('guard_hit_time_expr_count', 0)}u, "
+        f"{h.get('guard_slide_time_expr_ofs', 0)}u, "
+        f"{h.get('guard_slide_time_expr_count', 0)}u, "
+        f"{h.get('guard_ctrl_time_expr_ofs', 0)}u, "
+        f"{h.get('guard_ctrl_time_expr_count', 0)}u, "
+        f"{h.get('damage_expr_ofs', 0)}u, "
+        f"{h.get('damage_expr_count', 0)}u, "
+        f"{h.get('guard_damage_expr_ofs', 0)}u, "
+        f"{h.get('guard_damage_expr_count', 0)}u, "
+        f"{h.get('pause_p1_expr_ofs', 0)}u, "
+        f"{h.get('pause_p1_expr_count', 0)}u, "
+        f"{h.get('pause_p2_expr_ofs', 0)}u, "
+        f"{h.get('pause_p2_expr_count', 0)}u, "
+        f"{h.get('spark_x_expr_ofs', 0)}u, "
+        f"{h.get('spark_x_expr_count', 0)}u, "
+        f"{h.get('spark_y_expr_ofs', 0)}u, "
+        f"{h.get('spark_y_expr_count', 0)}u, "
+        f"{h.get('trigger2_spark_y_expr_ofs', 0)}u, "
+        f"{h.get('trigger2_spark_y_expr_count', 0)}u, "
+        f"{h.get('hit_sound_group_expr_ofs', 0)}u, "
+        f"{h.get('hit_sound_group_expr_count', 0)}u, "
+        f"{h.get('hit_sound_item_expr_ofs', 0)}u, "
+        f"{h.get('hit_sound_item_expr_count', 0)}u, "
+        f"{h.get('guard_sound_group_expr_ofs', 0)}u, "
+        f"{h.get('guard_sound_group_expr_count', 0)}u, "
+        f"{h.get('guard_sound_item_expr_ofs', 0)}u, "
+        f"{h.get('guard_sound_item_expr_count', 0)}u, "
+        f"{h.get('fall_recover_expr_ofs', 0)}u, "
+        f"{h.get('fall_recover_expr_count', 0)}u, "
+        f"{h.get('fall_recover_time_expr_ofs', 0)}u, "
+        f"{h.get('fall_recover_time_expr_count', 0)}u, "
+        f"{h.get('spark_no_expr_ofs', 0)}u, "
+        f"{h.get('spark_no_expr_count', 0)}u, "
+        f"{h.get('guard_spark_no_expr_ofs', 0)}u, "
+        f"{h.get('guard_spark_no_expr_count', 0)}u, "
+        f"{h.get('fall_x_velocity_expr_ofs', 0)}u, "
+        f"{h.get('fall_x_velocity_expr_count', 0)}u, "
+        f"{h.get('fall_y_velocity_expr_ofs', 0)}u, "
+        f"{h.get('fall_y_velocity_expr_count', 0)}u"
         "},"
         for h in hitdefs
     ]
 
     sound_lines = [
         f"    {{{p['state_number']}, {p['trigger_kind']}, "
-        f"{p['trigger_value']}, {p['group']}, {p['item']}}},"
+        f"{p['trigger_value']}, {p['group']}, {p['item']}, "
+        f"{p.get('group_expr_ofs', 0)}u, "
+        f"{p.get('group_expr_count', 0)}u, "
+        f"{p.get('item_expr_ofs', 0)}u, "
+        f"{p.get('item_expr_count', 0)}u, "
+        f"{p.get('trigger_expr_ofs', 0)}u, "
+        f"{p.get('trigger_expr_count', 0)}u}},"
         for p in sounds
     ]
 
@@ -4494,7 +6138,13 @@ def emit(
         f"{c.get('value2', 0)}, {c.get('value3', 0)}, "
         f"{c.get('value4', 0)}, {c.get('value5', 0)}, "
         f"{c.get('value6', 0)}, {c.get('value7', 0)}, "
-        f"{c.get('trigger_aux', -1)}}},"
+        f"{c.get('trigger_aux', -1)}, "
+        f"{c.get('trigger_expr_ofs', 0)}u, "
+        f"{c.get('trigger_expr_count', 0)}u, "
+        f"{c.get('value0_expr_ofs', 0)}u, "
+        f"{c.get('value0_expr_count', 0)}u, "
+        f"{c.get('value1_expr_ofs', 0)}u, "
+        f"{c.get('value1_expr_count', 0)}u}},"
         for c in controllers
     ]
 
@@ -4534,7 +6184,10 @@ def emit(
         f"{p.get('bind_time', 0)}, "
         f"{p.get('remove_on_gethit', 0)}u, "
         f"{p.get('remove_on_state_change', 0)}u, "
-        f"{p.get('postype', 'IK_CNS_HELPER_POS_P1')}"
+        f"{p.get('postype', 'IK_CNS_HELPER_POS_P1')}, "
+        f"{p.get('has_shadow', 0)}u, "
+        f"{p.get('shadow_r', 0)}u, {p.get('shadow_g', 0)}u, "
+        f"{p.get('shadow_b', 0)}u"
         "},"
         for p in projectiles
     ]
@@ -4598,6 +6251,10 @@ def emit(
 
 static const ik_cns_state_t {ident}_states[{max(1, len(state_rows))}] = {{
 {chr(10).join(state_lines) if state_lines else '    {0},'}
+}};
+
+static const ik_expr_instr_t {ident}_expressions[{max(1, len(expressions))}] = {{
+{chr(10).join(expression_lines) if expression_lines else '    {0},'}
 }};
 
 static const ik_cns_hitdef_t {ident}_hitdefs[{max(1, len(hit_lines))}] = {{
@@ -4698,7 +6355,8 @@ const ik_cns_asset_t {ident}_cns = {{
     {ident}_hitoverrides, {len(hitoverrides)}u,
     {ident}_explods, {len(explods)}u,
     {ident}_projectiles, {len(projectiles)}u,
-    {ident}_projectile_mods, {len(projectile_mods)}u
+    {ident}_projectile_mods, {len(projectile_mods)}u,
+    {ident}_expressions, {len(expressions)}u
 }};
 """
 
@@ -4717,6 +6375,7 @@ const ik_cns_asset_t {ident}_cns = {{
 #define {macro}_CNS_PROJECTILE_MOD_COUNT {len(projectile_mods)}u
 #define {macro}_CNS_REVERSAL_COUNT {len(reversals)}u
 #define {macro}_CNS_HITOVERRIDE_COUNT {len(hitoverrides)}u
+#define {macro}_CNS_EXPRESSION_COUNT {len(expressions)}u
 
 extern const ik_cns_asset_t {ident}_cns;
 """
@@ -4749,30 +6408,75 @@ extern const ik_cns_asset_t {ident}_cns;
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--cns", required=True, type=Path)
+    parser.add_argument("--character-def", type=Path,
+                        help="character DEF used to read Info.localcoord")
     parser.add_argument("--constants-cns", type=Path,
                         help="separate [Data]/[Size]/[Velocity]/[Movement] file")
     parser.add_argument("--character-zss", type=Path,
                         help="original ZSS character states (strict subset)")
     parser.add_argument("--hits-zss", type=Path,
                         help="original ZSS hit reactions (strict subset)")
-    parser.add_argument("--states", required=True)
+    parser.add_argument(
+        "--states", default="all",
+        help="comma-separated Statedef numbers, or 'all' (default)",
+    )
+    parser.add_argument(
+        "--states-source", action="append", type=Path, default=[],
+        help="additional CNS/ST file referenced by the character DEF",
+    )
+    parser.add_argument(
+        "--command-source", action="append", type=Path, default=[],
+        help="CMD file used to resolve command trigger IDs",
+    )
     parser.add_argument("--common-zss", type=Path)
     parser.add_argument("--air", type=Path,
                         help="the character's .air file (SelfAnimExist)")
     parser.add_argument("--common-states", default="")
+    parser.add_argument(
+        "--strict", action="store_true",
+        help="fail on unsupported triggers or deferred controllers")
     parser.add_argument("--out-prefix", required=True, type=Path)
     parser.add_argument("--symbol", required=True)
     args = parser.parse_args(argv)
+
+    global STRICT_CONVERSION
+    STRICT_CONVERSION = args.strict
+
+    global COMMAND_IDS
+    COMMAND_IDS = {}
+    for command_source in args.command_source:
+        for command in parse_cmd(command_source).names:
+            key = command.casefold()
+            if key not in COMMAND_IDS:
+                COMMAND_IDS[key] = len(COMMAND_IDS)
+    if len(COMMAND_IDS) > 128:
+        raise ValueError("CNS command table exceeds the 128-name expression limit")
+
+    global LOCALCOORD_X
+    LOCALCOORD_X = 320.0
+    if args.character_def is not None:
+        def_text = read_mugen_text(args.character_def)
+        section = ""
+        for raw in def_text.splitlines():
+            line = raw.split(";", 1)[0].strip()
+            if line.startswith("[") and line.endswith("]"):
+                section = line[1:-1].strip().casefold()
+            elif section == "info" and "=" in line:
+                key, value = line.split("=", 1)
+                if key.strip().casefold() == "localcoord":
+                    parts = _split_top_level(value)
+                    if not parts or number(parts[0]) <= 0:
+                        raise ValueError(
+                            f"{args.character_def}: invalid localcoord {value!r}")
+                    LOCALCOORD_X = number(parts[0])
+                    break
 
     global SELF_ANIMS
     if args.air is not None:
         SELF_ANIMS = load_air_actions(args.air)
 
-    selected = [
-        int(value.strip())
-        for value in args.states.split(",")
-        if value.strip()
-    ]
+    selected = select_state_numbers(
+        args.states, [args.cns, *args.states_source])
 
     common_selected = [
         int(value.strip())
@@ -4790,6 +6494,7 @@ def main(argv: list[str] | None = None) -> int:
         args.constants_cns,
         args.character_zss,
         args.hits_zss,
+        args.states_source,
     )
 
     unsupported = {
@@ -4814,6 +6519,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if unsupported:
         print(f"[ikemen_cns] deferred controllers: {unsupported}")
+        if args.strict:
+            return 1
 
     return 0
 

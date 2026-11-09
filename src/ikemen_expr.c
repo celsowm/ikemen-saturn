@@ -1,5 +1,7 @@
 #include "ikemen_saturn/ikemen_expr.h"
 
+#include <limits.h>
+
 static int push(int32_t* stack, uint8_t* sp, int32_t value) {
     if (!stack || !sp || *sp >= IK_EXPR_STACK_CAPACITY) return 0;
     stack[(*sp)++] = value;
@@ -15,6 +17,17 @@ static int unary(int32_t* stack, uint8_t sp, uint8_t op) {
         case IK_EXPR_NEG:
             stack[sp - 1u] = -stack[sp - 1u];
             return 1;
+        case IK_EXPR_CEIL_Q16: {
+            const int32_t value = stack[sp - 1u];
+            stack[sp - 1u] = value > 0
+                ? (value + 65535) / 65536
+                : value / 65536;
+            return 1;
+        }
+        case IK_EXPR_ABS:
+            if (stack[sp - 1u] == INT32_MIN) stack[sp - 1u] = INT32_MAX;
+            else if (stack[sp - 1u] < 0) stack[sp - 1u] = -stack[sp - 1u];
+            return 1;
         default:
             return 0;
     }
@@ -25,6 +38,42 @@ static int binary(int32_t* stack, uint8_t* sp, uint8_t op) {
     const int32_t rhs = stack[*sp - 1u];
     const int32_t lhs = stack[*sp - 2u];
     int32_t result = 0;
+
+    if ((ik_expr_op_t)op == IK_EXPR_POW) {
+        if (rhs < 0) return 0;
+        int64_t power = 1;
+        int64_t base = lhs;
+        uint32_t exponent = (uint32_t)rhs;
+        while (exponent != 0u) {
+            if ((exponent & 1u) != 0u) {
+                power *= base;
+                if (power > INT32_MAX) power = INT32_MAX;
+                if (power < INT32_MIN) power = INT32_MIN;
+            }
+            exponent >>= 1;
+            if (exponent != 0u) {
+                base *= base;
+                if (base > INT32_MAX) base = INT32_MAX;
+                if (base < INT32_MIN) base = INT32_MIN;
+            }
+        }
+        stack[*sp - 2u] = (int32_t)power;
+        --(*sp);
+        return 1;
+    }
+
+    if ((ik_expr_op_t)op == IK_EXPR_MUL_Q16 ||
+        (ik_expr_op_t)op == IK_EXPR_DIV_Q16) {
+        if ((ik_expr_op_t)op == IK_EXPR_DIV_Q16 && rhs == 0) return 0;
+        int64_t wide = (ik_expr_op_t)op == IK_EXPR_MUL_Q16
+            ? ((int64_t)lhs * rhs) / 65536
+            : ((int64_t)lhs * 65536) / rhs;
+        if (wide > INT32_MAX) wide = INT32_MAX;
+        if (wide < INT32_MIN) wide = INT32_MIN;
+        stack[*sp - 2u] = (int32_t)wide;
+        --(*sp);
+        return 1;
+    }
 
     switch ((ik_expr_op_t)op) {
         case IK_EXPR_EQ: result = lhs == rhs; break;
@@ -113,7 +162,15 @@ int ik_expr_eval(
             case IK_EXPR_MUL:
             case IK_EXPR_DIV:
             case IK_EXPR_MOD:
+            case IK_EXPR_POW:
+            case IK_EXPR_MUL_Q16:
+            case IK_EXPR_DIV_Q16:
                 if (!binary(stack, &sp, ins->op)) return 0;
+                break;
+
+            case IK_EXPR_CEIL_Q16:
+            case IK_EXPR_ABS:
+                if (!unary(stack, sp, ins->op)) return 0;
                 break;
 
             default:

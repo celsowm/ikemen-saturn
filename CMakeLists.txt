@@ -76,6 +76,11 @@ endif()
 
 add_library(IkemenSaturn::IkemenSaturn ALIAS ikemen_saturn_lib)
 
+# The host machine may also have an installed IkemenSaturn header tree in
+# LibSaturn's prefix. This target must compile against its own in-tree ABI.
+target_include_directories(ikemen_saturn_lib BEFORE PUBLIC
+    "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>")
+
 set_target_properties(ikemen_saturn_lib PROPERTIES
     OUTPUT_NAME ikemen_saturn
     EXPORT_NAME IkemenSaturn

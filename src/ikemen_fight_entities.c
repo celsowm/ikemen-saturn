@@ -239,6 +239,11 @@ void ikf_configure_fight_entity_runtime(
     ik_entity_runtime_t* runtime
 ) {
     if (!fight || !runtime) return;
+    runtime->game_time = fight->frame;
+    runtime->command_active[0][0] = fight->fighters[0].command_active[0];
+    runtime->command_active[0][1] = fight->fighters[0].command_active[1];
+    runtime->command_active[1][0] = fight->fighters[1].command_active[0];
+    runtime->command_active[1][1] = fight->fighters[1].command_active[1];
     ik_entity_runtime_set_player_cns(
         runtime, 0u, cns_for_owner(fight, 0u));
     ik_entity_runtime_set_player_cns(

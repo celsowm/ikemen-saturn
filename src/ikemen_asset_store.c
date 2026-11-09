@@ -1,6 +1,10 @@
 #include "ikemen_saturn/ikemen_asset_store.h"
 
+#include <stdint.h>
+
 #define IK_CART_ALIGNMENT 32u
+
+volatile uint32_t g_ikemen_asset_last_step = 0u;
 
 static uint32_t min_u32(uint32_t a, uint32_t b) {
     return a < b ? a : b;
@@ -49,21 +53,25 @@ sat_result_t ik_asset_store_load_blob(
     if (expected_bytes > store->cart_free_bytes) return SAT_ERR_CAPACITY;
 
     sat_cdfs_file_t file = {0u, 0u, 0u, {0u, 0u, 0u}};
+    g_ikemen_asset_last_step = 1u;
     SAT_TRY(sat_cdfs_lookup(&store->volume, disc_path, &file));
     if (file.directory != 0u || file.size != expected_bytes) {
         return SAT_ERR_VERSION;
     }
 
     ik_asset_blob_t* blob = &store->blobs[slot];
+    g_ikemen_asset_last_step = 2u;
     SAT_TRY(sat_ram_cart_buffer_alloc(
         file.size, IK_CART_ALIGNMENT, &blob->buffer));
 
     for (uint32_t offset = 0u; offset < file.size;) {
         const uint32_t chunk = min_u32(staging_bytes, file.size - offset);
         uint32_t read = 0u;
+        g_ikemen_asset_last_step = 3u;
         SAT_TRY(sat_cdfs_read_at(
             &store->volume, &file, offset, staging, chunk, &read));
         if (read != chunk) return SAT_ERR_IO;
+        g_ikemen_asset_last_step = 4u;
         SAT_TRY(sat_ram_cart_buffer_write_at(
             &blob->buffer, offset, staging, chunk));
         offset += chunk;
@@ -71,6 +79,7 @@ sat_result_t ik_asset_store_load_blob(
 
     blob->bytes = file.size;
     blob->loaded = 1u;
+    g_ikemen_asset_last_step = 5u;
     return refresh_cart_info(store);
 }
 
@@ -107,4 +116,28 @@ sat_result_t ik_asset_store_read_sprite(
     if (source->data_size > destination_capacity) return SAT_ERR_CAPACITY;
     return ik_asset_store_read(
         store, slot, source->data_ofs, destination, source->data_size);
+}
+
+sat_result_t ik_asset_store_load_memory(
+    ik_asset_store_t* store,
+    uint8_t slot,
+    const uint8_t* data,
+    uint32_t bytes
+) {
+    if (store == 0 || slot >= IK_ASSET_SLOT_COUNT || data == 0 || bytes == 0u) {
+        return SAT_ERR_INVALID_ARG;
+    }
+    if (store->blobs[slot].loaded) return SAT_ERR_ALREADY_EXISTS;
+    if (bytes > store->cart_free_bytes) return SAT_ERR_CAPACITY;
+
+    ik_asset_blob_t* blob = &store->blobs[slot];
+    SAT_TRY(sat_ram_cart_buffer_alloc(
+        bytes, IK_CART_ALIGNMENT, &blob->buffer));
+
+    SAT_TRY(sat_ram_cart_buffer_write_at(
+        &blob->buffer, 0u, data, bytes));
+
+    blob->bytes = bytes;
+    blob->loaded = 1u;
+    return refresh_cart_info(store);
 }

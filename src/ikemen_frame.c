@@ -105,6 +105,7 @@ void ik_frame_sync_players(ik_frame_ctx_t* ctx, const ik_fight_t* fight) {
         entity->state_type = ik_fight_state_type(fight, fighter);
         entity->move_type = fighter->cur_move_type;
         entity->move_contact = fighter->move_contact;
+        entity->move_hit = fighter->move_hit;
 
         const int8_t target_index = fighter->target_index;
         const ik_entity_handle_t target =
@@ -175,6 +176,27 @@ int ik_frame_set_zss_ai_level(
     return 1;
 }
 
+/* AI players don't produce pads; give the shared command tracker the same
+ * view so common CNS states can poll command = "holdfwd"/"holdback"/...
+ * while the CPU is driving. Held bits only - input_update derives the rest. */
+static void ai_command_pad(const ik_fight_controls_t* controls, int facing,
+                           sat_pad_state_t* out) {
+    uint16_t held = 0u;
+    const int fwd_right = facing >= 0;
+    if (controls->forward) held |= fwd_right ? SAT_PAD_RIGHT : SAT_PAD_LEFT;
+    if (controls->back)    held |= fwd_right ? SAT_PAD_LEFT  : SAT_PAD_RIGHT;
+    if (controls->up)      held |= SAT_PAD_UP;
+    if (controls->down)    held |= SAT_PAD_DOWN;
+    if (controls->a)       held |= SAT_PAD_A;
+    if (controls->b)       held |= SAT_PAD_B;
+    if (controls->c)       held |= SAT_PAD_C;
+    if (controls->x)       held |= SAT_PAD_X;
+    if (controls->y)       held |= SAT_PAD_Y;
+    if (controls->z)       held |= SAT_PAD_Z;
+    if (controls->start)   held |= SAT_PAD_START;
+    *out = (sat_pad_state_t){ held, held, 0u, 1u, 0u };
+}
+
 /* Scripted CPU logic is intentionally distinct from human CMD evaluation. */
 static void ai_controls(
     ik_frame_ctx_t* ctx, const ik_fight_t* fight, uint8_t player,
@@ -208,6 +230,21 @@ static uint8_t control_active(
     return (uint8_t)ik_command_active(
         &ctx->command_states[player], character->commands,
         character->control_ids[control]);
+}
+
+static void sync_expression_commands(
+    ik_frame_ctx_t* ctx, ik_fight_t* fight, uint32_t player
+) {
+    if (!ctx || !fight || player >= 2u) return;
+    ik_fighter_t* fighter = &fight->fighters[player];
+    fighter->command_active[0] = 0u;
+    fighter->command_active[1] = 0u;
+    const ik_command_asset_t* commands = ctx->characters[player].commands;
+    for (uint16_t id = 0u; commands && id < commands->name_count && id < 128u; ++id) {
+        if (ik_command_active(&ctx->command_states[player], commands, id)) {
+            fighter->command_active[id / 64u] |= UINT64_C(1) << (id % 64u);
+        }
+    }
 }
 
 static void controls_from_commands(
@@ -262,23 +299,41 @@ void ik_frame_step(
     ik_frame_sync_players(ctx, fight);
     if (ctx->zss_ai_level[0] != 0u) {
         ai_controls(ctx, fight, 0u, &p1_controls);
+        sat_pad_state_t ai_pad;
+        ai_command_pad(&p1_controls, fight->fighters[0].facing, &ai_pad);
+        ik_command_update(
+            &ctx->command_states[0], ctx->characters[0].commands, &ai_pad,
+            fight->fighters[0].facing,
+            fight->fighters[0].hit_pause != 0u,
+            command_pause_end_buffer(fight, 0u));
+        sync_expression_commands(ctx, fight, 0u);
     } else {
         ik_command_update(
             &ctx->command_states[0], ctx->characters[0].commands, pad1,
             fight->fighters[0].facing,
             fight->fighters[0].hit_pause != 0u,
             command_pause_end_buffer(fight, 0u));
+        sync_expression_commands(ctx, fight, 0u);
         controls_from_commands(ctx, fight, 0u, &p1_controls);
     }
 
     if (ctx->zss_ai_level[1] != 0u) {
         ai_controls(ctx, fight, 1u, &p2_controls);
+        sat_pad_state_t ai_pad;
+        ai_command_pad(&p2_controls, fight->fighters[1].facing, &ai_pad);
+        ik_command_update(
+            &ctx->command_states[1], ctx->characters[1].commands, &ai_pad,
+            fight->fighters[1].facing,
+            fight->fighters[1].hit_pause != 0u,
+            command_pause_end_buffer(fight, 1u));
+        sync_expression_commands(ctx, fight, 1u);
     } else if (pad2) {
         ik_command_update(
             &ctx->command_states[1], ctx->characters[1].commands, pad2,
             fight->fighters[1].facing,
             fight->fighters[1].hit_pause != 0u,
             command_pause_end_buffer(fight, 1u));
+        sync_expression_commands(ctx, fight, 1u);
         controls_from_commands(ctx, fight, 1u, &p2_controls);
     }
 

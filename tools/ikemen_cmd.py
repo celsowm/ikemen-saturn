@@ -16,6 +16,10 @@ import json
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
+try:
+    from tools.ikemen_text import read_mugen_text
+except ModuleNotFoundError:  # direct `python tools/ikemen_cmd.py` invocation
+    from ikemen_text import read_mugen_text
 
 KEYS = {
     "U": "IK_CMD_KEY_U", "D": "IK_CMD_KEY_D",
@@ -89,7 +93,7 @@ def _bool(value: str, default: bool) -> bool:
 
 
 def _sections(path: Path) -> list[tuple[str, dict[str, str]]]:
-    text = path.read_text(encoding="utf-8-sig", errors="strict")
+    text = read_mugen_text(path)
     out: list[tuple[str, dict[str, str]]] = []
     name: str | None = None
     values: dict[str, str] = {}
@@ -292,8 +296,8 @@ def parse_cmd(path: Path) -> CmdFile:
             hitpause, pauseend, loop
         ))
 
-    if len(patterns) > 64:
-        raise ValueError(f"{len(patterns)} command patterns exceed Saturn runtime limit 64")
+    if len(patterns) > 256:
+        raise ValueError(f"{len(patterns)} command patterns exceed Saturn runtime limit 256")
     return CmdFile(patterns, name_order)
 
 

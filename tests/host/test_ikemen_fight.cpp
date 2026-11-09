@@ -4,6 +4,12 @@
 #include "ikemen_saturn/ikemen_fight.h"
 #include "ikemen_saturn/ikemen_entity_runtime.h"
 
+extern "C" void ikf_credit_hit_power(
+    const ik_fight_t*, ik_fighter_t*, ik_fighter_t*,
+    const ik_cns_hitdef_t*, int);
+extern "C" int ikf_juggle_cost(
+    const ik_fight_t*, const ik_fighter_t*, const ik_cns_hitdef_t*);
+
 #define EQ(a,b) do { if ((a)!=(b)) { std::fprintf(stderr,"FAIL %d: %s=%ld %s=%ld\n",__LINE__,#a,(long)(a),#b,(long)(b)); std::exit(1); } } while(0)
 #define OK(x) do { if (!(x)) { std::fprintf(stderr,"FAIL %d: %s\n",__LINE__,#x); std::exit(1); } } while(0)
 
@@ -739,6 +745,122 @@ int main() {
         OK(g.entities==&pool);
         OK(ik_entity_handle_equal(g.player_entities[0],p1));
         EQ(p1_entity->vars[7],123500);
+    }
+
+    {
+        /* HitDef getpower expressions use the attacker's live CNS vars. */
+        static const ik_expr_instr_t hit_power_expr[] = {
+            {IK_EXPR_PUSH_CONST,0u,IK_EXPR_REDIRECT_SELF,0u,42,0},
+            {IK_EXPR_LOAD_FIELD,IK_EXPR_FIELD_VAR,IK_EXPR_REDIRECT_SELF,0u,23,0},
+            {IK_EXPR_PUSH_CONST,0u,IK_EXPR_REDIRECT_SELF,0u,0,0},
+            {IK_EXPR_GT,0u,IK_EXPR_REDIRECT_SELF,0u,0,0},
+            {IK_EXPR_PUSH_CONST,0u,IK_EXPR_REDIRECT_SELF,0u,-42,0},
+            {IK_EXPR_MUL,0u,IK_EXPR_REDIRECT_SELF,0u,0,0},
+            {IK_EXPR_ADD,0u,IK_EXPR_REDIRECT_SELF,0u,0,0},
+        };
+        ik_cns_asset_t asset=k_cns;
+        asset.expressions=hit_power_expr;
+        asset.expression_count=(uint16_t)(sizeof(hit_power_expr)/sizeof(hit_power_expr[0]));
+        ik_cns_hitdef_t hitdef{};
+        hitdef.damage=10;
+        hitdef.power_flags=1u;
+        hitdef.get_power_hit_expr_count=(uint8_t)(sizeof(hit_power_expr)/sizeof(hit_power_expr[0]));
+
+        ik_entity_pool_t pool{};
+        ik_entity_pool_init(&pool);
+        ik_entity_handle_t p1{};
+        ik_entity_handle_t p2{};
+        OK(ik_entity_spawn(&pool,IK_ENTITY_PLAYER,1,0u,
+                           ik_entity_invalid_handle(),&p1));
+        OK(ik_entity_spawn(&pool,IK_ENTITY_PLAYER,2,1u,
+                           ik_entity_invalid_handle(),&p2));
+        ik_fight_init(&g,&asset);
+        ik_fight_bind_entities(&g,&pool,p1,p2);
+        ik_entity_t* p1_entity=ik_entity_get(&pool,p1);
+        OK(p1_entity!=nullptr);
+
+        p1_entity->vars[23]=1;
+        ikf_credit_hit_power(&g,&g.fighters[0],&g.fighters[1],&hitdef,0);
+        EQ(g.fighters[0].pending_power,0);
+
+        p1_entity->vars[23]=0;
+        g.fighters[0].pending_power=0;
+        ikf_credit_hit_power(&g,&g.fighters[0],&g.fighters[1],&hitdef,0);
+        EQ(g.fighters[0].pending_power,42);
+    }
+
+    {
+        /* Kensou's StateDef PowerAdd is selected from Var(23) when the
+         * fighter enters the state, not when assets are converted. */
+        static const ik_expr_instr_t power_add_expr[] = {
+            {IK_EXPR_PUSH_CONST,0u,IK_EXPR_REDIRECT_SELF,0u,72,0},
+            {IK_EXPR_LOAD_FIELD,IK_EXPR_FIELD_VAR,IK_EXPR_REDIRECT_SELF,0u,23,0},
+            {IK_EXPR_PUSH_CONST,0u,IK_EXPR_REDIRECT_SELF,0u,0,0},
+            {IK_EXPR_GT,0u,IK_EXPR_REDIRECT_SELF,0u,0,0},
+            {IK_EXPR_PUSH_CONST,0u,IK_EXPR_REDIRECT_SELF,0u,-72,0},
+            {IK_EXPR_MUL,0u,IK_EXPR_REDIRECT_SELF,0u,0,0},
+            {IK_EXPR_ADD,0u,IK_EXPR_REDIRECT_SELF,0u,0,0},
+        };
+        ik_cns_state_t state{};
+        state.number=1200;
+        state.anim=-1;
+        state.power_add_expr_count=(uint8_t)(sizeof(power_add_expr)/sizeof(power_add_expr[0]));
+        state.has_juggle=1u;
+        state.juggle_expr_count=(uint8_t)(sizeof(power_add_expr)/sizeof(power_add_expr[0]));
+        ik_cns_asset_t asset=k_cns;
+        asset.states=&state;
+        asset.state_count=1u;
+        asset.expressions=power_add_expr;
+        asset.expression_count=(uint16_t)(sizeof(power_add_expr)/sizeof(power_add_expr[0]));
+
+        ik_entity_pool_t pool{};
+        ik_entity_pool_init(&pool);
+        ik_entity_handle_t p1{};
+        ik_entity_handle_t p2{};
+        OK(ik_entity_spawn(&pool,IK_ENTITY_PLAYER,1,0u,
+                           ik_entity_invalid_handle(),&p1));
+        OK(ik_entity_spawn(&pool,IK_ENTITY_PLAYER,2,1u,
+                           ik_entity_invalid_handle(),&p2));
+        ik_fight_controls_t idle_controls{};
+
+        ik_fight_init(&g,&asset);
+        ik_fight_bind_entities(&g,&pool,p1,p2);
+        ik_entity_t* p1_entity=ik_entity_get(&pool,p1);
+        OK(p1_entity!=nullptr);
+        p1_entity->vars[23]=0;
+        g.fighters[0].state=1200;
+        EQ(ikf_juggle_cost(&g,&g.fighters[0],nullptr),72);
+        ik_entity_expr_binding_t binding{&pool,p1};
+        ik_expr_context_t expression{&binding,ik_entity_expr_read_field,nullptr};
+        int32_t evaluated_power_add=0;
+        int32_t read_var=0;
+        OK(ik_entity_expr_read_field(&binding,IK_EXPR_REDIRECT_SELF,
+                                     IK_EXPR_FIELD_VAR,23,0,0u,&read_var));
+        EQ(read_var,0);
+        OK(ik_expr_eval(power_add_expr+1u,1u,&expression,&evaluated_power_add));
+        EQ(evaluated_power_add,0);
+        OK(ik_expr_eval(power_add_expr+1u,3u,&expression,&evaluated_power_add));
+        EQ(evaluated_power_add,0);
+        OK(ik_expr_eval(power_add_expr,
+                        (uint16_t)(sizeof(power_add_expr)/sizeof(power_add_expr[0])),
+                        &expression,&evaluated_power_add));
+        EQ(evaluated_power_add,72);
+        g.fighters[0].power=100;
+        g.fighters[0].state=1200;
+        g.fighters[0].statedef_pending=1u;
+        tick(&g,&idle_controls);
+        EQ(g.fighters[0].power,172);
+
+        ik_fight_init(&g,&asset);
+        ik_fight_bind_entities(&g,&pool,p1,p2);
+        p1_entity->vars[23]=1;
+        g.fighters[0].state=1200;
+        EQ(ikf_juggle_cost(&g,&g.fighters[0],nullptr),0);
+        g.fighters[0].power=100;
+        g.fighters[0].state=1200;
+        g.fighters[0].statedef_pending=1u;
+        tick(&g,&idle_controls);
+        EQ(g.fighters[0].power,100);
     }
 
     {

@@ -43,10 +43,31 @@ static void queue_state_playsnds(
         const uint16_t index = (uint16_t)(state->playsnd_ofs + i);
         if (index >= state_cns->playsnd_count) break;
         const ik_cns_playsnd_t* sound = &state_cns->playsnds[index];
-        if (ik_cns_trigger_now(
-                sound->trigger_kind, sound->trigger_value,
-                f->state_time, elem, elem_time, anim_ended)) {
-            ikf_queue_sound_event(fight, sound->group, sound->item);
+        int trigger = ik_cns_trigger_now(
+            sound->trigger_kind, sound->trigger_value,
+            f->state_time, elem, elem_time, anim_ended);
+        if (sound->trigger_expr_count) {
+            int32_t trigger_value = 0;
+            trigger = ikf_eval_cns_expr(
+                fight, f, state_cns, sound->trigger_expr_ofs,
+                sound->trigger_expr_count, &trigger_value) &&
+                trigger_value != 0;
+        }
+        if (trigger) {
+            int32_t group = sound->group;
+            int32_t item = sound->item;
+            if ((sound->group_expr_count &&
+                 !ikf_eval_cns_expr(
+                    fight, f, state_cns, sound->group_expr_ofs,
+                    sound->group_expr_count, &group)) ||
+                (sound->item_expr_count &&
+                 !ikf_eval_cns_expr(
+                    fight, f, state_cns, sound->item_expr_ofs,
+                    sound->item_expr_count, &item))) {
+                continue;
+            }
+            ikf_queue_sound_event(
+                fight, (int16_t)group, (int16_t)item);
         }
     }
 }
@@ -147,7 +168,8 @@ static ik_cns_controller_context_t make_controller_context(
             (int16_t)(query_root ? query_root->proj_query_hit_time : -1),
         .proj_guarded_time =
             (int16_t)(query_root ? query_root->proj_query_guarded_time : -1),
-        .in_guard_dist = f->in_guard_dist
+        .in_guard_dist = f->in_guard_dist,
+        .game_time = fight->frame
     };
     return context;
 }
@@ -226,12 +248,42 @@ int ikf_process_cns_controllers(
                                   (uint16_t)(last >> 8)) <
                     (int32_t)(last & 0xffu));
         }
-        if (!ik_cns_controller_trigger_context_now(ctrl, &query_context)) {
+        if (ctrl->trigger_expr_count) {
+            int32_t trigger_value = 0;
+            if (!ikf_eval_cns_expr(fight, f, state_cns,
+                                   ctrl->trigger_expr_ofs,
+                                   ctrl->trigger_expr_count,
+                                   &trigger_value) || !trigger_value) {
+                continue;
+            }
+        } else if (!ik_cns_controller_trigger_context_now(
+                       ctrl, &query_context)) {
             continue;
         }
 
+        ik_cns_controller_t evaluated_ctrl = *ctrl;
+        if (ctrl->value0_expr_count) {
+            int32_t value = 0;
+            if (!ikf_eval_cns_expr(fight, f, state_cns,
+                                   ctrl->value0_expr_ofs,
+                                   ctrl->value0_expr_count, &value)) {
+                continue;
+            }
+            evaluated_ctrl.value4 = value;
+            evaluated_ctrl.value0 = value / 256;
+        }
+        if (ctrl->value1_expr_count) {
+            int32_t value = 0;
+            if (!ikf_eval_cns_expr(fight, f, state_cns,
+                                   ctrl->value1_expr_ofs,
+                                   ctrl->value1_expr_count, &value)) {
+                continue;
+            }
+            evaluated_ctrl.value5 = value;
+            evaluated_ctrl.value1 = value / 256;
+        }
         const ik_ctrl_exec_t exec = {
-            fight, f, ctrl, &context, state_cns, native_cns, frames,
+            fight, f, &evaluated_ctrl, &context, state_cns, native_cns, frames,
             i, elem, (uint8_t)(anim_ended != 0)
         };
         const int16_t anim_before = f->anim;

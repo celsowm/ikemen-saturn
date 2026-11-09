@@ -505,19 +505,21 @@ void ik_command_update(ik_command_state_t* state,
     if (!state || !asset || asset->pattern_count > IK_CMD_MAX_PATTERNS) return;
     input_update(&state->input, pad, facing);
 
-    uint64_t completed_names = 0u;
+    uint64_t completed_names[IK_CMD_MAX_NAMES / 64u] = {0u};
     for (uint16_t p = 0u; p < asset->pattern_count; ++p) {
         if (step_pattern(
                 state, asset, p, hit_pause, pause_end_buffer)) {
             const uint16_t name_id = asset->patterns[p].name_id;
-            if (name_id < 64u) completed_names |= (uint64_t)1u << name_id;
+            if (name_id < IK_CMD_MAX_NAMES) {
+                completed_names[name_id / 64u] |= (uint64_t)1u << (name_id % 64u);
+            }
         }
     }
 
     /* Ikemen clears in-progress duplicate variants of a command name after one
      * variant completes, while preserving any already-buffered completion. */
-    for (uint16_t n = 0u; n < asset->name_count && n < 64u; ++n) {
-        if ((completed_names & ((uint64_t)1u << n)) == 0u) continue;
+    for (uint16_t n = 0u; n < asset->name_count && n < IK_CMD_MAX_NAMES; ++n) {
+        if ((completed_names[n / 64u] & ((uint64_t)1u << (n % 64u))) == 0u) continue;
         const ik_cmd_name_t* name = &asset->names[n];
         for (uint8_t i = 0u; i < name->pattern_count; ++i) {
             const uint16_t p = (uint16_t)(name->pattern_ofs + i);
@@ -585,6 +587,9 @@ static int state_rule_read_field(
         case IK_EXPR_FIELD_BODY_DIST_X:
             if (!p2) return 0;
             *out_value = ctx->p2_body_dist_x;
+            return 1;
+        case IK_EXPR_FIELD_ANIM_ELEM:
+            *out_value = p2 ? ctx->p2_anim_element : ctx->anim_element;
             return 1;
         default:
             return 0;

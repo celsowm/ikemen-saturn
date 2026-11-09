@@ -27,6 +27,14 @@ from . import stage as stage_mod
 from .codecs import decode, UnsupportedCodec
 
 PALETTE_NODE_MAIN = 0  # sprite palidx 0 -> palette node 0
+AIR_BLANK_SPRITE = (-1, -1)
+
+
+def _blank_sprite_asset() -> emit_mod.SpriteAsset:
+    """Return a transparent texel for AIR elements that request no sprite."""
+    return emit_mod.SpriteAsset(
+        width=1, height=1, padded_width=8, left_pad=3,
+        format=sff_mod.FORMAT_RAW, data=b"\x00")
 
 
 def _load_palette(container: sff_mod.SffContainer, group: int, number: int):
@@ -67,6 +75,98 @@ def _pad_sprite(pixels: bytes, width: int, height: int):
     return bytes(out), padded, left
 
 
+def _assign_v1_palettes(container, sprite_assets: dict) -> None:
+    """Resolve each sprite's palette words in file order.
+
+    SFF v1 stores the character's palette once per sprite block, but most
+    body sprites merely point at the previous sprite's palette (ps byte at
+    node+18, see Ikemen-GO read(): paletteSame). Walk the file list and
+    hand out resolved palettes, falling back to the previous palette for
+    ps != 0 sprites and to the alias target's palette for size == 0
+    placeholders (link = list index).
+    """
+    nodes = list(container.sprite_nodes())
+    palettes: list[list[int] | None] = [None] * len(nodes)
+    last_palette: list[int] | None = None
+    for index, node in enumerate(nodes):
+        if node.data_length == 0:
+            link = node.palette_link
+            palettes[index] = palettes[link] if 0 <= link < index else None
+            continue
+        if node.fmt != sff_mod.FORMAT_PCX:
+            continue
+        if node.ps != 0 and last_palette is not None:
+            palettes[index] = last_palette
+            continue
+        own = _pcx_palette(container.sprite_data(node))
+        if own is not None:
+            palettes[index] = own
+            last_palette = own
+        # else: no palette found, leave None and keep last_palette
+    by_key: dict[tuple[int, int], int] = {}
+    for index, node in enumerate(nodes):
+        by_key.setdefault((node.group, node.number), index)
+    for key, sprite in sprite_assets.items():
+        index = by_key.get(key)
+        if index is None:
+            continue
+        node = nodes[index]
+        # Aliases (size == 0) resolved to their target during decode; take
+        # the alias target's palette, matching the pixel payload.
+        if node.data_length == 0:
+            link = node.palette_link
+            if 0 <= link < len(palettes):
+                sprite.palette_words = palettes[link]
+            continue
+        sprite.palette_words = palettes[index]
+
+
+def _load_act_palettes(spec: str) -> list[list[int]]:
+    """Loads 768-byte .act palette files (raw RGB triples, forward order,
+    palette index 0 treated as transparent) and returns BGR555 words."""
+    palettes: list[list[int]] = []
+    for entry in spec.split(";"):
+        entry = entry.strip()
+        if not entry:
+            continue
+        raw = Path(entry).read_bytes()
+        if len(raw) != 768:
+            raise SystemExit(f"[ikemen_sff] .act palette must be 768 bytes: {entry} ({len(raw)})", 2)
+        words = [pal_mod.BLACK] * 256
+        for i in range(256):
+            r, g, b = raw[i * 3:(i + 1) * 3]
+            words[i] = ((b >> 3) << 10) | ((g >> 3) << 5) | (r >> 3)
+        words[0] = pal_mod.BLACK
+        palettes.append(words)
+    return palettes
+
+
+def _pcx_palette(data: bytes) -> list[int] | None:
+    """Extracts a 256-entry BGR555 palette from 8-bit PCX sprite data.
+
+    The palette is the last 768 bytes of the payload, behind a 0x0C marker
+    on regular sprites (see codecs.pcx_palette_offset). Embedded palettes
+    are read forward; the reverse-order rule only applies to external .act
+    files, which this pipeline does not read. Index 0 stays transparent.
+    """
+    from .codecs import pcx_palette_offset
+
+    if len(data) < 768:
+        return None
+    offset = pcx_palette_offset(data)
+    if offset is None:
+        return None
+    raw = data[offset:offset + 768]
+    if len(raw) < 768:
+        return None
+    words = [pal_mod.BLACK] * pal_mod.ENTRY_COUNT
+    for i in range(pal_mod.ENTRY_COUNT):
+        r, g, b = raw[i * 3:(i + 1) * 3]
+        words[i] = ((b >> 3) << 10) | ((g >> 3) << 5) | (r >> 3)
+    words[0] = pal_mod.BLACK
+    return words
+
+
 def _runtime_sprite_asset(container: sff_mod.SffContainer,
                           node: sff_mod.SpriteNode,
                           all_nodes: list[sff_mod.SpriteNode] | None = None,
@@ -104,6 +204,8 @@ def _runtime_sprite_asset(container: sff_mod.SffContainer,
 
     padded_w = (source_node.width + 7) & ~7
     left = (padded_w - source_node.width) // 2
+    # (SFF v1 palettes are assigned in a file-order pass afterwards; see
+    # _assign_v1_palettes.)
     return emit_mod.SpriteAsset(
         width=source_node.width,
         height=source_node.height,
@@ -130,13 +232,6 @@ def cmd_char(args) -> int:
     actions = air_mod.parse(Path(args.air))
     all_nodes, nodes = _indexed_nodes(container)
 
-    main_pal_idx, main_palette = _load_palette(
-        container, args.palettes[0][0], args.palettes[0][1])
-    alt_palettes = {}
-    for i, key in enumerate(args.palettes[1:], start=1):
-        _, words = _load_palette(container, key[0], key[1])
-        alt_palettes[f"alt{i}"] = words
-
     frames: list[emit_mod.FrameAsset] = []
     sprite_assets: dict[tuple[int, int], emit_mod.SpriteAsset] = {}
     missing: list[str] = []
@@ -146,24 +241,32 @@ def cmd_char(args) -> int:
             missing.append(str(action))
             continue
         for idx, fr in enumerate(act.frames):
-            entry = nodes.get((fr.group, fr.number))
-            if entry is None:
+            no_sprite = fr.group < 0 or fr.number < 0
+            source_key = (fr.group, fr.number)
+            entry = None if no_sprite else nodes.get(source_key)
+            if not no_sprite and entry is None:
                 missing.append(f"{action}:{fr.group},{fr.number}")
-                continue
-            node_index, node = entry
-            key = (fr.group, fr.number)
+                no_sprite = True
+            key = AIR_BLANK_SPRITE if no_sprite else source_key
+            if no_sprite:
+                node_index, node = None, None
+            else:
+                node_index, node = entry
             if key not in sprite_assets:
-                try:
-                    sprite_assets[key] = _runtime_sprite_asset(
-                        container, node, all_nodes, node_index)
-                except UnsupportedCodec as exc:
-                    raise SystemExit(f"[ikemen_sff] {key}: {exc}", 2)
+                if no_sprite:
+                    sprite_assets[key] = _blank_sprite_asset()
+                else:
+                    try:
+                        sprite_assets[key] = _runtime_sprite_asset(
+                            container, node, all_nodes, node_index)
+                    except UnsupportedCodec as exc:
+                        raise SystemExit(f"[ikemen_sff] {key}: {exc}", 2)
             sprite = sprite_assets[key]
             frames.append(emit_mod.FrameAsset(
                 action=action, index=idx,
                 width=sprite.padded_width, height=sprite.height,
-                ax=node.xoff + sprite.left_pad - fr.x,
-                ay=node.yoff - fr.y, ticks=fr.time,
+                ax=(node.xoff if node else 0) + sprite.left_pad - fr.x,
+                ay=(node.yoff if node else 0) - fr.y, ticks=fr.time,
                 flip_h=fr.flip_h, flip_v=fr.flip_v,
                 sprite_key=key, air_x=fr.x, air_y=fr.y,
                 blend_mode=fr.blend_mode,
@@ -172,7 +275,39 @@ def cmd_char(args) -> int:
     if not frames:
         raise SystemExit("[ikemen_sff] no frames resolved", 2)
 
-    names = {"main": main_palette, **alt_palettes}
+    if container.version == 1:
+        if args.act_palettes:
+            # .def-defined palettes (e.g. chars/KULA/act/kula-A.act) replace
+            # the embedded ones; every sprite indexes the first palette.
+            act_palettes = _load_act_palettes(args.act_palettes)
+            if not act_palettes:
+                raise SystemExit("[ikemen_sff] --act-palettes produced no palettes", 2)
+            for sprite in sprite_assets.values():
+                sprite.palette_index = 0
+            names = {f"p{i}": words for i, words in enumerate(act_palettes)}
+        else:
+            _assign_v1_palettes(container, sprite_assets)
+            palette_map: dict[tuple[int, ...], int] = {}
+            palettes: list[list[int]] = []
+            for sprite in sprite_assets.values():
+                if sprite.palette_words is None:
+                    continue
+                key = tuple(sprite.palette_words)
+                if key not in palette_map:
+                    palette_map[key] = len(palettes)
+                    palettes.append(sprite.palette_words)
+                sprite.palette_index = palette_map[key]
+            names = {f"p{i}": words for i, words in enumerate(palettes)}
+            if not names:
+                raise SystemExit("[ikemen_sff] no v1 palettes extracted", 2)
+    else:
+        main_pal_idx, main_palette = _load_palette(
+            container, args.palettes[0][0], args.palettes[0][1])
+        alt_palettes = {}
+        for i, key in enumerate(args.palettes[1:], start=1):
+            _, words = _load_palette(container, key[0], key[1])
+            alt_palettes[f"alt{i}"] = words
+        names = {"main": main_palette, **alt_palettes}
     c_text, h_text, sprite_blob = emit_mod.emit_frames(
         args.out_prefix, args.symbol, frames, sprite_assets, names,
         Path(args.sff).name)
@@ -213,11 +348,15 @@ def cmd_char(args) -> int:
 
     if args.png_dir:
         for key in list(sprite_assets)[:args.png_limit]:
-            _, node = nodes[key]
-            raw = decode(node, container.sprite_data(node))
-            pixels, padded_w, _ = _pad_sprite(raw, node.width, node.height)
+            if key == AIR_BLANK_SPRITE or key not in nodes:
+                raw, width, height = b"\x00", 1, 1
+            else:
+                _, node = nodes[key]
+                raw = decode(node, container.sprite_data(node))
+                width, height = node.width, node.height
+            pixels, padded_w, _ = _pad_sprite(raw, width, height)
             _png_dump_indexed(Path(args.png_dir) / f"{key[0]}_{key[1]}.png",
-                              pixels, padded_w, node.height, main_palette)
+                              pixels, padded_w, height, main_palette)
     print(f"[ikemen_sff] char {args.symbol}: frames={len(frames)} "
           f"unique={len(sprite_assets)} raw={raw_blob}B packed={packed_blob}B "
           f"missing={missing or 'none'}")
@@ -241,39 +380,52 @@ def cmd_fx(args) -> int:
             missing.append(str(action))
             continue
         for idx, fr in enumerate(act.frames):
-            entry = nodes.get((fr.group, fr.number))
-            if entry is None:
+            no_sprite = fr.group < 0 or fr.number < 0
+            source_key = (fr.group, fr.number)
+            entry = None if no_sprite else nodes.get(source_key)
+            if not no_sprite and entry is None:
                 missing.append(f"{action}:{fr.group},{fr.number}")
-                continue
-            node_index, node = entry
-            key = (fr.group, fr.number)
+                no_sprite = True
+            key = AIR_BLANK_SPRITE if no_sprite else source_key
+            if no_sprite:
+                node_index, node = None, None
+            else:
+                node_index, node = entry
             if key not in sprite_assets:
-                try:
-                    sprite = _runtime_sprite_asset(
-                        container, node, all_nodes, node_index)
-                except UnsupportedCodec as exc:
-                    raise SystemExit(f"[ikemen_sff] {key}: {exc}", 2)
-                palette_index = (
-                    node.palette_index
-                    if node.palette_index < container.palette_count
-                    else 0
-                )
-                words = pal_mod.materialize_index(container, palette_index)
-                pal_key = tuple(words)
-                palette_index = palette_slots.get(pal_key)
-                if palette_index is None:
-                    palette_index = len(palette_words)
-                    palette_slots[pal_key] = palette_index
-                    palette_words.append(words)
-                sprite.palette_index = palette_index
+                if no_sprite:
+                    sprite = _blank_sprite_asset()
+                    if not palette_words:
+                        words = pal_mod.materialize_index(container, 0)
+                        palette_words.append(words)
+                        palette_slots[tuple(words)] = 0
+                    sprite.palette_index = 0
+                else:
+                    try:
+                        sprite = _runtime_sprite_asset(
+                            container, node, all_nodes, node_index)
+                    except UnsupportedCodec as exc:
+                        raise SystemExit(f"[ikemen_sff] {key}: {exc}", 2)
+                    palette_index = (
+                        node.palette_index
+                        if node.palette_index < container.palette_count
+                        else 0
+                    )
+                    words = pal_mod.materialize_index(container, palette_index)
+                    pal_key = tuple(words)
+                    palette_index = palette_slots.get(pal_key)
+                    if palette_index is None:
+                        palette_index = len(palette_words)
+                        palette_slots[pal_key] = palette_index
+                        palette_words.append(words)
+                    sprite.palette_index = palette_index
                 sprite_assets[key] = sprite
 
             sprite = sprite_assets[key]
             frames.append(emit_mod.FrameAsset(
                 action=action, index=idx,
                 width=sprite.padded_width, height=sprite.height,
-                ax=node.xoff + sprite.left_pad - fr.x,
-                ay=node.yoff - fr.y, ticks=fr.time,
+                ax=(node.xoff if node else 0) + sprite.left_pad - fr.x,
+                ay=(node.yoff if node else 0) - fr.y, ticks=fr.time,
                 flip_h=fr.flip_h, flip_v=fr.flip_v,
                 sprite_key=key, air_x=fr.x, air_y=fr.y,
                 blend_mode=fr.blend_mode,
@@ -387,6 +539,9 @@ def main(argv=None) -> int:
     char.add_argument("--air", required=True)
     char.add_argument("--actions", type=_parse_actions, required=True,
                       help="comma-separated AIR action numbers")
+    char.add_argument("--act-palettes", default=None,
+                       help="semicolon-separated .act files used instead of "
+                            "embedded SFF v1 palettes; first is the default")
     char.add_argument("--palettes", type=_parse_palettes, required=True,
                       help="palette (group,number) list, ';' separated; "
                            "first is main, others alt1..altN")

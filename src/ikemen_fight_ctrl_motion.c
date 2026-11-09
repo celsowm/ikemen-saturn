@@ -54,6 +54,18 @@ int ikf_ctrl_apply_motion(const ik_ctrl_exec_t* x) {
             }
             break;
 
+        case IK_CNS_CTRL_GRAVITY: {
+            const ik_cns_constants_t* c =
+                constants_for_fighter(fight, f);
+            const int32_t accel = c
+                ? ikf_q16_or_q8(c->yaccel_q16, c->yaccel_q8)
+                : (int32_t)(65536 / 2);
+            ikf_fine_set(
+                ikf_fine_get(f->vy_q8, &f->fine_vy) + accel,
+                &f->vy_q8, &f->fine_vy);
+            break;
+        }
+
         case IK_CNS_CTRL_VEL_MUL:
             if ((ctrl->flags & IK_CNS_CTRL_AXIS_X) != 0u) {
                 f->vx_q8 =
@@ -106,8 +118,21 @@ int ikf_ctrl_apply_motion(const ik_ctrl_exec_t* x) {
         }
 
         case IK_CNS_CTRL_STATE_TYPE_SET:
-            f->cur_state_type = (uint8_t)ctrl->value0;
-            if (ctrl->value0 == IK_CNS_STATE_AIR) f->on_ground = 0;
+            if (ctrl->value3 & IK_CNS_CTRL_SET_STATE_TYPE) {
+                f->cur_state_type = (uint8_t)ctrl->value0;
+                if (ctrl->value0 == IK_CNS_STATE_AIR) f->on_ground = 0;
+                else if (ctrl->value0 == IK_CNS_STATE_STAND ||
+                         ctrl->value0 == IK_CNS_STATE_CROUCH ||
+                         ctrl->value0 == IK_CNS_STATE_LIEDOWN) {
+                    f->on_ground = 1;
+                }
+            }
+            if (ctrl->value3 & IK_CNS_CTRL_SET_MOVE_TYPE) {
+                f->cur_move_type = (uint8_t)ctrl->value1;
+            }
+            if (ctrl->value3 & IK_CNS_CTRL_SET_PHYSICS) {
+                f->physics_override = (int8_t)ctrl->value2;
+            }
             break;
 
         case IK_CNS_CTRL_MOVE_TYPE_SET:

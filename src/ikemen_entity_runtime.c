@@ -1,5 +1,132 @@
 #include "ikemen_saturn/ikemen_entity_runtime.h"
 
+typedef struct ik_entity_runtime_expr_binding {
+    const ik_entity_runtime_t* runtime;
+    ik_entity_expr_binding_t entity;
+} ik_entity_runtime_expr_binding_t;
+
+static int runtime_expr_read_field(
+    void* user, uint8_t redirect, uint8_t field,
+    int32_t index, int32_t redirect_id, uint8_t redirect_index,
+    int32_t* out_value
+) {
+    if (!user || !out_value) return 0;
+    const ik_entity_runtime_expr_binding_t* binding =
+        (const ik_entity_runtime_expr_binding_t*)user;
+    if (redirect == IK_EXPR_REDIRECT_SELF &&
+        field == IK_EXPR_FIELD_GAME_TIME) {
+        *out_value = (int32_t)binding->runtime->game_time;
+        return 1;
+    }
+    if (redirect == IK_EXPR_REDIRECT_SELF &&
+        field == IK_EXPR_FIELD_RANDOM) {
+        const ik_entity_t* entity = ik_entity_get_const(
+            binding->entity.pool, binding->entity.self);
+        uint32_t value = binding->runtime->game_time * 0x9e3779b9u;
+        if (entity) {
+            value ^= (uint32_t)(uint16_t)entity->state_no * 0x85ebca6bu;
+            value ^= (uint32_t)entity->state_time * 0xc2b2ae35u;
+            value ^= (uint32_t)entity->id * 0x27d4eb2fu;
+        }
+        value ^= value >> 16;
+        value *= 0x7feb352du;
+        value ^= value >> 15;
+        *out_value = (int32_t)(value % 1000u);
+        return 1;
+    }
+    if (redirect == IK_EXPR_REDIRECT_SELF &&
+        field == IK_EXPR_FIELD_TEAM_SIDE) {
+        const ik_entity_t* entity = ik_entity_get_const(
+            binding->entity.pool, binding->entity.self);
+        if (!entity || entity->owner_player >= 2u) return 0;
+        *out_value = (int32_t)entity->owner_player + 1;
+        return 1;
+    }
+    if (redirect == IK_EXPR_REDIRECT_SELF &&
+        field == IK_EXPR_FIELD_ROUND_STATE) {
+        *out_value = 2;
+        return 1;
+    }
+    if (redirect == IK_EXPR_REDIRECT_SELF &&
+        field == IK_EXPR_FIELD_FRONT_EDGE_DIST) {
+        const ik_entity_t* entity = ik_entity_get_const(
+            binding->entity.pool, binding->entity.self);
+        if (!entity) return 0;
+        const int32_t left =
+            (int32_t)binding->runtime->stage_min_x * IK_CNS_Q8_ONE;
+        const int32_t right =
+            (int32_t)binding->runtime->stage_max_x * IK_CNS_Q8_ONE;
+        const int32_t front = entity->facing > 0
+            ? right - entity->x_q8 : entity->x_q8 - left;
+        *out_value = (front - entity->push_front * IK_CNS_Q8_ONE) /
+                     IK_CNS_Q8_ONE;
+        return 1;
+    }
+    if (redirect == IK_EXPR_REDIRECT_SELF &&
+        field == IK_EXPR_FIELD_ANIM_ELEM_TIME && index >= 1 &&
+        index <= UINT16_MAX) {
+        const ik_entity_t* entity = ik_entity_get_const(
+            binding->entity.pool, binding->entity.self);
+        if (!entity || entity->anim_owner >= 2u) return 0;
+        *out_value = ik_anim_elem_time(
+            binding->runtime->frames[entity->anim_owner], entity->anim_no,
+            entity->anim_time, (uint16_t)index);
+        return 1;
+    }
+    return ik_entity_expr_read_field(
+        (void*)&binding->entity, redirect, field, index,
+        redirect_id, redirect_index, out_value);
+}
+
+static int runtime_expr_read_command(
+    void* user, uint16_t command_id, int32_t* out_value
+) {
+    if (!user || !out_value || command_id >= 128u) return 0;
+    const ik_entity_runtime_expr_binding_t* binding =
+        (const ik_entity_runtime_expr_binding_t*)user;
+    const ik_entity_t* entity = ik_entity_get_const(
+        binding->entity.pool, binding->entity.self);
+    if (!entity || entity->owner_player >= 2u) return 0;
+    *out_value = (int32_t)(
+        (binding->runtime->command_active[entity->owner_player]
+             [command_id / 64u] >> (command_id % 64u)) & 1u);
+    return 1;
+}
+
+static int runtime_eval_expr(
+    const ik_entity_runtime_t* runtime,
+    const ik_cns_asset_t* cns,
+    ik_entity_handle_t handle,
+    uint16_t offset,
+    uint8_t count,
+    int32_t* out_value
+) {
+    if (!runtime || !cns || !cns->expressions ||
+        !count || !out_value ||
+        (uint32_t)offset + count > cns->expression_count) return 0;
+    ik_entity_runtime_expr_binding_t binding = {
+        runtime, {runtime->pool, handle}
+    };
+    const ik_expr_context_t context = {
+        &binding, runtime_expr_read_field, runtime_expr_read_command
+    };
+    return ik_expr_eval(cns->expressions + offset, count,
+                        &context, out_value);
+}
+
+static int runtime_controller_trigger_expr(
+    const ik_entity_runtime_t* runtime,
+    const ik_cns_asset_t* cns,
+    ik_entity_handle_t handle,
+    const ik_cns_controller_t* ctrl
+) {
+    int32_t value = 0;
+    return ctrl && ctrl->trigger_expr_count &&
+           runtime_eval_expr(runtime, cns, handle,
+                             ctrl->trigger_expr_ofs,
+                             ctrl->trigger_expr_count, &value) && value;
+}
+
 static const ik_frame_table_t* frames_for(
     const ik_entity_runtime_t* runtime,
     const ik_entity_t* entity
@@ -185,7 +312,19 @@ int ik_entity_runtime_enter_state(
     }
 
     if (spec) {
-        if (spec->anim < 0) {
+        if (spec->anim_expr_count) {
+            int32_t dynamic_anim = -1;
+            if (runtime_eval_expr(runtime, state_cns, handle,
+                                  spec->anim_expr_ofs,
+                                  spec->anim_expr_count,
+                                  &dynamic_anim) &&
+                dynamic_anim >= INT16_MIN && dynamic_anim <= INT16_MAX) {
+                entity->anim_no = (int16_t)dynamic_anim;
+                entity->anim_owner = entity->owner_player;
+            } else {
+                entity->anim_no = previous_anim;
+            }
+        } else if (spec->anim < 0) {
             entity->anim_no = previous_anim;
         } else {
             entity->anim_no = spec->anim;
@@ -200,8 +339,19 @@ int ik_entity_runtime_enter_state(
             entity->move_type = (uint8_t)spec->move_type;
         }
         if (spec->has_velset) {
-            entity->vx_q8 = spec->velset_x_q8;
-            entity->vy_q8 = spec->velset_y_q8;
+            int32_t velocity = 0;
+            entity->vx_q8 = spec->velset_x_expr_count &&
+                            runtime_eval_expr(
+                                runtime, state_cns, handle,
+                                spec->velset_x_expr_ofs,
+                                spec->velset_x_expr_count, &velocity)
+                ? velocity / 256 : spec->velset_x_q8;
+            entity->vy_q8 = spec->velset_y_expr_count &&
+                            runtime_eval_expr(
+                                runtime, state_cns, handle,
+                                spec->velset_y_expr_ofs,
+                                spec->velset_y_expr_count, &velocity)
+                ? velocity / 256 : spec->velset_y_q8;
         }
     } else {
         entity->anim_no = state_no;
@@ -543,6 +693,10 @@ int ik_entity_runtime_spawn_projectile_spec(
         projectile->remove_on_gethit != 0u;
     entity->projectile_remove_on_state_change =
         projectile->remove_on_state_change != 0u;
+    entity->projectile_has_shadow = projectile->has_shadow;
+    entity->projectile_shadow_r = projectile->shadow_r;
+    entity->projectile_shadow_g = projectile->shadow_g;
+    entity->projectile_shadow_b = projectile->shadow_b;
 
     *out_handle = spawned;
     return 1;
@@ -630,6 +784,7 @@ static int process_controllers(
     uint16_t elem_time = 0u;
     int anim_ended = 0;
     anim_position(frames, entity, &elem, &elem_time, &anim_ended);
+    entity->anim_element = elem;
 
     uint8_t num_projectiles = 0u;
     const ik_entity_t* query_root =
@@ -677,7 +832,8 @@ static int process_controllers(
         .proj_hit_time =
             (int16_t)(query_root ? query_root->proj_query_hit_time : -1),
         .proj_guarded_time =
-            (int16_t)(query_root ? query_root->proj_query_guarded_time : -1)
+            (int16_t)(query_root ? query_root->proj_query_guarded_time : -1),
+        .game_time = runtime->game_time
     };
 
     for (uint8_t i = 0u; i < state->controller_count; ++i) {
@@ -696,9 +852,36 @@ static int process_controllers(
             query_context.num_targets = ik_entity_target_count(
                 runtime->pool, handle, ctrl->trigger_aux);
         }
-        if (!ik_cns_controller_trigger_context_now(ctrl, &query_context)) {
+        if ((ctrl->trigger_expr_count &&
+             !runtime_controller_trigger_expr(runtime, state_cns, handle,
+                                              ctrl)) ||
+            (!ctrl->trigger_expr_count &&
+             !ik_cns_controller_trigger_context_now(ctrl, &query_context))) {
             continue;
         }
+
+        ik_cns_controller_t evaluated_ctrl = *ctrl;
+        if (ctrl->value0_expr_count) {
+            int32_t value = 0;
+            if (!runtime_eval_expr(runtime, state_cns, handle,
+                                   ctrl->value0_expr_ofs,
+                                   ctrl->value0_expr_count, &value)) {
+                continue;
+            }
+            evaluated_ctrl.value0 = value / 256;
+            evaluated_ctrl.value4 = value;
+        }
+        if (ctrl->value1_expr_count) {
+            int32_t value = 0;
+            if (!runtime_eval_expr(runtime, state_cns, handle,
+                                   ctrl->value1_expr_ofs,
+                                   ctrl->value1_expr_count, &value)) {
+                continue;
+            }
+            evaluated_ctrl.value1 = value / 256;
+            evaluated_ctrl.value5 = value;
+        }
+        ctrl = &evaluated_ctrl;
 
         entity = ik_entity_get(runtime->pool, handle);
         if (!entity) return 2;
@@ -1230,7 +1413,7 @@ void ik_entity_runtime_step_paused(
             continue;
         }
 
-        const uint8_t budget = super_pause
+        const uint32_t budget = super_pause
             ? entity->super_move_time
             : entity->pause_move_time;
         if (budget == 0u) continue;
@@ -1245,7 +1428,7 @@ void ik_entity_runtime_step_paused(
         ik_entity_t* entity =
             ik_entity_get(runtime->pool, snapshot[i]);
         if (!entity) continue;
-        uint8_t* budget = super_pause
+        uint32_t* budget = super_pause
             ? &entity->super_move_time
             : &entity->pause_move_time;
         if (*budget == 0u) continue;

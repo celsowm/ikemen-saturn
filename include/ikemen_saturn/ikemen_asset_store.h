@@ -53,6 +53,15 @@ sat_result_t ik_asset_store_load_blob(
     uint8_t* staging,
     uint32_t staging_bytes);
 
+/* Loads raw bytes from memory into a resident cart slot, bypassing the CD
+ * transport. Useful when the disc filesystem is unavailable or when assets
+ * are embedded in the application binary. */
+sat_result_t ik_asset_store_load_memory(
+    ik_asset_store_t* store,
+    uint8_t slot,
+    const uint8_t* data,
+    uint32_t bytes);
+
 sat_result_t ik_asset_store_read(
     const ik_asset_store_t* store,
     uint8_t slot,

@@ -183,6 +183,7 @@ static inline int state_physics(
     const ik_cns_state_t* spec
 ) {
     if (!spec) return IK_CNS_PHYS_NONE;
+    if (f->physics_override >= 0) return f->physics_override;
     if (spec->physics != IK_CNS_PHYS_BY_TYPE) return spec->physics;
     switch (f->cur_state_type) {
         case IK_CNS_STATE_STAND: return IK_CNS_PHYS_STAND;
@@ -436,10 +437,25 @@ void ikf_turn_before_change(ik_fight_t* fight, ik_fighter_t* f);
 void ikf_hit_snap(const ik_fighter_t* attacker, ik_fighter_t* victim,
                   const ik_cns_hitdef_t* hitdef, int guarded);
 void ikf_credit_hit_power(
+    const ik_fight_t* fight,
     ik_fighter_t* attacker,
     ik_fighter_t* victim,
     const ik_cns_hitdef_t* hitdef,
     int guarded);
+int ikf_eval_cns_expr(
+    const ik_fight_t* fight,
+    const ik_fighter_t* fighter,
+    const ik_cns_asset_t* cns,
+    uint16_t offset,
+    uint8_t count,
+    int32_t* out_value);
+int ikf_eval_cns_entity_expr(
+    const ik_fight_t* fight,
+    const ik_entity_t* entity,
+    const ik_cns_asset_t* cns,
+    uint16_t offset,
+    uint8_t count,
+    int32_t* out_value);
 int ikf_can_guard_hit(
     const ik_fight_t* fight,
     const ik_fighter_t* victim,
@@ -448,6 +464,12 @@ int ikf_can_guard_hit(
 
 /* ---- Sound and effect events queued for the presentation layer ---- */
 void ikf_queue_sound_event(ik_fight_t* fight, int16_t group, int16_t item );
+void ikf_queue_hitdef_sound(
+    ik_fight_t* fight,
+    const ik_fighter_t* attacker,
+    const ik_entity_t* entity,
+    const ik_cns_hitdef_t* hitdef,
+    int guarded);
 void ikf_queue_reversal_effect(
     ik_fight_t* fight,
     const ik_fighter_t* defender,

@@ -2,6 +2,7 @@
 #define IKEMEN_CNS_H
 
 #include <stdint.h>
+#include "ikemen_expr.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -170,6 +171,7 @@ typedef enum ik_cns_controller_type {
     IK_CNS_CTRL_POS_FREEZE,
     IK_CNS_CTRL_VAR_SET,
     IK_CNS_CTRL_VAR_ADD,
+    IK_CNS_CTRL_SYSVAR_SET,
     IK_CNS_CTRL_HELPER,
     IK_CNS_CTRL_EXPLOD,
     IK_CNS_CTRL_PROJECTILE,
@@ -192,7 +194,9 @@ typedef enum ik_cns_controller_type {
     IK_CNS_CTRL_LAND_HIT_ANIM,
     IK_CNS_CTRL_MOVE_TYPE_SET,
     IK_CNS_CTRL_SCREEN_BACK_EFFECT, /* action / screen-Y offset */
-    IK_CNS_CTRL_SOUND_EVENT        /* common system group / item */
+    IK_CNS_CTRL_SOUND_EVENT,       /* common system group / item */
+    IK_CNS_CTRL_GRAVITY,
+    IK_CNS_CTRL_POWER_ADD
 } ik_cns_controller_type_t;
 
 typedef enum ik_cns_helper_postype {
@@ -252,6 +256,12 @@ enum {
     IK_CNS_CTRL_USE_YACCEL = 1u << 5,
     IK_CNS_CTRL_SUPER_DARKEN = 1u << 6,
     IK_CNS_CTRL_HAS_SUPER_ANIM = 1u << 7
+};
+
+enum {
+    IK_CNS_CTRL_SET_STATE_TYPE = 1u << 0,
+    IK_CNS_CTRL_SET_MOVE_TYPE = 1u << 1,
+    IK_CNS_CTRL_SET_PHYSICS = 1u << 2
 };
 
 enum {
@@ -404,6 +414,16 @@ typedef struct ik_cns_state {
      * post-move landing. */
     uint8_t land_before_move;
     int32_t air_accel_q16;
+    uint16_t power_add_expr_ofs;
+    uint8_t power_add_expr_count;
+    uint16_t juggle_expr_ofs;
+    uint8_t juggle_expr_count;
+    uint16_t anim_expr_ofs;
+    uint8_t anim_expr_count;
+    uint16_t velset_x_expr_ofs;
+    uint8_t velset_x_expr_count;
+    uint16_t velset_y_expr_ofs;
+    uint8_t velset_y_expr_count;
 } ik_cns_state_t;
 
 typedef struct ik_cns_hitdef {
@@ -506,6 +526,74 @@ typedef struct ik_cns_hitdef {
     int16_t maxdist_x_q8;
     int16_t maxdist_y_q8;
     uint8_t dist_flags;
+    uint16_t get_power_hit_expr_ofs;
+    uint16_t get_power_guard_expr_ofs;
+    uint16_t give_power_hit_expr_ofs;
+    uint16_t give_power_guard_expr_ofs;
+    uint8_t get_power_hit_expr_count;
+    uint8_t get_power_guard_expr_count;
+    uint8_t give_power_hit_expr_count;
+    uint8_t give_power_guard_expr_count;
+    uint16_t trigger_expr_ofs;
+    uint8_t trigger_expr_count;
+    uint16_t trigger2_expr_ofs;
+    uint8_t trigger2_expr_count;
+    uint16_t air_juggle_expr_ofs;
+    uint8_t air_juggle_expr_count;
+    uint16_t ground_velocity_x_expr_ofs;
+    uint8_t ground_velocity_x_expr_count;
+    uint16_t ground_velocity_y_expr_ofs;
+    uint8_t ground_velocity_y_expr_count;
+    uint16_t air_velocity_x_expr_ofs;
+    uint8_t air_velocity_x_expr_count;
+    uint16_t air_velocity_y_expr_ofs;
+    uint8_t air_velocity_y_expr_count;
+    uint16_t ground_slide_time_expr_ofs;
+    uint8_t ground_slide_time_expr_count;
+    uint16_t ground_hit_time_expr_ofs;
+    uint8_t ground_hit_time_expr_count;
+    uint16_t air_hit_time_expr_ofs;
+    uint8_t air_hit_time_expr_count;
+    uint16_t guard_slide_time_expr_ofs;
+    uint8_t guard_slide_time_expr_count;
+    uint16_t guard_hit_time_expr_ofs;
+    uint8_t guard_hit_time_expr_count;
+    uint16_t guard_ctrl_time_expr_ofs;
+    uint8_t guard_ctrl_time_expr_count;
+    uint16_t damage_expr_ofs;
+    uint8_t damage_expr_count;
+    uint16_t guard_damage_expr_ofs;
+    uint8_t guard_damage_expr_count;
+    uint16_t pause_p1_expr_ofs;
+    uint8_t pause_p1_expr_count;
+    uint16_t pause_p2_expr_ofs;
+    uint8_t pause_p2_expr_count;
+    uint16_t spark_x_expr_ofs;
+    uint8_t spark_x_expr_count;
+    uint16_t spark_y_expr_ofs;
+    uint8_t spark_y_expr_count;
+    uint16_t trigger2_spark_y_expr_ofs;
+    uint8_t trigger2_spark_y_expr_count;
+    uint16_t hit_sound_group_expr_ofs;
+    uint8_t hit_sound_group_expr_count;
+    uint16_t hit_sound_item_expr_ofs;
+    uint8_t hit_sound_item_expr_count;
+    uint16_t guard_sound_group_expr_ofs;
+    uint8_t guard_sound_group_expr_count;
+    uint16_t guard_sound_item_expr_ofs;
+    uint8_t guard_sound_item_expr_count;
+    uint16_t fall_recover_expr_ofs;
+    uint8_t fall_recover_expr_count;
+    uint16_t fall_recover_time_expr_ofs;
+    uint8_t fall_recover_time_expr_count;
+    uint16_t spark_no_expr_ofs;
+    uint8_t spark_no_expr_count;
+    uint16_t guard_spark_no_expr_ofs;
+    uint8_t guard_spark_no_expr_count;
+    uint16_t fall_x_velocity_expr_ofs;
+    uint8_t fall_x_velocity_expr_count;
+    uint16_t fall_y_velocity_expr_ofs;
+    uint8_t fall_y_velocity_expr_count;
 } ik_cns_hitdef_t;
 
 typedef struct ik_cns_reversaldef {
@@ -541,6 +629,12 @@ typedef struct ik_cns_playsnd {
     int16_t trigger_value;
     int16_t group;
     int16_t item;
+    uint16_t group_expr_ofs;
+    uint8_t group_expr_count;
+    uint16_t item_expr_ofs;
+    uint8_t item_expr_count;
+    uint16_t trigger_expr_ofs;
+    uint8_t trigger_expr_count;
 } ik_cns_playsnd_t;
 
 /* Compact controller record.
@@ -606,6 +700,12 @@ typedef struct ik_cns_controller {
     int32_t value6;
     int32_t value7;
     int32_t trigger_aux;
+    uint16_t trigger_expr_ofs;
+    uint8_t trigger_expr_count;
+    uint16_t value0_expr_ofs;
+    uint8_t value0_expr_count;
+    uint16_t value1_expr_ofs;
+    uint8_t value1_expr_count;
 } ik_cns_controller_t;
 
 typedef struct ik_cns_controller_context {
@@ -651,6 +751,7 @@ typedef struct ik_cns_controller_context {
     int16_t proj_guarded_time;
     uint8_t in_guard_dist;
     uint8_t elem_window_ok;
+    uint32_t game_time;
 } ik_cns_controller_context_t;
 
 typedef struct ik_cns_projectile {
@@ -677,12 +778,16 @@ typedef struct ik_cns_projectile {
     uint8_t remove_on_hit;
     int8_t spr_priority;
     uint8_t ownpal;
-    uint8_t pause_move_time;
-    uint8_t super_move_time;
+    uint32_t pause_move_time;
+    uint32_t super_move_time;
     int16_t bind_time;
     uint8_t remove_on_gethit;
     uint8_t remove_on_state_change;
     uint8_t postype;
+    uint8_t has_shadow;
+    uint8_t shadow_r;
+    uint8_t shadow_g;
+    uint8_t shadow_b;
 } ik_cns_projectile_t;
 
 enum {
@@ -730,8 +835,8 @@ typedef struct ik_cns_projectile_mod {
     uint8_t priority;
     uint8_t remove_on_hit;
     int8_t spr_priority;
-    uint8_t pause_move_time;
-    uint8_t super_move_time;
+    uint32_t pause_move_time;
+    uint32_t super_move_time;
     int16_t bind_time;
     uint8_t remove_on_gethit;
     uint8_t remove_on_state_change;
@@ -756,8 +861,8 @@ typedef struct ik_cns_explod {
     int8_t spr_priority;
     uint8_t postype;
     uint8_t ownpal;
-    uint8_t pause_move_time;
-    uint8_t super_move_time;
+    uint32_t pause_move_time;
+    uint32_t super_move_time;
     int16_t bind_time;
     uint8_t remove_on_gethit;
     uint8_t remove_on_state_change;
@@ -778,8 +883,8 @@ typedef struct ik_cns_helper {
     uint8_t postype;
     uint8_t keyctrl;
     uint8_t ownpal;
-    uint8_t pause_move_time;
-    uint8_t super_move_time;
+    uint32_t pause_move_time;
+    uint32_t super_move_time;
 } ik_cns_helper_t;
 
 typedef struct ik_cns_asset {
@@ -804,6 +909,8 @@ typedef struct ik_cns_asset {
     uint16_t projectile_count;
     const ik_cns_projectile_mod_t* projectile_mods;
     uint16_t projectile_mod_count;
+    const ik_expr_instr_t* expressions;
+    uint16_t expression_count;
 } ik_cns_asset_t;
 
 int16_t ik_cns_q8_from_int(int16_t value);

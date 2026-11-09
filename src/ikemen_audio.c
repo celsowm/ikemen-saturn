@@ -86,6 +86,8 @@ void ik_audio_process_fight(ik_audio_t* audio, const ik_fight_t* fight) {
             sound = audio->throw_slam;
         } else if (event->group == 40 && event->item == 0) {
             sound = audio->landing;
+        } else if (event->group == 40 && event->item == 1) {
+            sound = audio->landing;
         } else if (event->group == 100 && event->item == 0) {
             sound = audio->knee_voice;
         } else if (event->group == 20 && event->item == 0) {
@@ -100,6 +102,10 @@ void ik_audio_process_fight(ik_audio_t* audio, const ik_fight_t* fight) {
             sound = audio->air_strong_hit;
         } else if (event->group == 5 && event->item == 4) {
             sound = audio->heavy_hit;
+        } else if (event->group == 4 && event->item == 0) {
+            sound = audio->punch_hit;
+        } else if (event->group == 4 && event->item == 1) {
+            sound = audio->kick_hit;
         } else if (event->group == 6 && event->item == 0) {
             sound = audio->reversal_hit;
         } else if (event->group == 7 && event->item == 0) {

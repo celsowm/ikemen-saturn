@@ -10,6 +10,7 @@ trailing bytes stay unconsumed exactly like the original reader.
 from __future__ import annotations
 
 import io
+import struct
 
 from . import sff
 
@@ -164,12 +165,80 @@ def _decode_png_indexed(data: bytes, width: int, height: int) -> bytes:
     return indices[:width * height]
 
 
+def pcx_palette_offset(data: bytes) -> int | None:
+    """Offset of the 768-byte VGA palette block, or None when absent.
+
+    Every SFF v1 PCX carries a palette either as the last 768 bytes of the
+    sprite payload (character's first sprite) or behind a 0x0C marker just
+    before them (regular sprites). The RLE pixel stream stops where the
+    palette begins.
+    """
+    if len(data) >= 769 and data[-769] == 0x0C:
+        return len(data) - 768
+    if len(data) >= 768:
+        return len(data) - 768
+    return None
+
+
+def _decode_pcx(data: bytes, width: int, height: int) -> bytes:
+    # PCX layout: 128-byte header, then the pixel stream, then optional
+    # 0x0C marker + 768-byte palette at the end.
+    if len(data) < 128:
+        raise ValueError("PCX sprite shorter than header")
+    palette_offset = pcx_palette_offset(data)
+    stream_end = palette_offset if palette_offset is not None else len(data)
+    encoding = data[2]
+    bytes_per_line = struct.unpack_from("<H", data, 66)[0]
+    if bytes_per_line <= 0:
+        bytes_per_line = width
+    out = bytearray(width * height)
+    if encoding != 1:
+        # Uncompressed: raw bytes per row, right-padded to bytes_per_line.
+        pos = 128
+        for y in range(height):
+            row = data[pos:pos + bytes_per_line]
+            pos += bytes_per_line
+            start = y * width
+            out[start:start + width] = row[:width]
+        return bytes(out)
+    rle = data[128:stream_end]
+    # Faithful port of Ikemen-GO RlePcxDecode: every bytes_per_line *decoded*
+    # bytes close the current row; pixels past `width` in a row are dropped
+    # and the run remainder is discarded.
+    i = 0
+    j = 0
+    k = 0
+    while j < len(out):
+        if i >= len(rle):
+            break
+        n = 1
+        d = rle[i]
+        i += 1
+        if d >= 0xC0:
+            n = d & 0x3F
+            if i >= len(rle):
+                break
+            d = rle[i]
+            i += 1
+        while n > 0 and j < len(out):
+            if k < width:
+                out[j] = d
+                j += 1
+            k += 1
+            n -= 1
+            if k == bytes_per_line:
+                k = 0
+                break
+    return bytes(out)
+
+
 CODECS = {
     sff.FORMAT_RAW: _decode_raw,
     sff.FORMAT_RLE8: _decode_rle8,
     sff.FORMAT_RLE5: _decode_rle5,
     sff.FORMAT_LZ5: _decode_lz5,
     sff.FORMAT_PNG_INDEXED: _decode_png_indexed,
+    sff.FORMAT_PCX: _decode_pcx,
 }
 
 

@@ -17,6 +17,7 @@ from tools.ikemen_cns import (
     compile_runtime_controller,
     controller_trigger,
     emit,
+    select_state_numbers,
 )  # noqa: E402
 
 SOURCE = r"""
@@ -172,10 +173,10 @@ stateno = 1234
 pos = 12, -8
 postype = p1
 facing = -1
-keyctrl = 1
-ownpal = 1
-pausemovetime = 3
-supermovetime = 4
+keyctrl = 99999
+ownpal = 99999
+pausemovetime = 99999
+supermovetime = 99999
 
 [Statedef 1234]
 type = S
@@ -1435,6 +1436,23 @@ with tempfile.TemporaryDirectory() as td:
                  5200,5201,5210]
     )
 
+    extra_state_source = root / "character_extra.cns"
+    extra_state_source.write_text("""
+[Statedef 900]
+type = S
+movetype = A
+physics = S
+anim = 900
+""", encoding="utf-8")
+    extra_report = emit(
+        source, [900], root / "extra_cns", "extra",
+        states_sources=[extra_state_source])
+    assert [row["number"] for row in extra_report["states"]] == [900]
+    all_states = select_state_numbers(
+        "all", [source, extra_state_source])
+    assert 200 in all_states and 900 in all_states
+    assert select_state_numbers("900, 200", [source]) == [900, 200]
+
     reversal_source = root / "blocking.cns"
     reversal_source.write_text(r"""
 [Movement]
@@ -2078,8 +2096,8 @@ assert report["helpers"] == [{
     "postype": "IK_CNS_HELPER_POS_P1",
     "keyctrl": 1,
     "ownpal": 1,
-    "pause_move_time": 3,
-    "super_move_time": 4,
+    "pause_move_time": 99999,
+    "super_move_time": 99999,
 }]
 helper_state = next(
     row for row in report["states"] if row["number"] == 1234
@@ -2515,7 +2533,7 @@ assert turn1028["trigger_kind"] == "IK_CNS_TRIGGER_STATE_ENTRY_BACK_EDGE_LT"
 assert source_rows[1050]["power_add"] == 55
 assert source_rows[1050]["hitdef_count"] == 1
 assert source_rows[1050]["controller_count"] == 2
-assert source_rows[1050]["unsupported_controllers"] == ["null"]
+assert source_rows[1050]["unsupported_controllers"] == []
 assert source_rows[1051]["hitdef_persist"] == 1
 assert source_rows[1051]["has_velset"] == 1
 assert source_rows[1051]["velset_x_q8"] == 2 * 256
@@ -3017,6 +3035,69 @@ _power = _cns.power_fields(Section("h", [
 assert _power["power_flags"] == 3
 assert (_power["get_power_hit"], _power["get_power_guard"]) == (0, 0)
 assert (_power["give_power_hit"], _power["give_power_guard"]) == (40, 7)
+_dynamic_hit_power = _cns.power_fields(Section("h", [
+    ("getpower", "ifelse(Var(23)>0,0,42),ifelse(Var(23)>0,0,42)"),
+]))
+assert _dynamic_hit_power["power_flags"] == 1
+assert _dynamic_hit_power["_get_power_hit_expr"] == _dynamic_hit_power[
+    "_get_power_guard_expr"]
+assert _dynamic_hit_power["_get_power_hit_expr"] is not None
+_p2_state_range = _cns.compile_cns_expr("P2StateNo != [154,155]")
+assert any(
+    ins.get("redirect") == "IK_EXPR_REDIRECT_P2"
+    for ins in _p2_state_range
+)
+assert sum(ins["op"] == "IK_EXPR_OR" for ins in _p2_state_range) == 1
+_anim_elem_time = _cns.compile_cns_expr("Animelem = 6, < 0")
+assert any(
+    ins.get("field") == "IK_EXPR_FIELD_ANIM_ELEM_TIME" and
+    ins.get("value0") == 6
+    for ins in _anim_elem_time
+)
+_dynamic_exponent = _cns.compile_cns_expr("90/Var(19)**2")
+assert any(ins["op"] == "IK_EXPR_POW" for ins in _dynamic_exponent)
+with tempfile.TemporaryDirectory() as dynamic_dir:
+    dynamic_root = Path(dynamic_dir)
+    dynamic_source = dynamic_root / "dynamic_power.cns"
+    dynamic_source.write_text("""[Statedef 200]
+type = S
+movetype = A
+physics = S
+anim = 200
+
+[State 200, Hit]
+type = HitDef
+trigger1 = (GameTime%10) = 0
+attr = S, NA
+damage = 90/Var(23)**2, 90/Var(23)**2
+pausetime = 4+(Var(23)>0)*2,4+(Var(23)>0)*2
+ground.slidetime = ifelse(Var(23)>0,18,9)
+ground.hittime = 9+(Var(23)>0)*9
+getpower = ifelse(Var(23)>0,0,42),ifelse(Var(23)>0,0,42)
+""", encoding="utf-8")
+    dynamic_report = _cns.emit(
+        dynamic_source, [200], dynamic_root / "dynamic_power", "dynamic_test")
+    dynamic_hit = dynamic_report["hitdefs"][0]
+    assert dynamic_hit["trigger_expr_count"] > 0
+    assert dynamic_hit["get_power_hit_expr_count"] == 9
+    assert dynamic_hit["get_power_guard_expr_count"] == 9
+    assert dynamic_hit["get_power_hit_expr_ofs"] == dynamic_hit[
+        "get_power_guard_expr_ofs"]
+    assert dynamic_hit["ground_slide_time_expr_count"] > 0
+    assert dynamic_hit["ground_hit_time_expr_count"] > 0
+    assert dynamic_hit["damage_expr_count"] > 0
+    assert dynamic_hit["guard_damage_expr_count"] > 0
+    assert dynamic_hit["pause_p1_expr_count"] > 0
+    assert dynamic_hit["pause_p2_expr_count"] > 0
+    assert dynamic_hit["guard_hit_time_expr_count"] == \
+        dynamic_hit["ground_slide_time_expr_count"]
+    assert dynamic_hit["guard_slide_time_expr_count"] == \
+        dynamic_hit["guard_hit_time_expr_count"]
+    assert dynamic_hit["guard_ctrl_time_expr_count"] == \
+        dynamic_hit["guard_slide_time_expr_count"]
+    generated_dynamic_c = (
+        dynamic_root / "dynamic_power.c").read_text(encoding="utf-8")
+    assert "dynamic_test_expressions[" in generated_dynamic_c
 # An omitted guard value is half the hit value, truncated toward zero.
 assert _cns.power_fields(Section("h", [("getpower", "-5")]))[
     "get_power_guard"] == -2
@@ -3090,3 +3171,43 @@ _mask = Section("p", [
 _kind, _lo, _hi = controller_trigger(_mask, "posadd")
 assert _kind == "IK_CNS_TRIGGER_ANIM_ELEM_MASK"
 assert (_lo | (_hi << 16)) == (1 << 2) | (1 << 10)
+
+# Compile-time expressions must evaluate known arithmetic and reject runtime
+# functions that the CNS expression VM does not implement yet.
+assert _cns.eval_expr("1 + 2 * 3") == 7
+assert _cns.eval_expr(".4") == .4
+assert _cns.eval_expr("-.45") == -.45
+assert _cns.eval_expr("ifelse(2 >= 1, 7, 9)") == 7
+assert _cns.eval_expr(None, 11) == 11
+_dynamic_power = _cns.dynamic_power_add_expr("ifelse(Var(23)>0,0,72)")
+assert _dynamic_power is not None and len(_dynamic_power) == 9
+assert _dynamic_power[1]["field"] == "IK_EXPR_FIELD_VAR"
+assert _dynamic_power[1]["value0"] == 23
+_old_strict = _cns.STRICT_CONVERSION
+_cns.STRICT_CONVERSION = True
+try:
+    _cns.dynamic_power_add_expr("ifelse(Var(60)>0,0,72)")
+except ValueError as exc:
+    assert "outside the supported" in str(exc)
+else:
+    raise AssertionError("out-of-range Var() was accepted")
+try:
+    for unsupported in ("var(1)", "GetHitVar(yvel)", "unknown_symbol"):
+        try:
+            _cns.eval_expr(unsupported)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError(
+                f"unsupported expression was silently accepted: {unsupported}")
+
+    try:
+        controller_trigger(Section("unsafe", [
+            ("type", "PosAdd"), ("trigger1", "var(1) = 2"), ("x", "1"),
+        ]), "posadd")
+    except ValueError as exc:
+        assert "will not replace it with an always-true trigger" in str(exc)
+    else:
+        raise AssertionError("unsupported CNS trigger was silently treated as true")
+finally:
+    _cns.STRICT_CONVERSION = _old_strict

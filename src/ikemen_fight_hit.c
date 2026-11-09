@@ -1,6 +1,75 @@
 /* Applying a resolved hit from a root fighter: guard, throw, damage. */
 #include "ikemen_fight_internal.h"
 
+static uint8_t eval_fighter_time_expr(
+    const ik_fight_t* fight,
+    const ik_fighter_t* fighter,
+    const ik_cns_asset_t* cns,
+    uint16_t offset,
+    uint8_t count,
+    uint8_t fallback
+) {
+    int32_t value = 0;
+    if (!count || !ikf_eval_cns_expr(
+            fight, fighter, cns, offset, count, &value)) {
+        return fallback;
+    }
+    if (value < 0) return 0u;
+    if (value > UINT8_MAX) return UINT8_MAX;
+    return (uint8_t)value;
+}
+
+static int16_t eval_fighter_damage_expr(
+    const ik_fight_t* fight,
+    const ik_fighter_t* fighter,
+    const ik_cns_asset_t* cns,
+    uint16_t offset,
+    uint8_t count,
+    int16_t fallback
+) {
+    int32_t value = 0;
+    if (!count || !ikf_eval_cns_expr(
+            fight, fighter, cns, offset, count, &value)) {
+        return fallback;
+    }
+    if (value < INT16_MIN) return INT16_MIN;
+    if (value > INT16_MAX) return INT16_MAX;
+    return (int16_t)value;
+}
+
+static uint8_t eval_fighter_u8_expr(
+    const ik_fight_t* fight,
+    const ik_fighter_t* fighter,
+    const ik_cns_asset_t* cns,
+    uint16_t offset,
+    uint8_t count,
+    uint8_t fallback
+) {
+    int32_t value = 0;
+    if (!count || !ikf_eval_cns_expr(
+            fight, fighter, cns, offset, count, &value)) return fallback;
+    if (value < 0) return 0u;
+    if (value > UINT8_MAX) return UINT8_MAX;
+    return (uint8_t)value;
+}
+
+static int16_t eval_fighter_q8_expr(
+    const ik_fight_t* fight,
+    const ik_fighter_t* fighter,
+    const ik_cns_asset_t* cns,
+    uint16_t offset,
+    uint8_t count,
+    int16_t fallback
+) {
+    int32_t value = 0;
+    if (!count || !ikf_eval_cns_expr(
+            fight, fighter, cns, offset, count, &value)) return fallback;
+    value /= 256;
+    if (value < INT16_MIN) return INT16_MIN;
+    if (value > INT16_MAX) return INT16_MAX;
+    return (int16_t)value;
+}
+
 void ikf_release_bound_target(ik_fight_t* fight, int owner) {
     if (!fight || owner < 0 || owner > 1) return;
     ik_fighter_t* f = &fight->fighters[owner];
@@ -62,6 +131,37 @@ void ikf_apply_guard(ik_fight_t* fight, int victim,
                         const ik_cns_hitdef_t* hitdef) {
     ik_fighter_t* v = &fight->fighters[victim];
     ik_fighter_t* a = &fight->fighters[victim ^ 1];
+    ik_cns_hitdef_t evaluated_hitdef;
+    if (hitdef && (hitdef->guard_hit_time_expr_count ||
+                   hitdef->guard_slide_time_expr_count ||
+                   hitdef->guard_ctrl_time_expr_count ||
+                   hitdef->guard_damage_expr_count ||
+                   hitdef->pause_p1_expr_count ||
+                   hitdef->pause_p2_expr_count ||
+                   hitdef->fall_x_velocity_expr_count ||
+                   hitdef->fall_y_velocity_expr_count)) {
+        evaluated_hitdef = *hitdef;
+        const ik_cns_asset_t* cns = cns_for_fighter(fight, a);
+        evaluated_hitdef.guard_hit_time = eval_fighter_time_expr(
+            fight, a, cns, hitdef->guard_hit_time_expr_ofs,
+            hitdef->guard_hit_time_expr_count, hitdef->guard_hit_time);
+        evaluated_hitdef.guard_slide_time = eval_fighter_time_expr(
+            fight, a, cns, hitdef->guard_slide_time_expr_ofs,
+            hitdef->guard_slide_time_expr_count, hitdef->guard_slide_time);
+        evaluated_hitdef.guard_ctrl_time = eval_fighter_time_expr(
+            fight, a, cns, hitdef->guard_ctrl_time_expr_ofs,
+            hitdef->guard_ctrl_time_expr_count, hitdef->guard_ctrl_time);
+        evaluated_hitdef.guard_damage = eval_fighter_damage_expr(
+            fight, a, cns, hitdef->guard_damage_expr_ofs,
+            hitdef->guard_damage_expr_count, hitdef->guard_damage);
+        evaluated_hitdef.pause_p1 = eval_fighter_time_expr(
+            fight, a, cns, hitdef->pause_p1_expr_ofs,
+            hitdef->pause_p1_expr_count, hitdef->pause_p1);
+        evaluated_hitdef.pause_p2 = eval_fighter_time_expr(
+            fight, a, cns, hitdef->pause_p2_expr_ofs,
+            hitdef->pause_p2_expr_count, hitdef->pause_p2);
+        hitdef = &evaluated_hitdef;
+    }
     const uint8_t type = ikf_guard_type_for(fight, v, controls);
 
     int guard_ko = 0;
@@ -94,7 +194,7 @@ void ikf_apply_guard(ik_fight_t* fight, int victim,
 
     a->move_contact = 1u;
     a->move_contact_time = fight->ko_split_clocks ? 1u : 0u;
-    ikf_credit_hit_power(a, v, hitdef, 1);
+    ikf_credit_hit_power(fight, a, v, hitdef, 1);
     ikf_hit_snap(a, v, hitdef, 1);
     a->target_index = (int8_t)victim;
     a->target_id = hitdef->id;
@@ -122,8 +222,7 @@ void ikf_apply_guard(ik_fight_t* fight, int victim,
 
     ikf_queue_hit_effect(
         fight, a, v, hitdef, hitdef->guard_spark_no, 0);
-    ikf_queue_sound_event(
-        fight, hitdef->guard_sound_group, hitdef->guard_sound_item);
+    ikf_queue_hitdef_sound(fight, a, 0, hitdef, 1);
     fight->events |= IK_EVENT_GUARD;
     if (guard_ko) {
         fight->winner = (uint8_t)((victim ^ 1) + 1);
@@ -157,7 +256,7 @@ void ikf_apply_throw(ik_fight_t* fight, int attacker,
     v->bound_entity = ik_entity_invalid_handle();
     a->move_contact = 1u;
     a->move_contact_time = fight->ko_split_clocks ? 1u : 0u;
-    ikf_credit_hit_power(a, v, hitdef, 0);
+    ikf_credit_hit_power(fight, a, v, hitdef, 0);
     ikf_hit_snap(a, v, hitdef, 0);
     a->move_hit = 1u;
 
@@ -171,11 +270,20 @@ void ikf_apply_throw(ik_fight_t* fight, int attacker,
     }
     v->gethit_fall =
         (uint8_t)((hitdef->flags & IK_CNS_HITDEF_FALL) != 0u);
-    v->gethit_fall_x_q8 = hitdef->fall_x_velocity_q8;
-    v->gethit_fall_y_q8 = hitdef->fall_y_velocity_q8;
+    const ik_cns_asset_t* attack_cns = cns_for_fighter(fight, a);
+    v->gethit_fall_x_q8 = eval_fighter_q8_expr(
+        fight, a, attack_cns, hitdef->fall_x_velocity_expr_ofs,
+        hitdef->fall_x_velocity_expr_count, hitdef->fall_x_velocity_q8);
+    v->gethit_fall_y_q8 = eval_fighter_q8_expr(
+        fight, a, attack_cns, hitdef->fall_y_velocity_expr_ofs,
+        hitdef->fall_y_velocity_expr_count, hitdef->fall_y_velocity_q8);
     v->gethit_fall_x_set = hitdef->fall_x_velocity_set;
-    v->gethit_fall_recover = hitdef->fall_recover;
-    v->gethit_fall_recover_time = hitdef->fall_recover_time;
+    v->gethit_fall_recover = eval_fighter_u8_expr(
+        fight, a, attack_cns, hitdef->fall_recover_expr_ofs,
+        hitdef->fall_recover_expr_count, hitdef->fall_recover);
+    v->gethit_fall_recover_time = eval_fighter_u8_expr(
+        fight, a, attack_cns, hitdef->fall_recover_time_expr_ofs,
+        hitdef->fall_recover_time_expr_count, hitdef->fall_recover_time);
 
     if (hitdef->p2_state_no >= 0) {
         v->state_owner = a->state_owner;
@@ -200,8 +308,7 @@ void ikf_apply_throw(ik_fight_t* fight, int attacker,
 
     ikf_queue_hit_effect(
         fight, a, v, hitdef, hitdef->spark_no, 1);
-    ikf_queue_sound_event(
-        fight, hitdef->hit_sound_group, hitdef->hit_sound_item);
+    ikf_queue_hitdef_sound(fight, a, 0, hitdef, 0);
     fight->events |= IK_EVENT_HIT;
     if (attacker == 0) ++fight->hits_p1;
     else ++fight->hits_p2;
@@ -258,8 +365,111 @@ static void apply_ko_velocity(
 
 void ikf_apply_damage(ik_fight_t* fight, int victim,
                          const ik_cns_hitdef_t* hitdef) {
+    ik_cns_hitdef_t evaluated_hitdef;
     ik_fighter_t* v = &fight->fighters[victim];
     const int attacker = victim ^ 1;
+    if (hitdef && (hitdef->ground_velocity_x_expr_count ||
+                   hitdef->ground_velocity_y_expr_count ||
+                   hitdef->air_velocity_x_expr_count ||
+                   hitdef->air_velocity_y_expr_count ||
+                   hitdef->ground_slide_time_expr_count ||
+                   hitdef->ground_hit_time_expr_count ||
+                   hitdef->air_hit_time_expr_count ||
+                   hitdef->guard_hit_time_expr_count ||
+                   hitdef->guard_slide_time_expr_count ||
+                   hitdef->guard_ctrl_time_expr_count ||
+                   hitdef->damage_expr_count ||
+                   hitdef->guard_damage_expr_count ||
+                   hitdef->pause_p1_expr_count ||
+                   hitdef->pause_p2_expr_count)) {
+        evaluated_hitdef = *hitdef;
+        const ik_cns_asset_t* cns =
+            cns_for_fighter(fight, &fight->fighters[attacker]);
+        int32_t value = 0;
+        if (hitdef->ground_velocity_x_expr_count &&
+            ikf_eval_cns_expr(
+                fight, &fight->fighters[attacker], cns,
+                hitdef->ground_velocity_x_expr_ofs,
+                hitdef->ground_velocity_x_expr_count, &value)) {
+            evaluated_hitdef.ground_velocity_x_q8 = (int16_t)(value / 256);
+        }
+        if (hitdef->ground_velocity_y_expr_count &&
+            ikf_eval_cns_expr(
+                fight, &fight->fighters[attacker], cns,
+                hitdef->ground_velocity_y_expr_ofs,
+                hitdef->ground_velocity_y_expr_count, &value)) {
+            evaluated_hitdef.ground_velocity_y_q8 = (int16_t)(value / 256);
+        }
+        if (hitdef->air_velocity_x_expr_count &&
+            ikf_eval_cns_expr(
+                fight, &fight->fighters[attacker], cns,
+                hitdef->air_velocity_x_expr_ofs,
+                hitdef->air_velocity_x_expr_count, &value)) {
+            evaluated_hitdef.air_velocity_x_q8 = (int16_t)(value / 256);
+        }
+        if (hitdef->air_velocity_y_expr_count &&
+            ikf_eval_cns_expr(
+                fight, &fight->fighters[attacker], cns,
+                hitdef->air_velocity_y_expr_ofs,
+                hitdef->air_velocity_y_expr_count, &value)) {
+            evaluated_hitdef.air_velocity_y_q8 = (int16_t)(value / 256);
+        }
+        evaluated_hitdef.ground_slide_time = eval_fighter_time_expr(
+            fight, &fight->fighters[attacker], cns,
+            hitdef->ground_slide_time_expr_ofs,
+            hitdef->ground_slide_time_expr_count,
+            hitdef->ground_slide_time);
+        evaluated_hitdef.ground_hit_time = eval_fighter_time_expr(
+            fight, &fight->fighters[attacker], cns,
+            hitdef->ground_hit_time_expr_ofs,
+            hitdef->ground_hit_time_expr_count,
+            hitdef->ground_hit_time);
+        evaluated_hitdef.air_hit_time = eval_fighter_time_expr(
+            fight, &fight->fighters[attacker], cns,
+            hitdef->air_hit_time_expr_ofs,
+            hitdef->air_hit_time_expr_count, hitdef->air_hit_time);
+        evaluated_hitdef.guard_hit_time = eval_fighter_time_expr(
+            fight, &fight->fighters[attacker], cns,
+            hitdef->guard_hit_time_expr_ofs,
+            hitdef->guard_hit_time_expr_count, hitdef->guard_hit_time);
+        evaluated_hitdef.guard_slide_time = eval_fighter_time_expr(
+            fight, &fight->fighters[attacker], cns,
+            hitdef->guard_slide_time_expr_ofs,
+            hitdef->guard_slide_time_expr_count,
+            hitdef->guard_slide_time);
+        evaluated_hitdef.guard_ctrl_time = eval_fighter_time_expr(
+            fight, &fight->fighters[attacker], cns,
+            hitdef->guard_ctrl_time_expr_ofs,
+            hitdef->guard_ctrl_time_expr_count,
+            hitdef->guard_ctrl_time);
+        evaluated_hitdef.damage = eval_fighter_damage_expr(
+            fight, &fight->fighters[attacker], cns,
+            hitdef->damage_expr_ofs, hitdef->damage_expr_count,
+            hitdef->damage);
+        evaluated_hitdef.guard_damage = eval_fighter_damage_expr(
+            fight, &fight->fighters[attacker], cns,
+            hitdef->guard_damage_expr_ofs, hitdef->guard_damage_expr_count,
+            hitdef->guard_damage);
+        evaluated_hitdef.pause_p1 = eval_fighter_time_expr(
+            fight, &fight->fighters[attacker], cns,
+            hitdef->pause_p1_expr_ofs, hitdef->pause_p1_expr_count,
+            hitdef->pause_p1);
+        evaluated_hitdef.pause_p2 = eval_fighter_time_expr(
+            fight, &fight->fighters[attacker], cns,
+            hitdef->pause_p2_expr_ofs, hitdef->pause_p2_expr_count,
+            hitdef->pause_p2);
+        evaluated_hitdef.fall_x_velocity_q8 = eval_fighter_q8_expr(
+            fight, &fight->fighters[attacker], cns,
+            hitdef->fall_x_velocity_expr_ofs,
+            hitdef->fall_x_velocity_expr_count,
+            hitdef->fall_x_velocity_q8);
+        evaluated_hitdef.fall_y_velocity_q8 = eval_fighter_q8_expr(
+            fight, &fight->fighters[attacker], cns,
+            hitdef->fall_y_velocity_expr_ofs,
+            hitdef->fall_y_velocity_expr_count,
+            hitdef->fall_y_velocity_q8);
+        hitdef = &evaluated_hitdef;
+    }
     fight->fighters[attacker].target_index = (int8_t)victim;
     fight->fighters[attacker].target_id = hitdef ? hitdef->id : 0;
     fight->fighters[attacker].hitdef_target = (int8_t)victim;
@@ -347,8 +557,13 @@ void ikf_apply_damage(ik_fight_t* fight, int victim,
     v->gethit_fall_x_set =
         (uint8_t)(hitdef->fall_x_velocity_set &&
                   (!downed_launch || hitdef->down_bounce));
-    v->gethit_fall_recover = hitdef->fall_recover;
-    v->gethit_fall_recover_time = hitdef->fall_recover_time;
+    const ik_cns_asset_t* attack_cns = cns_for_fighter(fight, a);
+    v->gethit_fall_recover = eval_fighter_u8_expr(
+        fight, a, attack_cns, hitdef->fall_recover_expr_ofs,
+        hitdef->fall_recover_expr_count, hitdef->fall_recover);
+    v->gethit_fall_recover_time = eval_fighter_u8_expr(
+        fight, a, attack_cns, hitdef->fall_recover_time_expr_ofs,
+        hitdef->fall_recover_time_expr_count, hitdef->fall_recover_time);
     v->gethit_fall_damage = hitdef->fall_damage;
     v->gethit_fall_envshake_time = hitdef->fall_envshake_time;
     v->gethit_fall_envshake_ampl = hitdef->fall_envshake_ampl;
@@ -392,7 +607,7 @@ void ikf_apply_damage(ik_fight_t* fight, int victim,
      * whose life was already zero does not award another get/give-power
      * packet. The deciding hit already credited both sides. */
     if (!victim_was_dead) {
-        ikf_credit_hit_power(a, v, hitdef, 0);
+        ikf_credit_hit_power(fight, a, v, hitdef, 0);
     }
     ikf_hit_snap(a, v, hitdef, 0);
     a->move_hit = 1u;
@@ -449,8 +664,7 @@ void ikf_apply_damage(ik_fight_t* fight, int victim,
 
         ikf_queue_hit_effect(
             fight, a, v, hitdef, hitdef->spark_no, 1);
-        ikf_queue_sound_event(
-            fight, hitdef->hit_sound_group, hitdef->hit_sound_item);
+        ikf_queue_hitdef_sound(fight, a, 0, hitdef, 0);
         if (hp_after <= 0) {
             v->pending_damage = v->hp;
             fight->winner = (uint8_t)((victim ^ 1) + 1);

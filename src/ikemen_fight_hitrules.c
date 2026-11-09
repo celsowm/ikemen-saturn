@@ -176,10 +176,27 @@ int ikf_juggle_cost(const ik_fight_t* fight,
                        const ik_fighter_t* attacker,
                        const ik_cns_hitdef_t* hitdef) {
     int cost = hitdef ? hitdef->air_juggle : 0;
+    if (fight && attacker && hitdef && hitdef->air_juggle_expr_count) {
+        int32_t dynamic_cost = 0;
+        if (ikf_eval_cns_expr(
+                fight, attacker, cns_for_fighter(fight, attacker),
+                hitdef->air_juggle_expr_ofs,
+                hitdef->air_juggle_expr_count, &dynamic_cost)) {
+            cost = dynamic_cost;
+        }
+    }
     const ik_cns_state_t* state =
         attacker ? fighter_state_spec(fight, attacker) : 0;
-    if (state && state->has_juggle && state->juggle > 0) {
-        cost += state->juggle;
+    int state_juggle = state ? state->juggle : 0;
+    if (state && state->juggle_expr_count && attacker) {
+        int32_t dynamic_juggle = 0;
+        if (ikf_eval_cns_expr(
+                fight, attacker, cns_for_fighter(fight, attacker),
+                state->juggle_expr_ofs, state->juggle_expr_count,
+                &dynamic_juggle)) state_juggle = dynamic_juggle;
+    }
+    if (state && state->has_juggle && state_juggle > 0) {
+        cost += state_juggle;
     }
     return cost < 0 ? 0 : cost;
 }
@@ -205,6 +222,16 @@ int ikf_entity_juggle_cost(
     const ik_cns_hitdef_t* hitdef
 ) {
     int cost = hitdef ? hitdef->air_juggle : 0;
+    if (fight && attacker && hitdef && hitdef->air_juggle_expr_count) {
+        int32_t dynamic_cost = 0;
+        const ik_cns_asset_t* cns =
+            cns_for_owner(fight, attacker->state_owner);
+        if (ikf_eval_cns_entity_expr(
+                fight, attacker, cns, hitdef->air_juggle_expr_ofs,
+                hitdef->air_juggle_expr_count, &dynamic_cost)) {
+            cost = dynamic_cost;
+        }
+    }
     const ik_cns_state_t* state =
         attacker ? entity_state_spec(fight, attacker) : 0;
     if (state && state->has_juggle && state->juggle > 0) {
@@ -386,6 +413,7 @@ void ikf_hit_snap(const ik_fighter_t* attacker, ik_fighter_t* victim,
 }
 
 void ikf_credit_hit_power(
+    const ik_fight_t* fight,
     ik_fighter_t* attacker,
     ik_fighter_t* victim,
     const ik_cns_hitdef_t* hitdef,
@@ -407,9 +435,29 @@ void ikf_credit_hit_power(
     }
     if (hitdef->power_flags & 1u) {
         get = guarded ? hitdef->get_power_guard : hitdef->get_power_hit;
+        const uint16_t offset = guarded
+            ? hitdef->get_power_guard_expr_ofs
+            : hitdef->get_power_hit_expr_ofs;
+        const uint8_t count = guarded
+            ? hitdef->get_power_guard_expr_count
+            : hitdef->get_power_hit_expr_count;
+        int32_t value = 0;
+        if (count && ikf_eval_cns_expr(
+                fight, attacker, cns_for_fighter(fight, attacker),
+                offset, count, &value)) get = value;
     }
     if (hitdef->power_flags & 2u) {
         give = guarded ? hitdef->give_power_guard : hitdef->give_power_hit;
+        const uint16_t offset = guarded
+            ? hitdef->give_power_guard_expr_ofs
+            : hitdef->give_power_hit_expr_ofs;
+        const uint8_t count = guarded
+            ? hitdef->give_power_guard_expr_count
+            : hitdef->give_power_hit_expr_count;
+        int32_t value = 0;
+        if (count && ikf_eval_cns_expr(
+                fight, attacker, cns_for_fighter(fight, attacker),
+                offset, count, &value)) give = value;
     }
     victim->reversed = 0u;
     attacker->move_contact_type = guarded ? 1u : 0u;

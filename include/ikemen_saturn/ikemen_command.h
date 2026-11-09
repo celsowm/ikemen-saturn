@@ -12,7 +12,8 @@ extern "C" {
 #endif
 
 #define IK_CMD_INVALID_ID 0xFFFFu
-#define IK_CMD_MAX_PATTERNS 64u
+#define IK_CMD_MAX_PATTERNS 256u
+#define IK_CMD_MAX_NAMES 128u
 #define IK_CMD_MAX_STEPS_PER_PATTERN 16u
 
 typedef enum ik_cmd_key {
@@ -143,6 +144,8 @@ typedef struct ik_state_rule_context {
     uint8_t p2_move_type;
     uint8_t p2_ctrl;
     uint8_t p2_move_contact;
+    uint16_t anim_element;
+    uint16_t p2_anim_element;
 } ik_state_rule_context_t;
 
 typedef struct ik_command_pattern_state {

@@ -19,6 +19,7 @@ class SpriteAsset:
     palette_index: int = 0
     xoff: int = 0
     yoff: int = 0
+    palette_words: list[int] | None = None
 
 
 @dataclass

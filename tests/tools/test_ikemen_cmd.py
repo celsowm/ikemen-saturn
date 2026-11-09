@@ -74,4 +74,13 @@ assert hold.buffer == 1
 
 assert sum(1 for p in asset.patterns if p.name == "Triple") == 2
 
+# Choi and Kyo exceed the former 128-pattern runtime cap.
+with tempfile.TemporaryDirectory() as td:
+    path = Path(td) / "large.cmd"
+    path.write_text("\n".join(
+        f"[Command]\nname = \"cmd_{i}\"\ncommand = x" for i in range(145)
+    ), encoding="utf-8")
+    large_asset = parse_cmd(path)
+assert len(large_asset.patterns) == 145
+
 print("ikemen CMD compiler: OK")

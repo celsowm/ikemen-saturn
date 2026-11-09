@@ -80,6 +80,18 @@ int main() {
         &ctx, &value));
     OK(value == 1);
 
+    const ik_expr_instr_t exponent[] = {
+        {IK_EXPR_PUSH_CONST,0u,0u,0u,90,0},
+        {IK_EXPR_PUSH_CONST,0u,0u,0u,3,0},
+        {IK_EXPR_PUSH_CONST,0u,0u,0u,2,0},
+        {IK_EXPR_POW,0u,0u,0u,0,0},
+        {IK_EXPR_DIV,0u,0u,0u,0,0},
+    };
+    OK(ik_expr_eval(
+        exponent, (uint16_t)(sizeof(exponent) / sizeof(exponent[0])),
+        &ctx, &value));
+    OK(value == 10);
+
     const ik_expr_instr_t bad_div[] = {
         {IK_EXPR_PUSH_CONST,0u,0u,0u,1,0},
         {IK_EXPR_PUSH_CONST,0u,0u,0u,0,0},

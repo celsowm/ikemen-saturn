@@ -433,6 +433,12 @@ int ik_entity_expr_read_field(
         case IK_EXPR_FIELD_STATE_NO:
             *out_value = entity->state_no;
             return 1;
+        case IK_EXPR_FIELD_ANIM_NO:
+            *out_value = entity->anim_no;
+            return 1;
+        case IK_EXPR_FIELD_PREV_STATE_NO:
+            *out_value = entity->prev_state_no;
+            return 1;
         case IK_EXPR_FIELD_STATE_TIME:
             *out_value = entity->state_time;
             return 1;
@@ -447,6 +453,12 @@ int ik_entity_expr_read_field(
             return 1;
         case IK_EXPR_FIELD_MOVE_CONTACT:
             *out_value = entity->move_contact != 0u;
+            return 1;
+        case IK_EXPR_FIELD_MOVE_HIT:
+            *out_value = entity->move_hit != 0u;
+            return 1;
+        case IK_EXPR_FIELD_MOVE_REVERSED:
+            *out_value = entity->move_reversed != 0u;
             return 1;
         case IK_EXPR_FIELD_POWER:
             *out_value = entity->power;
@@ -483,6 +495,12 @@ int ik_entity_expr_read_field(
             return 1;
         case IK_EXPR_FIELD_ENTITY_TYPE:
             *out_value = entity->type;
+            return 1;
+        case IK_EXPR_FIELD_ANIM_ELEM:
+            *out_value = entity->anim_element;
+            return 1;
+        case IK_EXPR_FIELD_ANIM_TIME:
+            *out_value = entity->anim_time;
             return 1;
         case IK_EXPR_FIELD_VAR:
             if (index < 0 || index >= (int32_t)IK_ENTITY_VAR_COUNT) return 0;
@@ -526,6 +544,20 @@ int ik_entity_expr_read_field(
             *out_value = ik_entity_target_count(
                 binding->pool, redirected, index);
             return 1;
+        case IK_EXPR_FIELD_NUM_HELPERS: {
+            int32_t target_id = index;
+            uint8_t count = 0u;
+            for (uint8_t slot = 0u; slot < IK_ENTITY_CAPACITY; ++slot) {
+                const ik_entity_t* candidate = &binding->pool->entities[slot];
+                if (candidate->type == IK_ENTITY_HELPER &&
+                    candidate->owner_player == entity->owner_player &&
+                    candidate->id == target_id) {
+                    ++count;
+                }
+            }
+            *out_value = count;
+            return 1;
+        }
 
         case IK_EXPR_FIELD_SYSVAR:
             if (index < 0 || index >= (int32_t)IK_ENTITY_SYSVAR_COUNT) return 0;

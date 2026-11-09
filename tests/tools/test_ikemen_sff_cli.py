@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import json
 import sys
 import tempfile
 from pathlib import Path
@@ -34,6 +35,7 @@ NODE = sff_mod.SpriteNode(
 
 class FakeContainer:
     palette_count = 1
+    version = 2  # the test drives the v2 (palette-node) path
 
     def sprite_nodes(self):
         yield NODE
@@ -187,10 +189,65 @@ def test_char_png_unpacks_indexed_node() -> None:
         ) = originals
 
 
+def test_char_air_blank_frame_uses_transparent_sprite() -> None:
+    container = FakeContainer()
+    emitted_frames = []
+    originals = (
+        cli.sff_mod.load,
+        cli.air_mod.parse,
+        cli._load_palette,
+        cli._runtime_sprite_asset,
+        cli.emit_mod.emit_frames,
+    )
+    try:
+        cli.sff_mod.load = lambda _: container
+        cli.air_mod.parse = lambda _: {
+            0: air_mod.AirAction(0, frames=[
+                air_mod.AirFrame(-1, -1, 2, 3, 1),
+                air_mod.AirFrame(10, 20, -5, 7, 1),
+                air_mod.AirFrame(10, 99, 1, 2, 1),
+            ])
+        }
+        cli._load_palette = lambda *_: (0, [0] * 256)
+        cli._runtime_sprite_asset = lambda *_args, **_kwargs: _sprite_asset()
+
+        def emit_frames(*args, **kwargs):
+            emitted_frames.extend(args[2])
+            return "/* c */", "/* h */", b"\x01"
+
+        cli.emit_mod.emit_frames = emit_frames
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            args = SimpleNamespace(
+                sff="dummy.sff", air="dummy.air", actions=[0],
+                palettes=[(1, 1)], out_prefix=str(root / "char"),
+                symbol="char", sprite_bin=str(root / "SPR.BIN"),
+                png_dir=None, png_limit=0,
+            )
+            assert cli.cmd_char(args) == 0
+            manifest = json.loads((root / "char.json").read_text())
+        assert len(emitted_frames) == 3
+        blank = emitted_frames[0]
+        assert blank.sprite_key == (-1, -1)
+        assert blank.width == 8 and blank.height == 1
+        assert blank.ax == 1 and blank.ay == -3
+        assert emitted_frames[2].sprite_key == (-1, -1)
+        assert manifest["missing"] == ["0:10,99"]
+    finally:
+        (
+            cli.sff_mod.load,
+            cli.air_mod.parse,
+            cli._load_palette,
+            cli._runtime_sprite_asset,
+            cli.emit_mod.emit_frames,
+        ) = originals
+
+
 def main() -> int:
     test_runtime_sprite_keeps_sff_axis()
     test_fx_uses_indexed_nodes()
     test_char_png_unpacks_indexed_node()
+    test_char_air_blank_frame_uses_transparent_sprite()
     print("ikemen SFF CLI indexing: OK")
     return 0
 

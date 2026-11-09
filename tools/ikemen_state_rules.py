@@ -8,12 +8,16 @@ import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
-
-from tools.ikemen_cmd import parse_cmd
+try:
+    from tools.ikemen_text import read_mugen_text
+    from tools.ikemen_cmd import parse_cmd
+except ModuleNotFoundError:  # direct `python tools/ikemen_state_rules.py`
+    from ikemen_text import read_mugen_text
+    from ikemen_cmd import parse_cmd
 
 TOKEN_RE = re.compile(
     r'\s*(?:(?P<string>"[^"]*")|(?P<number>-?\d+)|'
-    r'(?P<op>\|\||&&|!=|>=|<=|=|>|<|\(|\)|\[|\]|,)|'
+    r'(?P<op>\|\||\^\^|&&|!=|>=|<=|=|>|<|\(|\)|\[|\]|,)|'
     r'(?P<ident>[A-Za-z_][A-Za-z0-9_.]*))'
 )
 STATE_TYPE_VALUE = {"S": 1, "C": 2, "A": 3, "L": 4}
@@ -37,6 +41,7 @@ class Insn:
     a: int = 0
     b: int = 0
     c: int = 0
+    redirect: str = "IK_EXPR_REDIRECT_SELF"
 
 
 @dataclass
@@ -61,7 +66,7 @@ def _strip_comment(line: str) -> str:
 
 
 def _state_sections(path: Path) -> list[tuple[str, list[tuple[str, str]]]]:
-    text = path.read_text(encoding="utf-8-sig", errors="strict")
+    text = read_mugen_text(path)
     sections: list[tuple[str, list[tuple[str, str]]]] = []
     header: str | None = None
     pairs: list[tuple[str, str]] = []
@@ -131,8 +136,8 @@ class Parser:
 
     def _or_expr(self) -> list[Insn]:
         code = self._and_expr()
-        while self._peek("||"):
-            self._take("||")
+        while self._peek("||") or self._peek("^^"):
+            self._take(self.tokens[self.i][1])
             code += self._and_expr()
             code.append(Insn("or"))
         return code
@@ -157,8 +162,18 @@ class Parser:
             raise ValueError(f"expected predicate identifier, got {raw!r}")
         name = raw.lower()
         if name == "ctrl":
+            if self._peek("="):
+                self._take("=")
+                kind, value = self._take()
+                if kind != "number" or int(value) != 1:
+                    raise ValueError("ctrl = 1 is the only supported form")
             return [Insn("ctrl")]
         if name == "movecontact":
+            if self._peek("="):
+                self._take("=")
+                kind, value = self._take()
+                if kind != "number" or int(value) != 1:
+                    raise ValueError("movecontact = 1 is the only supported form")
             return [Insn("move_contact")]
 
         if name == "var":
@@ -168,9 +183,23 @@ class Parser:
             if kind != "number":
                 raise ValueError("var() index must be an integer")
             index = int(value)
-            if index not in self.variables:
-                raise ValueError(f"unsupported variable predicate var({index})")
-            return list(self.variables[index])
+            if index < 0 or index >= 60:
+                raise ValueError(f"var() index {index} is out of range 0..59")
+            # A bare var(N) in a State -1 trigger is a boolean. When the CMD
+            # defines it through a VarSet-to-1 rule (KFM's combo gate), inline
+            # that predicate instead of reading an unset runtime variable.
+            operators = {"=": "eq", "!=": "ne", "<": "lt", "<=": "le",
+                         ">": "gt", ">=": "ge"}
+            if self._peek() and self.tokens[self.i][1] in operators:
+                _, cmpop = self._take()
+                kind, value = self._take()
+                if kind != "number":
+                    raise ValueError("var() comparison needs an integer")
+                return [Insn(f"var_{index}_{operators[cmpop]}", int(value))]
+            if index in self.variables:
+                return list(self.variables[index])
+            # var(N) by itself means var(N) != 0
+            return [Insn(f"var_{index}_ne", 0)]
 
         if name == "animelemtime":
             self._take("(")
@@ -191,17 +220,55 @@ class Parser:
             return [Insn(f"anim_elem_time_{operators[cmpop]}",
                          int(element), int(value))]
 
+        if name == "vel":
+            axis_kind, axis = self._take()
+            if axis_kind != "ident" or axis.lower() not in ("x", "y"):
+                raise ValueError("only Vel X and Vel Y are supported")
+            _, cmpop = self._take()
+            if cmpop not in ("=", "!=", ">", ">=", "<", "<="):
+                raise ValueError(f"unsupported Vel comparator {cmpop!r}")
+            kind, value = self._take()
+            if kind != "number":
+                raise ValueError("Vel comparison requires an integer")
+            suffix = {
+                "=": "eq", "!=": "ne", ">": "gt", ">=": "ge",
+                "<": "lt", "<=": "le",
+            }[cmpop]
+            field = "vel_x_q8" if axis.lower() == "x" else "vel_y_q8"
+            return [Insn(f"{field}_{suffix}", int(value))]
+
         if name == "p2bodydist":
             axis_kind, axis = self._take()
             if axis_kind != "ident" or axis.lower() != "x":
                 raise ValueError("only p2bodydist X is supported")
             _, cmpop = self._take()
-            if cmpop != "<":
-                raise ValueError("p2bodydist X currently supports only <")
+            if cmpop not in ("<", "<=", ">", ">="):
+                raise ValueError("p2bodydist X supports only <, <=, >, >=")
             kind, value = self._take()
             if kind != "number":
                 raise ValueError("p2bodydist X comparison requires an integer")
-            return [Insn("p2_body_dist_x_lt", int(value))]
+            suffix = {"<": "lt", "<=": "le", ">": "gt", ">=": "ge"}[cmpop]
+            return [Insn(f"p2_body_dist_x_{suffix}", int(value))]
+
+        if name == "numhelper":
+            self._take("(")
+            kind, helper_id = self._take()
+            self._take(")")
+            if kind != "number":
+                raise ValueError("numhelper() ID must be an integer")
+            _, cmpop = self._take()
+            operators = {
+                "=": "eq", "!=": "ne",
+                "<": "lt", "<=": "le",
+                ">": "gt", ">=": "ge",
+            }
+            op = operators.get(cmpop)
+            if op is None:
+                raise ValueError(f"unsupported numhelper comparator {cmpop!r}")
+            kind, value = self._take()
+            if kind != "number":
+                raise ValueError("numhelper comparison needs an integer")
+            return [Insn(f"num_helper_{op}", int(helper_id), int(value))]
 
         if name == "target":
             target_id = -1
@@ -369,9 +436,11 @@ class Parser:
                 return [Insn("p2_move_type_ne", MOVE_TYPE_VALUE[value.upper()])]
             raise ValueError("p2movetype supports only = and !=")
 
-        if name == "stateno" and (self._peek("[") or self._peek("(")):
+        # Range-supporting predicates: cmpop is already consumed above.
+        if name in ("stateno", "p2stateno") and (self._peek("[") or self._peek("(")):
             if cmpop not in ("=", "!="):
                 raise ValueError("state range supports only = and !=")
+            redirect = "IK_EXPR_REDIRECT_P2" if name == "p2stateno" else "IK_EXPR_REDIRECT_SELF"
             # Mugen intervals may be half-open: [a,b) (a,b] (a,b).
             open_exclusive = self._take()[1] == "("
             k0, lo = self._take()
@@ -384,10 +453,55 @@ class Parser:
                 raise ValueError("state range bounds must be integers")
             lo_n = int(lo) + (1 if open_exclusive else 0)
             hi_n = int(hi) - (1 if close == ")" else 0)
-            code = [Insn("state_no_range", lo_n, hi_n)]
+            code = [Insn("state_no_range", lo_n, hi_n, redirect=redirect)]
             if cmpop == "!=":
                 code.append(Insn("not"))
             return code
+
+        if name in ("time", "statetime") and (self._peek("[") or self._peek("(")):
+            if cmpop not in ("=", "!="):
+                raise ValueError("time range supports only = and !=")
+            # Mugen intervals may be half-open: [a,b) (a,b] (a,b).
+            open_exclusive = self._take()[1] == "("
+            k0, lo = self._take()
+            self._take(",")
+            k1, hi = self._take()
+            close = self._take()[1]
+            if close not in ("]", ")"):
+                raise ValueError(f"expected ']' or ')', got {close!r}")
+            if k0 != "number" or k1 != "number":
+                raise ValueError("time range bounds must be integers")
+            lo_n = int(lo) + (1 if open_exclusive else 0)
+            hi_n = int(hi) - (1 if close == ")" else 0)
+            code = [Insn("state_time_range", lo_n, hi_n)]
+            if cmpop == "!=":
+                code.append(Insn("not"))
+            return code
+
+        if name == "animelem":
+            kind, value = self._take()
+            if kind != "number":
+                raise ValueError("animelem comparison requires an integer")
+            elem = int(value)
+            if self._peek(","):
+                self._take(",")
+                _, time_cmp = self._take()
+                if time_cmp not in (">", ">=", "<", "<="):
+                    raise ValueError(f"unsupported animelem time comparator {time_cmp!r}")
+                time_kind, time_value = self._take()
+                if time_kind != "number":
+                    raise ValueError("animelem time comparison requires an integer")
+                time_suffix = {">": "gt", ">=": "ge", "<": "lt", "<=": "le"}[time_cmp]
+                return [
+                    Insn("animelem_eq", elem),
+                    Insn(f"animelem_time_{time_suffix}", elem, int(time_value)),
+                    Insn("and"),
+                ]
+            if cmpop == "=":
+                return [Insn("animelem_eq", elem)]
+            if cmpop == "!=":
+                return [Insn("animelem_ne", elem)]
+            raise ValueError("animelem supports only = and !=")
 
         kind, value = self._take()
         if kind != "number":
@@ -399,6 +513,14 @@ class Parser:
             if cmpop == "!=":
                 return [Insn("state_no_ne", n)]
             raise ValueError("stateno scalar supports only = and !=")
+        if name == "p2stateno":
+            opname = {
+                "=": "p2_state_no_eq",
+                "!=": "p2_state_no_ne",
+            }.get(cmpop)
+            if opname is None:
+                raise ValueError("p2stateno supports only = and !=")
+            return [Insn(opname, n)]
         if name in ("time", "statetime"):
             opname = {
                 "=": "state_time_eq", ">": "state_time_gt",
@@ -415,6 +537,24 @@ class Parser:
             }.get(cmpop)
             if opname is None:
                 raise ValueError("power != is not supported")
+            return [Insn(opname, n)]
+        if name == "life":
+            opname = {
+                "=": "life_eq", ">": "life_gt", ">=": "life_ge",
+                "<": "life_lt", "<=": "life_le",
+            }.get(cmpop)
+            if opname is None:
+                raise ValueError("life != is not supported")
+            return [Insn(opname, n)]
+        if name == "roundstate":
+            opname = {
+                "=": "round_state_eq", "!=": "round_state_ne",
+                ">": "round_state_gt", ">=": "round_state_ge",
+                "<": "round_state_lt", "<=": "round_state_le",
+            }.get(cmpop)
+            if opname is None:
+                raise ValueError(
+                    f"unsupported roundstate comparator {cmpop!r}")
             return [Insn(opname, n)]
 
         projectile_queries = {
@@ -597,6 +737,32 @@ def _lower_instruction(insn: Insn) -> list[VmInsn]:
             VmInsn("IK_EXPR_PUSH_CONST", a=insn.b),
             VmInsn(comparator),
         ]
+
+    if insn.op.startswith("animelem_time_"):
+        comparator = {
+            "eq": "IK_EXPR_EQ", "ne": "IK_EXPR_NE",
+            "lt": "IK_EXPR_LT", "le": "IK_EXPR_LE",
+            "gt": "IK_EXPR_GT", "ge": "IK_EXPR_GE",
+        }.get(insn.op[len("animelem_time_"):])
+        if comparator is None:
+            raise ValueError(f"invalid animelem time opcode {insn.op!r}")
+        return [
+            VmInsn("IK_EXPR_LOAD_FIELD", "IK_EXPR_FIELD_ANIM_ELEM_TIME",
+                   self_r, insn.a),
+            VmInsn("IK_EXPR_PUSH_CONST", a=insn.b),
+            VmInsn(comparator),
+        ]
+
+    if insn.op in ("animelem_eq", "animelem_ne"):
+        comparator = {
+            "animelem_eq": "IK_EXPR_EQ",
+            "animelem_ne": "IK_EXPR_NE",
+        }[insn.op]
+        return [
+            VmInsn("IK_EXPR_LOAD_FIELD", "IK_EXPR_FIELD_ANIM_ELEM", self_r),
+            VmInsn("IK_EXPR_PUSH_CONST", a=insn.a),
+            VmInsn(comparator),
+        ]
     if insn.op == "command_active":
         return [VmInsn("IK_EXPR_LOAD_COMMAND", a=insn.a)]
     if insn.op == "command_inactive":
@@ -607,16 +773,26 @@ def _lower_instruction(insn: Insn) -> list[VmInsn]:
 
     simple = {
         "round_state_eq": ("IK_EXPR_FIELD_ROUND_STATE", self_r, "IK_EXPR_EQ"),
+        "round_state_ne": ("IK_EXPR_FIELD_ROUND_STATE", self_r, "IK_EXPR_NE"),
+        "round_state_gt": ("IK_EXPR_FIELD_ROUND_STATE", self_r, "IK_EXPR_GT"),
+        "round_state_ge": ("IK_EXPR_FIELD_ROUND_STATE", self_r, "IK_EXPR_GE"),
+        "round_state_lt": ("IK_EXPR_FIELD_ROUND_STATE", self_r, "IK_EXPR_LT"),
+        "round_state_le": ("IK_EXPR_FIELD_ROUND_STATE", self_r, "IK_EXPR_LE"),
         "state_type_eq": ("IK_EXPR_FIELD_STATE_TYPE", self_r, "IK_EXPR_EQ"),
         "state_type_ne": ("IK_EXPR_FIELD_STATE_TYPE", self_r, "IK_EXPR_NE"),
         "state_no_eq": ("IK_EXPR_FIELD_STATE_NO", self_r, "IK_EXPR_EQ"),
         "state_no_ne": ("IK_EXPR_FIELD_STATE_NO", self_r, "IK_EXPR_NE"),
+        "p2_state_no_eq": ("IK_EXPR_FIELD_STATE_NO", p2_r, "IK_EXPR_EQ"),
+        "p2_state_no_ne": ("IK_EXPR_FIELD_STATE_NO", p2_r, "IK_EXPR_NE"),
         "state_time_eq": ("IK_EXPR_FIELD_STATE_TIME", self_r, "IK_EXPR_EQ"),
         "state_time_gt": ("IK_EXPR_FIELD_STATE_TIME", self_r, "IK_EXPR_GT"),
         "state_time_ge": ("IK_EXPR_FIELD_STATE_TIME", self_r, "IK_EXPR_GE"),
         "state_time_lt": ("IK_EXPR_FIELD_STATE_TIME", self_r, "IK_EXPR_LT"),
         "state_time_le": ("IK_EXPR_FIELD_STATE_TIME", self_r, "IK_EXPR_LE"),
         "p2_body_dist_x_lt": ("IK_EXPR_FIELD_BODY_DIST_X", p2_r, "IK_EXPR_LT"),
+        "p2_body_dist_x_le": ("IK_EXPR_FIELD_BODY_DIST_X", p2_r, "IK_EXPR_LE"),
+        "p2_body_dist_x_gt": ("IK_EXPR_FIELD_BODY_DIST_X", p2_r, "IK_EXPR_GT"),
+        "p2_body_dist_x_ge": ("IK_EXPR_FIELD_BODY_DIST_X", p2_r, "IK_EXPR_GE"),
         "p2_state_type_eq": ("IK_EXPR_FIELD_STATE_TYPE", p2_r, "IK_EXPR_EQ"),
         "p2_state_type_ne": ("IK_EXPR_FIELD_STATE_TYPE", p2_r, "IK_EXPR_NE"),
         "p2_move_type_eq": ("IK_EXPR_FIELD_MOVE_TYPE", p2_r, "IK_EXPR_EQ"),
@@ -626,6 +802,23 @@ def _lower_instruction(insn: Insn) -> list[VmInsn]:
         "power_ge": ("IK_EXPR_FIELD_POWER", self_r, "IK_EXPR_GE"),
         "power_lt": ("IK_EXPR_FIELD_POWER", self_r, "IK_EXPR_LT"),
         "power_le": ("IK_EXPR_FIELD_POWER", self_r, "IK_EXPR_LE"),
+        "vel_x_q8_eq": ("IK_EXPR_FIELD_VEL_X_Q8", self_r, "IK_EXPR_EQ"),
+        "vel_x_q8_ne": ("IK_EXPR_FIELD_VEL_X_Q8", self_r, "IK_EXPR_NE"),
+        "vel_x_q8_gt": ("IK_EXPR_FIELD_VEL_X_Q8", self_r, "IK_EXPR_GT"),
+        "vel_x_q8_ge": ("IK_EXPR_FIELD_VEL_X_Q8", self_r, "IK_EXPR_GE"),
+        "vel_x_q8_lt": ("IK_EXPR_FIELD_VEL_X_Q8", self_r, "IK_EXPR_LT"),
+        "vel_x_q8_le": ("IK_EXPR_FIELD_VEL_X_Q8", self_r, "IK_EXPR_LE"),
+        "vel_y_q8_eq": ("IK_EXPR_FIELD_VEL_Y_Q8", self_r, "IK_EXPR_EQ"),
+        "vel_y_q8_ne": ("IK_EXPR_FIELD_VEL_Y_Q8", self_r, "IK_EXPR_NE"),
+        "vel_y_q8_gt": ("IK_EXPR_FIELD_VEL_Y_Q8", self_r, "IK_EXPR_GT"),
+        "vel_y_q8_ge": ("IK_EXPR_FIELD_VEL_Y_Q8", self_r, "IK_EXPR_GE"),
+        "vel_y_q8_lt": ("IK_EXPR_FIELD_VEL_Y_Q8", self_r, "IK_EXPR_LT"),
+        "vel_y_q8_le": ("IK_EXPR_FIELD_VEL_Y_Q8", self_r, "IK_EXPR_LE"),
+        "life_eq": ("IK_EXPR_FIELD_LIFE", self_r, "IK_EXPR_EQ"),
+        "life_gt": ("IK_EXPR_FIELD_LIFE", self_r, "IK_EXPR_GT"),
+        "life_ge": ("IK_EXPR_FIELD_LIFE", self_r, "IK_EXPR_GE"),
+        "life_lt": ("IK_EXPR_FIELD_LIFE", self_r, "IK_EXPR_LT"),
+        "life_le": ("IK_EXPR_FIELD_LIFE", self_r, "IK_EXPR_LE"),
         "active_hit_attr_eq": (
             "IK_EXPR_FIELD_ACTIVE_HIT_ATTR", self_r, "IK_EXPR_EQ"),
     }
@@ -648,6 +841,51 @@ def _lower_instruction(insn: Insn) -> list[VmInsn]:
     if insn.op in simple:
         field, redirect, compare_op = simple[insn.op]
         return _vm_compare(field, redirect, compare_op, insn.a)
+
+    # Variable predicates: var_N_eq, var_N_ne, etc. for any N
+    if insn.op.startswith("var_"):
+        match = re.fullmatch(r"var_(\d+)_(eq|ne|gt|ge|lt|le)", insn.op)
+        if match:
+            var_idx = int(match.group(1))
+            compare = {
+                "eq": "IK_EXPR_EQ", "ne": "IK_EXPR_NE",
+                "gt": "IK_EXPR_GT", "ge": "IK_EXPR_GE",
+                "lt": "IK_EXPR_LT", "le": "IK_EXPR_LE",
+            }[match.group(2)]
+            return [
+                VmInsn(
+                    "IK_EXPR_LOAD_FIELD",
+                    "IK_EXPR_FIELD_VAR",
+                    "IK_EXPR_REDIRECT_SELF",
+                    var_idx,
+                    0,
+                    0,
+                ),
+                VmInsn("IK_EXPR_PUSH_CONST", a=insn.a),
+                VmInsn(compare),
+            ]
+
+    if insn.op.startswith("num_helper_"):
+        match = re.fullmatch(r"num_helper_(eq|ne|gt|ge|lt|le)", insn.op)
+        if not match:
+            raise ValueError(f"bad numhelper opcode {insn.op!r}")
+        compare = {
+            "eq": "IK_EXPR_EQ", "ne": "IK_EXPR_NE",
+            "gt": "IK_EXPR_GT", "ge": "IK_EXPR_GE",
+            "lt": "IK_EXPR_LT", "le": "IK_EXPR_LE",
+        }[match.group(1)]
+        return [
+            VmInsn(
+                "IK_EXPR_LOAD_FIELD",
+                "IK_EXPR_FIELD_NUM_HELPERS",
+                "IK_EXPR_REDIRECT_SELF",
+                insn.a,
+                0,
+                0,
+            ),
+            VmInsn("IK_EXPR_PUSH_CONST", a=insn.b),
+            VmInsn(compare),
+        ]
 
     if insn.op.startswith("target_"):
         match = re.fullmatch(
@@ -711,9 +949,18 @@ def _lower_instruction(insn: Insn) -> list[VmInsn]:
     if insn.op == "state_no_range":
         return (
             _vm_compare(
-                "IK_EXPR_FIELD_STATE_NO", self_r, "IK_EXPR_GE", insn.a)
+                "IK_EXPR_FIELD_STATE_NO", insn.redirect, "IK_EXPR_GE", insn.a)
             + _vm_compare(
-                "IK_EXPR_FIELD_STATE_NO", self_r, "IK_EXPR_LE", insn.b)
+                "IK_EXPR_FIELD_STATE_NO", insn.redirect, "IK_EXPR_LE", insn.b)
+            + [VmInsn("IK_EXPR_AND")]
+        )
+
+    if insn.op == "state_time_range":
+        return (
+            _vm_compare(
+                "IK_EXPR_FIELD_STATE_TIME", self_r, "IK_EXPR_GE", insn.a)
+            + _vm_compare(
+                "IK_EXPR_FIELD_STATE_TIME", self_r, "IK_EXPR_LE", insn.b)
             + [VmInsn("IK_EXPR_AND")]
         )
 

@@ -10,7 +10,8 @@ int ikf_ctrl_apply_state(const ik_ctrl_exec_t* x) {
     switch ((ik_cns_controller_type_t)ctrl->type) {
         case IK_CNS_CTRL_CHANGE_STATE: {
             const int has_ctrl = (ctrl->flags & IK_CNS_CTRL_HAS_CTRL) != 0u;
-            const int16_t target = ctrl->value0;
+            const int16_t target = (int16_t)(ctrl->value0_expr_count
+                ? ctrl->value4 / 65536 : ctrl->value0);
             ikf_turn_before_change(fight, f);
             ikf_enter_state(fight, f, target);
             if (has_ctrl) f->ctrl = (int8_t)(
@@ -35,6 +36,16 @@ int ikf_ctrl_apply_state(const ik_ctrl_exec_t* x) {
                 } else {
                     entity->vars[index] += ctrl->value1;
                 }
+            }
+            break;
+        }
+
+        case IK_CNS_CTRL_SYSVAR_SET: {
+            ik_entity_t* entity = ikf_fighter_entity(fight, f);
+            const int32_t index = ctrl->value0;
+            if (entity && index >= 0 &&
+                index < (int32_t)IK_ENTITY_SYSVAR_COUNT) {
+                entity->sysvars[index] = ctrl->value1;
             }
             break;
         }

@@ -31,6 +31,16 @@ int ikf_ctrl_apply_fx(const ik_ctrl_exec_t* x) {
             ikf_queue_sound_event(fight, ctrl->value0, ctrl->value1);
             break;
 
+        case IK_CNS_CTRL_POWER_ADD: {
+            const int32_t add = ctrl->value0_expr_count
+                ? ctrl->value4 / 65536 : ctrl->value0;
+            int power = (int)f->power + add;
+            if (power < 0) power = 0;
+            if (power > IK_MAX_POWER) power = IK_MAX_POWER;
+            f->power = (int16_t)power;
+            break;
+        }
+
         case IK_CNS_CTRL_SUPER_PAUSE: {
             if (f->pause_fired || ctrl->value0 <= 0) break;
             f->pause_fired = 1u;
@@ -173,8 +183,8 @@ int ikf_ctrl_apply_fx(const ik_ctrl_exec_t* x) {
                     &fight->effect_events[fight->effect_count++];
                 effect->action =
                     ctrl->value0 != 0 ? (int16_t)ctrl->value0 : 120;
-                effect->x = f->x;
-                effect->y = f->y;
+                effect->x = (int16_t)(f->x + f->facing * ctrl->value1);
+                effect->y = (int16_t)(f->y + ctrl->value2);
             }
             break;
 
