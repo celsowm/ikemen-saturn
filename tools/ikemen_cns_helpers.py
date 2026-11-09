@@ -24,6 +24,9 @@ def compile_helper_controller(
         "keyctrl", "id", "pos", "facing", "ignorehitpause",
         "pausemovetime", "pausemove", "supermove", "supermovetime",
         "persistent", "sprpriority",
+        # These are not Helper parameters in the upstream CNS compiler. Its
+        # permissive mode warns and ignores them, so they do not change spawn.
+        "ontop", "facep2", "random", "bindtime",
     }
     for key, _ in ctrl.values:
         lowered = key.strip().lower()

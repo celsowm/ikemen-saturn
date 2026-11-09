@@ -99,10 +99,59 @@ def emit(
                     CONST_VALUES[f"velocity.{key.split('.')[0].casefold()}.y"] = values[1]
                 if key.casefold() == "runjump.fwd" and len(values) > 1:
                     CONST_VALUES["velocity.runjump.y"] = values[1]
+    coordinate_scale = 320.0 / LOCALCOORD_X
     CONST_VALUES.setdefault(
         "movement.stand.friction.threshold",
-        2.0 * 320.0 / LOCALCOORD_X)
-    CONST_VALUES.setdefault("movement.crouch.friction.threshold", 0.0)
+        const["stand_friction_threshold_q8"] / Q8 * coordinate_scale)
+    CONST_VALUES.setdefault(
+        "movement.crouch.friction.threshold",
+        const["crouch_friction_threshold_q8"] / Q8 * coordinate_scale)
+    CONST_VALUES.setdefault(
+        "movement.down.friction.threshold",
+        const["down_friction_threshold_q8"] / Q8 * coordinate_scale)
+
+    # Runtime expressions may reference a character constant that is omitted
+    # from its [Velocity] block. Resolve those names using the same defaults
+    # used to emit ik_cns_constants_t, so Const(...) and the data table agree.
+    velocity_constant_fields = {
+        "walk.fwd.x": "walk_fwd_q8",
+        "walk.back.x": "walk_back_q8",
+        "run.fwd.x": "run_fwd_x_q8",
+        "run.fwd.y": "run_fwd_y_q8",
+        "run.back.x": "run_back_x_q8",
+        "run.back.y": "run_back_y_q8",
+        "jump.neu.x": "jump_neu_x_q8",
+        "jump.neu.y": "jump_neu_y_q8",
+        "jump.back.x": "jump_back_q8",
+        "jump.fwd.x": "jump_fwd_q8",
+        "runjump.fwd.x": "run_jump_fwd_x_q8",
+        "runjump.fwd.y": "run_jump_fwd_y_q8",
+        "airjump.neu.x": "air_jump_neu_x_q8",
+        "airjump.neu.y": "air_jump_neu_y_q8",
+        "airjump.y": "air_jump_neu_y_q8",
+        "airjump.back.x": "air_jump_back_q8",
+        "airjump.fwd.x": "air_jump_fwd_q8",
+        "air.gethit.groundrecover.x": "air_gethit_groundrecover_x_q8",
+        "air.gethit.groundrecover.y": "air_gethit_groundrecover_y_q8",
+        "air.gethit.airrecover.mul.x": "air_gethit_airrecover_mul_x_q8",
+        "air.gethit.airrecover.mul.y": "air_gethit_airrecover_mul_y_q8",
+        "air.gethit.airrecover.add.x": "air_gethit_airrecover_add_x_q8",
+        "air.gethit.airrecover.add.y": "air_gethit_airrecover_add_y_q8",
+        "air.gethit.airrecover.back": "air_gethit_airrecover_back_q8",
+        "air.gethit.airrecover.fwd": "air_gethit_airrecover_fwd_q8",
+        "air.gethit.airrecover.up": "air_gethit_airrecover_up_q8",
+        "air.gethit.airrecover.down": "air_gethit_airrecover_down_q8",
+        "air.gethit.ko.add.x": "air_gethit_ko_add_x_q8",
+        "air.gethit.ko.add.y": "air_gethit_ko_add_y_q8",
+        "air.gethit.ko.ymin": "air_gethit_ko_ymin_q8",
+        "ground.gethit.ko.add.x": "ground_gethit_ko_add_x_q8",
+        "ground.gethit.ko.add.y": "ground_gethit_ko_add_y_q8",
+    }
+    for name, field in velocity_constant_fields.items():
+        CONST_VALUES.setdefault(
+            f"velocity.{name}",
+            const[field] / Q8 * coordinate_scale,
+        )
     CONST_VALUES.setdefault(
         "movement.air.gethit.groundlevel",
         const["air_gethit_groundlevel_q8"] / Q8)

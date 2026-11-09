@@ -568,13 +568,31 @@ def compile_state(
                 unsupported.append("hitoverride")
                 continue
             expr = _strip_outer_parens(triggers[0])
+            try:
+                duration = integer(ctrl.get("time"), 1)
+            except ValueError:
+                unsupported.append("hitoverride")
+                continue
+            duration = 65535 if duration == -1 else max(1, duration)
             m_eq = re.fullmatch(r"Time\s*=\s*(\d+)", expr, flags=re.I)
             m_lt = re.fullmatch(r"Time\s*<\s*(\d+)", expr, flags=re.I)
-            if m_eq:
+            if (
+                re.fullmatch(r"(?:1(?:\.0+)?|true)", expr, flags=re.I) or
+                re.fullmatch(r"Time\s*>=\s*0", expr, flags=re.I)
+            ):
+                # A continuously true HitOverride re-registers every tick and
+                # remains active for the duration of this state.
+                start_time = 0
+                end_time = 65535
+            elif (
+                re.fullmatch(r"!?\s*Time\s*=\s*0", expr, flags=re.I) or
+                re.fullmatch(r"!\s*Time", expr, flags=re.I)
+            ):
+                start_time = 0
+                end_time = min(65535, duration)
+            elif m_eq:
                 start_time = int(m_eq.group(1))
-                end_time = start_time + max(
-                    1, integer(ctrl.get("time"), 1)
-                )
+                end_time = min(65535, start_time + duration)
             elif m_lt:
                 start_time = 0
                 end_time = int(m_lt.group(1))
@@ -582,13 +600,19 @@ def compile_state(
                 unsupported.append("hitoverride")
                 continue
 
+            override_state = (ctrl.get("stateno") or "-1").strip()
+            target_state = (
+                state.number
+                if override_state.casefold() == "stateno" else
+                integer(override_state, -1)
+            )
             hitoverrides.append({
                 "state_number": state.number,
                 "start_time": start_time,
                 "end_time": end_time,
                 "self_state_mask": self_mask,
                 "incoming_attr_mask": incoming_mask,
-                "target_state": integer(ctrl.get("stateno"), -1),
+                "target_state": target_state,
             })
 
         elif ctype == "playsnd":
