@@ -178,8 +178,10 @@ static int ikf_expr_read_field(
         *out_value = asset->constants.life;
         return 1;
     }
-    if (field == IK_EXPR_FIELD_CHARACTER_NAME_HASH) {
-        if (redirect == IK_EXPR_REDIRECT_SELF && !binding->fighter) {
+    if (field == IK_EXPR_FIELD_CHARACTER_NAME_HASH ||
+        field == IK_EXPR_FIELD_CHARACTER_AUTHOR_HASH) {
+        if (field == IK_EXPR_FIELD_CHARACTER_NAME_HASH &&
+            redirect == IK_EXPR_REDIRECT_SELF && !binding->fighter) {
             const ik_entity_t* entity = ik_entity_get_const(
                 binding->entity.pool, binding->entity.self);
             if (entity && entity->type == IK_ENTITY_HELPER &&
@@ -203,7 +205,9 @@ static int ikf_expr_read_field(
         const ik_cns_asset_t* asset = cns_for_fighter(
             binding->fight, &binding->fight->fighters[owner]);
         if (!asset) return 0;
-        *out_value = (int32_t)asset->constants.character_name_hash;
+        *out_value = (int32_t)(field == IK_EXPR_FIELD_CHARACTER_NAME_HASH
+            ? asset->constants.character_name_hash
+            : asset->constants.character_author_hash);
         return 1;
     }
     if (field == IK_EXPR_FIELD_WIN_KO) {

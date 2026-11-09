@@ -126,6 +126,19 @@ def normalize_cns_expr(
         normalized,
         flags=re.I,
     )
+    def redirected_character_metadata(match: re.Match[str]) -> str:
+        prefix, field, operator, value = match.groups()
+        suffix = ("authornamehash" if field.casefold() == "authorname"
+                  else "namehash")
+        return f"{prefix},{suffix} {operator} {character_name_hash(value)}"
+
+    normalized = re.sub(
+        r"\b(p2|enemy|enemynear|target|parent|root)\s*,\s*"
+        r"(name|authorname)\s*(==|!=|=)\s*\"([^\"]*)\"",
+        redirected_character_metadata,
+        normalized,
+        flags=re.I,
+    )
     if character_author is not None:
         normalized = re.sub(
             r"\bauthorname\s*(==|!=|=)\s*\"([^\"]*)\"",

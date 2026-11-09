@@ -669,6 +669,12 @@ class _ExprCompiler(_ExprParser):
                     _RUNTIME_EXPR_FIELDS[field_lower],
                     -1 if field_lower in _PROJECTILE_QUERY_FIELDS else 0,
                     redirect=redirect)
+            if field_lower == "namehash":
+                return self._load_runtime_field(
+                    "IK_EXPR_FIELD_CHARACTER_NAME_HASH", redirect=redirect)
+            if field_lower == "authornamehash":
+                return self._load_runtime_field(
+                    "IK_EXPR_FIELD_CHARACTER_AUTHOR_HASH", redirect=redirect)
             if field_lower in ("pos", "vel"):
                 axis = self._take()[1].lower()
                 if axis not in ("x", "y"):
@@ -1085,6 +1091,11 @@ class _ExprCompiler(_ExprParser):
         if lower == "p2namehash":
             return self._load_runtime_field(
                 "IK_EXPR_FIELD_CHARACTER_NAME_HASH",
+                redirect="IK_EXPR_REDIRECT_P2",
+            )
+        if lower == "p2authornamehash":
+            return self._load_runtime_field(
+                "IK_EXPR_FIELD_CHARACTER_AUTHOR_HASH",
                 redirect="IK_EXPR_REDIRECT_P2",
             )
         if lower == "p1namehash":

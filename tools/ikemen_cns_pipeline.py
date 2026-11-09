@@ -26,6 +26,7 @@ def emit(
     parse_sections = services["parse_sections"]
     constants = services["constants"]
     CHARACTER_NAME_HASH = services["CHARACTER_NAME_HASH"]
+    CHARACTER_AUTHOR_HASH = services["CHARACTER_AUTHOR_HASH"]
     LOCALCOORD_X = services["LOCALCOORD_X"]
     Q8 = services["Q8"]
     number = services["number"]
@@ -55,6 +56,7 @@ def emit(
                 f"{constants_source}: missing constants sections: {sorted(missing)}")
     const = constants(const_globals)
     const["character_name_hash"] = CHARACTER_NAME_HASH
+    const["character_author_hash"] = CHARACTER_AUTHOR_HASH
     CONST_VALUES = services["CONST_VALUES"]
     CONST_VALUES.clear()
     for section_name in ("data", "size", "velocity", "movement"):

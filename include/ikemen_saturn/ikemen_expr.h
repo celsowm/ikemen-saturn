@@ -106,7 +106,8 @@ typedef enum ik_expr_field {
     IK_EXPR_FIELD_LOSE,
     IK_EXPR_FIELD_CAMERA_POS_X_Q8,
     IK_EXPR_FIELD_STAGE_AUTHOR_MATCH,
-    IK_EXPR_FIELD_SYSFVAR_Q16
+    IK_EXPR_FIELD_SYSFVAR_Q16,
+    IK_EXPR_FIELD_CHARACTER_AUTHOR_HASH
 } ik_expr_field_t;
 
 typedef enum ik_expr_op {

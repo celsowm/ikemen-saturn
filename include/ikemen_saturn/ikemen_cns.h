@@ -211,8 +211,15 @@ typedef enum ik_cns_controller_type {
     IK_CNS_CTRL_LIFE_ADD,
     /* Saturn controllers have no force-feedback actuator; this preserves the
      * controller trigger as an explicit platform no-op. */
-    IK_CNS_CTRL_PLATFORM_NOOP
+    IK_CNS_CTRL_PLATFORM_NOOP,
+    IK_CNS_CTRL_HIT_FALL_SET
 } ik_cns_controller_type_t;
+
+enum {
+    IK_CNS_HIT_FALL_SET_VALUE = 1u << 0,
+    IK_CNS_HIT_FALL_SET_X_VELOCITY = 1u << 1,
+    IK_CNS_HIT_FALL_SET_Y_VELOCITY = 1u << 2
+};
 
 /* Source compatibility for integrations that used the earlier narrower
  * name before non-walking AssertSpecial flags joined this controller. */
@@ -408,6 +415,7 @@ typedef struct ik_cns_constants {
     int16_t ground_gethit_ko_ymin_q8;
     uint8_t ko_velocity_defined;
     uint32_t character_name_hash;
+    uint32_t character_author_hash;
 } ik_cns_constants_t;
 
 enum {

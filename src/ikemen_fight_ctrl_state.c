@@ -51,6 +51,19 @@ int ikf_ctrl_apply_state(const ik_ctrl_exec_t* x) {
             break;
         }
 
+        case IK_CNS_CTRL_HIT_FALL_SET:
+            if ((ctrl->value3 & IK_CNS_HIT_FALL_SET_VALUE) != 0) {
+                f->gethit_fall = (uint8_t)(ctrl->value0 != 0);
+            }
+            if ((ctrl->value3 & IK_CNS_HIT_FALL_SET_X_VELOCITY) != 0) {
+                f->gethit_fall_x_q8 = (int16_t)ctrl->value1;
+                f->gethit_fall_x_set = 1u;
+            }
+            if ((ctrl->value3 & IK_CNS_HIT_FALL_SET_Y_VELOCITY) != 0) {
+                f->gethit_fall_y_q8 = (int16_t)ctrl->value2;
+            }
+            break;
+
         case IK_CNS_CTRL_VAR_SET:
 
         case IK_CNS_CTRL_VAR_ADD: {

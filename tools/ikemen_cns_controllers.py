@@ -41,6 +41,7 @@ def compile_runtime_controller(
     controller_trigger = services['controller_trigger']
     eval_int = services['eval_int']
     integer = services['integer']
+    integer_or_runtime_expr = services['integer_or_runtime_expr']
     no_hit_by_attr_mask = services['no_hit_by_attr_mask']
     no_hit_by_state_mask = services['no_hit_by_state_mask']
     number = services['number']
@@ -66,6 +67,7 @@ def compile_runtime_controller(
         "varrandom",
         "lifeadd",
         "hitfalldamage",
+        "hitfallset",
         "fallenvshake",
         "sysfvarset",
         "sysfvaradd",
@@ -296,6 +298,53 @@ def compile_runtime_controller(
             "trigger_value2": trig_value2,
             "value0": 0,
             "value1": 0,
+            "flags": flag_expr(),
+        }
+
+    if ctype == "hitfallset":
+        allowed = {
+            "type", "trigger1", "trigger2", "trigger3", "trigger4",
+            "trigger5", "trigger6", "trigger7", "trigger8", "triggerall",
+            "value", "xvel", "yvel", "velocity", "ignorehitpause",
+            "persistent",
+        }
+        if any(key.strip().casefold() not in allowed
+               for key, _ in ctrl.values):
+            return None
+        if ctrl.get("velocity") is not None:
+            # The permissive upstream CNS compiler ignores this malformed key;
+            # HitFallSet's accepted velocity fields are xvel and yvel.
+            pass
+        value = -1
+        value_expr = None
+        if ctrl.get("value") is not None:
+            value, value_expr = integer_or_runtime_expr(
+                ctrl.get("value"), -1)
+        x_text = ctrl.get("xvel")
+        y_text = ctrl.get("yvel")
+        x, x_expr = number_or_runtime_expr(x_text, 0)
+        y, y_expr = number_or_runtime_expr(y_text, 0)
+        if x_expr is not None and y_expr is not None:
+            return None
+        value_flags = []
+        if ctrl.get("value") is not None:
+            value_flags.append("IK_CNS_HIT_FALL_SET_VALUE")
+        if x_text is not None:
+            value_flags.append("IK_CNS_HIT_FALL_SET_X_VELOCITY")
+        if y_text is not None:
+            value_flags.append("IK_CNS_HIT_FALL_SET_Y_VELOCITY")
+        ctrl.runtime_value0_expr = value_expr
+        ctrl.runtime_value1_expr = x_expr or y_expr
+        return {
+            "state_number": state_no,
+            "type": "IK_CNS_CTRL_HIT_FALL_SET",
+            "trigger_kind": trig_kind,
+            "trigger_value": trig_value,
+            "trigger_value2": trig_value2,
+            "value0": value,
+            "value1": q8(x),
+            "value2": q8(y),
+            "value3": " | ".join(value_flags) if value_flags else "0u",
             "flags": flag_expr(),
         }
 

@@ -1025,7 +1025,8 @@ static int process_controllers(
             if (ctrl->type == IK_CNS_CTRL_EXPLOD) {
                 evaluated_ctrl.value6 = value;
             } else if (ctrl->type == IK_CNS_CTRL_CHANGE_ANIM ||
-                       ctrl->type == IK_CNS_CTRL_LIFE_ADD) {
+                       ctrl->type == IK_CNS_CTRL_LIFE_ADD ||
+                       ctrl->type == IK_CNS_CTRL_HIT_FALL_SET) {
                 evaluated_ctrl.value0 = value;
                 evaluated_ctrl.value4 = value;
             } else {
