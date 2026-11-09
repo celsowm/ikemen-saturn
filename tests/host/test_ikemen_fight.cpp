@@ -382,14 +382,41 @@ static const ik_cns_state_t k_states[] = {
 #undef C
 #undef A
 
-static const ik_cns_asset_t k_cns = {
+static void set_test_movement_constants(ik_cns_constants_t& constants) {
+    constants.walk_fwd_q8 = 614;
+    constants.walk_back_q8 = -563;
+    constants.run_fwd_x_q8 = 1178;
+    constants.run_fwd_y_q8 = 0;
+    constants.run_back_x_q8 = -1152;
+    constants.run_back_y_q8 = -973;
+    constants.jump_neu_x_q8 = 0;
+    constants.jump_neu_y_q8 = -2150;
+    constants.jump_back_q8 = -653;
+    constants.jump_fwd_q8 = 640;
+    constants.run_jump_fwd_x_q8 = 1024;
+    constants.run_jump_fwd_y_q8 = -2074;
+    constants.air_jump_neu_x_q8 = 0;
+    constants.air_jump_neu_y_q8 = -2074;
+    constants.air_jump_back_q8 = -653;
+    constants.air_jump_fwd_q8 = 640;
+    constants.air_jump_num = 1;
+    constants.air_jump_height = 35;
+    constants.yaccel_q8 = 113;
+}
+
+static const ik_cns_asset_t k_cns = [] {
+    ik_cns_asset_t asset = {
     {1000,15,16,12,12,60,160,614,-563,1178,0,-1152,-973,0,-2150,-653,640,1024,-2074,0,-2074,-653,640,1,35,113,218,210,512,13,
      60,6400,3840,0,5120,102,3072,13},
     k_states,(uint16_t)(sizeof(k_states)/sizeof(k_states[0])),
     k_hitdefs,15u,
     nullptr,0u,
     k_ctrls,(uint16_t)(sizeof(k_ctrls)/sizeof(k_ctrls[0]))
-};
+    };
+    /* The positional fixture predates the CNS constants field layout. */
+    set_test_movement_constants(asset.constants);
+    return asset;
+}();
 
 
 static const ik_cns_controller_t k_common_ctrls[] = {
@@ -481,7 +508,8 @@ static const ik_cns_state_t k_common_states[] = {
      0,0,0u,0u,0u,0u,0u,13u,3u,0},
 };
 
-static const ik_cns_asset_t k_common_cns = {
+static const ik_cns_asset_t k_common_cns = [] {
+    ik_cns_asset_t asset = {
     {1000,15,16,12,12,60,160,614,-563,1178,0,-1152,-973,
      0,-2150,-653,640,1024,-2074,
      0,-2074,-653,640,1,35,
@@ -492,7 +520,10 @@ static const ik_cns_asset_t k_common_cns = {
     nullptr,0u,
     k_common_ctrls,
     (uint16_t)(sizeof(k_common_ctrls)/sizeof(k_common_ctrls[0]))
-};
+    };
+    set_test_movement_constants(asset.constants);
+    return asset;
+}();
 
 static const ik_cns_controller_t k_recovery_ctrls[] = {
     {5050,IK_CNS_CTRL_FALL_RECOVERY,IK_CNS_TRIGGER_ALWAYS,
@@ -533,7 +564,8 @@ static const ik_cns_state_t k_recovery_states[] = {
      0,0,0u,0u,0u,0u,0u,4u,7u,52,90,0,4u,1u},
 };
 
-static const ik_cns_asset_t k_recovery_cns = {
+static const ik_cns_asset_t k_recovery_cns = [] {
+    ik_cns_asset_t asset = {
     {1000,15,16,12,12,60,160,614,-563,1178,0,-1152,-973,
      0,-2150,-653,640,1024,-2074,
      0,-2074,-653,640,1,35,
@@ -546,7 +578,12 @@ static const ik_cns_asset_t k_recovery_cns = {
     nullptr,0u,
     k_recovery_ctrls,
     (uint16_t)(sizeof(k_recovery_ctrls)/sizeof(k_recovery_ctrls[0]))
-};
+    };
+    set_test_movement_constants(asset.constants);
+    asset.constants.air_gethit_groundrecover_threshold_q8 = -20 * 256;
+    asset.constants.air_gethit_airrecover_threshold_q8 = -256;
+    return asset;
+}();
 
 static const ik_cns_hitdef_t k_downed_hitdefs[] = {
     {200,IK_CNS_TRIGGER_TIME_EQ,0,
@@ -3436,6 +3473,51 @@ int main() {
 
         tick2(&g,&p1,&p2);
         OK(g.fighters[0].afterimage_time>0u);
+    }
+
+    /* EnvColor stores its RGB/under mode in fight state, counts only logical
+     * fight ticks, and remains frozen while Pause owns the frame. */
+    {
+        const ik_cns_controller_t ctrls[] = {
+            {4050,IK_CNS_CTRL_ENV_COLOR,IK_CNS_TRIGGER_TIME_EQ,
+             0,0,0x00ff8000,3,0u,1},
+        };
+        ik_cns_state_t state{};
+        state.number=4050;
+        state.anim=0;
+        state.state_type=IK_CNS_STATE_STAND;
+        state.move_type=IK_CNS_MOVE_IDLE;
+        state.physics=IK_CNS_PHYS_NONE;
+        state.controller_count=1u;
+
+        ik_cns_asset_t asset{};
+        asset.constants.life=1000;
+        asset.constants.ground_back=15;
+        asset.constants.ground_front=16;
+        asset.constants.air_back=12;
+        asset.constants.air_front=12;
+        asset.constants.height=60;
+        asset.states=&state;
+        asset.state_count=1u;
+        asset.controllers=ctrls;
+        asset.controller_count=1u;
+
+        ik_fight_init(&g,&asset);
+        set_state(&g,&g.fighters[0],4050);
+        g.fighters[0].anim=0;
+        g.fighters[0].ctrl=0;
+        ik_fight_controls_t p1{};
+        ik_fight_controls_t p2{};
+
+        tick2(&g,&p1,&p2);
+        EQ(g.env_color_rgb,0x00ff8000u);
+        EQ(g.env_color_time,3u);
+        EQ(g.env_color_under,1u);
+        tick2(&g,&p1,&p2);
+        EQ(g.env_color_time,2u);
+        g.pause_time=2u;
+        tick2(&g,&p1,&p2);
+        EQ(g.env_color_time,2u);
     }
 
     /* HitFallDamage consumes stored HitDef fall.damage once and replays the

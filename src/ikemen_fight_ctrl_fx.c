@@ -197,6 +197,25 @@ int ikf_ctrl_apply_fx(const ik_ctrl_exec_t* x) {
             fight->env_shake_phase = 0u;
             break;
 
+        case IK_CNS_CTRL_ENV_COLOR:
+            if (ctrl->value3 != 0 && x->index < 64u) {
+                const uint64_t bit = (uint64_t)1u << x->index;
+                if ((f->one_shot_controller_mask & bit) != 0u) break;
+                f->one_shot_controller_mask |= bit;
+            }
+            fight->env_color_rgb = (uint32_t)ctrl->value0 & 0x00ffffffu;
+            if (ctrl->value1 == -1) {
+                fight->env_color_time = 0xffffu;
+            } else if (ctrl->value1 <= 0) {
+                fight->env_color_time = 0u;
+            } else if (ctrl->value1 > 65535) {
+                fight->env_color_time = 65535u;
+            } else {
+                fight->env_color_time = (uint16_t)ctrl->value1;
+            }
+            fight->env_color_under = (uint8_t)(ctrl->value2 != 0);
+            break;
+
         case IK_CNS_CTRL_HIT_FALL_DAMAGE:
             if (f->gethit_fall_damage > 0) {
                 f->hp = (int16_t)(

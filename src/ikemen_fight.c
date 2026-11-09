@@ -200,6 +200,9 @@ void ik_fight_init_players(
     fight->env_shake_ampl = 0;
     fight->env_shake_freq = 60u;
     fight->env_shake_phase = 0u;
+    fight->env_color_time = 0u;
+    fight->env_color_under = 0u;
+    fight->env_color_rgb = 0u;
     fight->super_darken_time = 0u;
 
     const int p1_intro =

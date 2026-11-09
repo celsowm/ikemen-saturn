@@ -131,6 +131,11 @@ GROUND_TYPE = {
     "trip": "IK_CNS_GROUND_TRIP",
 }
 
+# Runtime value helpers keep their conversion settings in one module. Bind the
+# defaults on import so the public compiler API works outside the CLI as well;
+# main() rebinds these after loading per-character arguments.
+configure_runtime_values(globals())
+
 
 
 
@@ -309,6 +314,7 @@ def emit(
     hits_zss: Path | None = None,
     states_sources: list[Path] | None = None,
 ) -> dict:
+    configure_runtime_values(globals())
     return emit_cns_pipeline(
         path, selected, out_prefix, symbol, common_zss, common_selected,
         constants_source, character_zss, hits_zss, states_sources,

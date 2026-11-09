@@ -64,6 +64,7 @@ def compile_runtime_controller(
         "superpause",
         "nothitby",
         "envshake",
+        "envcolor",
         "afterimage",
         "afterimagetime",
         "palfx",
@@ -314,6 +315,36 @@ def compile_runtime_controller(
             "flags": flag_expr(),
         }
 
+    if ctype == "envcolor":
+        color_text = ctrl.get("value")
+        if color_text is None:
+            raise ValueError(f"[{ctrl.name}] EnvColor requires value=r,g,b")
+        color_parts = _split_top_level(color_text)
+        if len(color_parts) != 3:
+            raise ValueError(f"[{ctrl.name}] EnvColor value must have 3 channels")
+        rgb = []
+        for part in color_parts:
+            channel = integer(part)
+            if channel < 0 or channel > 255:
+                raise ValueError(f"[{ctrl.name}] EnvColor channel outside 0..255")
+            rgb.append(channel)
+        time = integer(ctrl.get("time"), 1)
+        if time < -1 or time > 65535:
+            raise ValueError(f"[{ctrl.name}] EnvColor time outside -1..65535")
+        under = integer(ctrl.get("under"), 0)
+        return {
+            "state_number": state_no,
+            "type": "IK_CNS_CTRL_ENV_COLOR",
+            "trigger_kind": trig_kind,
+            "trigger_value": trig_value,
+            "trigger_value2": trig_value2,
+            "value0": (rgb[0] << 16) | (rgb[1] << 8) | rgb[2],
+            "value1": time,
+            "value2": int(under != 0),
+            "value3": 1 if integer(ctrl.get("persistent"), 1) == 0 else 0,
+            "flags": flag_expr(),
+        }
+
     if ctype == "superpause":
         if integer(ctrl.get("darken"), 1):
             flags.append("IK_CNS_CTRL_SUPER_DARKEN")
@@ -384,10 +415,10 @@ def compile_runtime_controller(
             flags.append("IK_CNS_CTRL_HAS_CTRL")
         value_text = ctrl.get("value") or "-1"
         try:
-            state_no = eval_int(value_text)
+            target_state_no = eval_int(value_text)
             state_expr = None
         except ValueError:
-            state_no = 0
+            target_state_no = 0
             state_expr = compile_cns_expr(value_text, q16=True)
         ctrl.runtime_value0_expr = state_expr
         return {
@@ -396,7 +427,7 @@ def compile_runtime_controller(
             "trigger_kind": trig_kind,
             "trigger_value": trig_value,
             "trigger_value2": trig_value2,
-            "value0": state_no,
+            "value0": target_state_no,
             "value1": integer(ctrl.get("ctrl"), 0),
             "flags": flag_expr(),
         }

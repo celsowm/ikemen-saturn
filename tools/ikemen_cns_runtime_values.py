@@ -4,6 +4,7 @@ from __future__ import annotations
 import re
 
 _SELF_ANIM_TERM = re.compile(r"(!?)\s*SelfAnimExist\s*\(\s*(\d+)\s*\)", re.I)
+_SERVICES: dict | None = None
 
 try:
     from .ikemen_cns_expr import _ExprParser, compile_cns_expr as compile_expression
@@ -13,9 +14,9 @@ except ImportError:  # direct `python tools/ikemen_cns.py` invocation
 
 def configure(services: dict) -> None:
     """Bind per-conversion settings and shared constant tables."""
-    for name in ("COMMAND_IDS", "LOCALCOORD_X", "CONST_VALUES", "SELF_ANIMS",
-                 "STRICT_CONVERSION", "_split_top_level", "number", "integer",
-                 "q8", "Section"):
+    global _SERVICES
+    _SERVICES = services
+    for name in ("_split_top_level", "number", "integer", "q8", "Section"):
         globals()[name] = services[name]
 
 
@@ -23,10 +24,10 @@ def compile_cns_expr(text: str, q16: bool = False) -> list[dict]:
     return compile_expression(
         text,
         q16,
-        command_ids=COMMAND_IDS,
-        localcoord_x=LOCALCOORD_X,
-        const_values=CONST_VALUES,
-        self_anims=SELF_ANIMS,
+        command_ids=_SERVICES["COMMAND_IDS"],
+        localcoord_x=_SERVICES["LOCALCOORD_X"],
+        const_values=_SERVICES["CONST_VALUES"],
+        self_anims=_SERVICES["SELF_ANIMS"],
     )
 
 
@@ -93,10 +94,11 @@ def pair_runtime_expr(
 ) -> tuple[float, float, list[dict] | None, list[dict] | None]:
     if text is None or not text.strip():
         return default_x, default_y, None, None
-    if SELF_ANIMS is not None:
+    self_anims = _SERVICES["SELF_ANIMS"]
+    if self_anims is not None:
         text = _SELF_ANIM_TERM.sub(
             lambda match: str(
-                int(int(match.group(2)) in SELF_ANIMS) ^
+                int(int(match.group(2)) in self_anims) ^
                 int(bool(match.group(1)))
             ),
             text,
@@ -151,7 +153,7 @@ def eval_expr(text: str | None, default: float = 0.0) -> float:
     try:
         return _ExprParser(text).parse()
     except ValueError:
-        if STRICT_CONVERSION:
+        if _SERVICES["STRICT_CONVERSION"]:
             raise
         return default
 
@@ -180,7 +182,7 @@ def dynamic_power_add_expr(
     try:
         code = compile_cns_expr(text)
     except ValueError as exc:
-        if STRICT_CONVERSION:
+        if _SERVICES["STRICT_CONVERSION"]:
             raise ValueError(f"unsupported dynamic integer expression {text!r}: {exc}") from exc
         return None
     if divisor != 1:

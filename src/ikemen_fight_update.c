@@ -534,6 +534,11 @@ void ik_fight_update(ik_fight_t* fight,
         }
     }
 
+    /* EnvColor duration advances with logical fight ticks, and pauses with
+     * global Pause/SuperPause and KO slow frames that do not run controllers. */
+    if (fight->env_color_time > 0u && fight->env_color_time != 0xffffu) {
+        --fight->env_color_time;
+    }
     tick_round_timer(fight);
     fight->ko_split_clocks = (uint8_t)split_ko_clocks;
 

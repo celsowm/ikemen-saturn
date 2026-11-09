@@ -197,7 +197,8 @@ typedef enum ik_cns_controller_type {
     IK_CNS_CTRL_SOUND_EVENT,       /* common system group / item */
     IK_CNS_CTRL_GRAVITY,
     IK_CNS_CTRL_POWER_ADD,
-    IK_CNS_CTRL_REMOVE_EXPLOD
+    IK_CNS_CTRL_REMOVE_EXPLOD,
+    IK_CNS_CTRL_ENV_COLOR
 } ik_cns_controller_type_t;
 
 typedef enum ik_cns_helper_postype {
@@ -748,6 +749,7 @@ typedef struct ik_cns_playsnd {
  *   SuperPause: global super-pause ticks / power delta
  *   NotHitBy: incoming attacker state-type mask / duration ticks
  *   EnvShake: duration ticks / amplitude pixels
+ *   EnvColor: packed 0xRRGGBB / duration ticks / under flag
  *   HitFallDamage: apply stored fall.damage / 0
  *   FallEnvShake: replay stored HitDef fall envshake / 0
  *   AfterImage: duration / trail length; value2=timegap, value3=framegap

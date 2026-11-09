@@ -314,6 +314,10 @@ typedef struct ik_fight {
     int16_t env_shake_ampl;
     uint16_t env_shake_freq;
     uint16_t env_shake_phase;
+    /* EnvColor uses 0xffff for an indefinite duration. RGB is packed 0xRRGGBB. */
+    uint16_t env_color_time;
+    uint8_t env_color_under;
+    uint32_t env_color_rgb;
     uint16_t super_darken_time;
     uint8_t round_state;
     /* The current app/runtime has one configured round per fight session. */

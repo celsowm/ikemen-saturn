@@ -2272,7 +2272,7 @@ p2_explod_ctrl = Section(
 compiled_p2_explod = compile_explod_controller(191, p2_explod_ctrl, 4)
 assert compiled_p2_explod is not None
 _, p2_explod = compiled_p2_explod
-assert p2_explod["postype"] == "IK_CNS_HELPER_POS_P2"
+assert p2_explod["postype"] == "IK_CNS_EXPLOD_POS_P2"
 
 p2_projectile_ctrl = Section(
     "State 9000, P2 Projectile",
@@ -3079,8 +3079,8 @@ getpower = ifelse(Var(23)>0,0,42),ifelse(Var(23)>0,0,42)
         dynamic_source, [200], dynamic_root / "dynamic_power", "dynamic_test")
     dynamic_hit = dynamic_report["hitdefs"][0]
     assert dynamic_hit["trigger_expr_count"] > 0
-    assert dynamic_hit["get_power_hit_expr_count"] == 9
-    assert dynamic_hit["get_power_guard_expr_count"] == 9
+    assert dynamic_hit["get_power_hit_expr_count"] == 6
+    assert dynamic_hit["get_power_guard_expr_count"] == 6
     assert dynamic_hit["get_power_hit_expr_ofs"] == dynamic_hit[
         "get_power_guard_expr_ofs"]
     assert dynamic_hit["ground_slide_time_expr_count"] > 0
@@ -3123,6 +3123,15 @@ _edge_only = compile_runtime_controller(810, Section("w", [
 ]))
 assert [_edge_only[k] for k in ("value0", "value1", "value2", "value3")] == \
     [0, 0, 60, 0]
+
+_env_color = compile_runtime_controller(820, Section("ec", [
+    ("type", "EnvColor"), ("trigger1", "1"),
+    ("value", "255, 128, 0"), ("time", "-1"), ("under", "2"),
+    ("persistent", "0"),
+]))
+assert _env_color["type"] == "IK_CNS_CTRL_ENV_COLOR"
+assert (_env_color["value0"], _env_color["value1"],
+        _env_color["value2"], _env_color["value3"]) == (0xFF8000, -1, 1, 1)
 
 _bound = compile_runtime_controller(1026, Section("sb", [
     ("type", "ScreenBound"),
@@ -3180,9 +3189,9 @@ assert _cns.eval_expr("-.45") == -.45
 assert _cns.eval_expr("ifelse(2 >= 1, 7, 9)") == 7
 assert _cns.eval_expr(None, 11) == 11
 _dynamic_power = _cns.dynamic_power_add_expr("ifelse(Var(23)>0,0,72)")
-assert _dynamic_power is not None and len(_dynamic_power) == 9
-assert _dynamic_power[1]["field"] == "IK_EXPR_FIELD_VAR"
-assert _dynamic_power[1]["value0"] == 23
+assert _dynamic_power is not None and len(_dynamic_power) == 6
+assert _dynamic_power[0]["field"] == "IK_EXPR_FIELD_VAR"
+assert _dynamic_power[0]["value0"] == 23
 _old_strict = _cns.STRICT_CONVERSION
 _cns.STRICT_CONVERSION = True
 try:
