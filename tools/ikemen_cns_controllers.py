@@ -64,6 +64,7 @@ def compile_runtime_controller(
         "width",
         "varset",
         "varadd",
+        "parentvarset",
         "varrandom",
         "lifeadd",
         "attackmulset",
@@ -883,7 +884,7 @@ def compile_runtime_controller(
             "flags": flag_expr(),
         }
 
-    if ctype in ("varset", "varadd"):
+    if ctype in ("varset", "varadd", "parentvarset"):
         if ctype == "varset":
             var2 = ctrl.get("var(2)")
             if var2 is not None and re.fullmatch(
@@ -926,6 +927,22 @@ def compile_runtime_controller(
 
         if var_index is None or var_value_text is None:
             return None
+        if ctype == "parentvarset":
+            if ctrl.get("redirectid") is not None:
+                return None
+            allowed_keys = {
+                "type", "v", "value", "ignorehitpause", "persistent",
+                "redirectid",
+            }
+            if any(
+                re.fullmatch(
+                    r"(?:sysfvar|sysvar|fvar|var)\(\d+\)",
+                    key.strip(), flags=re.I) is None and
+                not key.strip().casefold().startswith("trigger") and
+                key.strip().casefold() not in allowed_keys
+                for key, _ in ctrl.values
+            ):
+                return None
         if var_is_system:
             var_count = 5
         else:
@@ -960,7 +977,17 @@ def compile_runtime_controller(
         if var_value < -2147483648 or var_value > 2147483647:
             raise ValueError(f"[{ctrl.name}] var value outside int32")
         ctrl.runtime_value1_expr = var_value_expr
-        if var_is_system and var_is_float:
+        if ctype == "parentvarset":
+            variable_controller = (
+                "IK_CNS_CTRL_PARENT_SYSFVAR_SET"
+                if var_is_system and var_is_float else
+                "IK_CNS_CTRL_PARENT_SYSVAR_SET"
+                if var_is_system else
+                "IK_CNS_CTRL_PARENT_FVAR_SET"
+                if var_is_float else
+                "IK_CNS_CTRL_PARENT_VAR_SET"
+            )
+        elif var_is_system and var_is_float:
             variable_controller = (
                 "IK_CNS_CTRL_SYSFVAR_ADD"
                 if ctype in {"sysfvaradd", "varadd"} else

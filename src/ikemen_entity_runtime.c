@@ -1074,6 +1074,10 @@ static int process_controllers(
                 evaluated_ctrl.value7 = value / 256;
             } else if (ctrl->type == IK_CNS_CTRL_VAR_SET ||
                        ctrl->type == IK_CNS_CTRL_VAR_ADD ||
+                       ctrl->type == IK_CNS_CTRL_PARENT_VAR_SET ||
+                       ctrl->type == IK_CNS_CTRL_PARENT_FVAR_SET ||
+                       ctrl->type == IK_CNS_CTRL_PARENT_SYSVAR_SET ||
+                       ctrl->type == IK_CNS_CTRL_PARENT_SYSFVAR_SET ||
                        ctrl->type == IK_CNS_CTRL_FVAR_SET ||
                        ctrl->type == IK_CNS_CTRL_FVAR_ADD ||
                        ctrl->type == IK_CNS_CTRL_SYSVAR_SET ||
@@ -1173,6 +1177,46 @@ static int process_controllers(
                     entity->vars[ctrl->value0] = ctrl->value1;
                 }
                 break;
+
+            case IK_CNS_CTRL_PARENT_VAR_SET: {
+                ik_entity_t* parent = ik_entity_get(
+                    runtime->pool, entity->parent);
+                if (parent && ctrl->value0 >= 0 &&
+                    ctrl->value0 < (int32_t)IK_ENTITY_VAR_COUNT) {
+                    parent->vars[ctrl->value0] = ctrl->value1;
+                }
+                break;
+            }
+
+            case IK_CNS_CTRL_PARENT_FVAR_SET: {
+                ik_entity_t* parent = ik_entity_get(
+                    runtime->pool, entity->parent);
+                if (parent && ctrl->value0 >= 0 &&
+                    ctrl->value0 < (int32_t)IK_ENTITY_FVAR_COUNT) {
+                    parent->fvars_q16[ctrl->value0] = ctrl->value1;
+                }
+                break;
+            }
+
+            case IK_CNS_CTRL_PARENT_SYSVAR_SET: {
+                ik_entity_t* parent = ik_entity_get(
+                    runtime->pool, entity->parent);
+                if (parent && ctrl->value0 >= 0 &&
+                    ctrl->value0 < (int32_t)IK_ENTITY_SYSVAR_COUNT) {
+                    parent->sysvars[ctrl->value0] = ctrl->value1;
+                }
+                break;
+            }
+
+            case IK_CNS_CTRL_PARENT_SYSFVAR_SET: {
+                ik_entity_t* parent = ik_entity_get(
+                    runtime->pool, entity->parent);
+                if (parent && ctrl->value0 >= 0 &&
+                    ctrl->value0 < (int32_t)IK_ENTITY_SYSFVAR_COUNT) {
+                    parent->sysfvars_q16[ctrl->value0] = ctrl->value1;
+                }
+                break;
+            }
 
             case IK_CNS_CTRL_VAR_ADD:
                 if (ctrl->value0 >= 0 &&
