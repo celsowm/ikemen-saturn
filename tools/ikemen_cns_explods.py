@@ -127,7 +127,7 @@ def compile_explod_controller(
         anim_expr = None
     except ValueError:
         anim_no = 0
-        anim_expr = services["compile_cns_expr"](anim_expr_text, q16=True)
+        anim_expr = services["compile_cns_expr"](anim_expr_text)
     fightfx_anims = services.get("FIGHTFX_ANIMS")
     if (anim_expr is None and use_fightfx and fightfx_anims is not None and
             anim_no not in fightfx_anims):
@@ -149,11 +149,12 @@ def compile_explod_controller(
         "accel_x_q8": q8(ax, wide=True),
         "accel_y_q8": q8(ay, wide=True),
         "remove_time": integer(ctrl.get("removetime"), -1),
-        "spr_priority": integer(ctrl.get("sprpriority"), 0),
+        "spr_priority": max(-127, min(127, integer(
+            ctrl.get("sprpriority"), 0))),
         "postype": postype,
         "ownpal": integer(ctrl.get("ownpal"), int(use_fightfx)),
-        "pause_move_time": max(0, integer(
-            ctrl.get("pausemovetime", ctrl.get("pausemove")), 0)),
+        "pause_move_time": min(0xFFFFFFFF, max(0, integer(
+            ctrl.get("pausemovetime", ctrl.get("pausemove")), 0))),
         "super_move_time": super_move_time,
         "bind_time": integer(ctrl.get("bindtime"), 0),
         "remove_on_gethit": integer(ctrl.get("removeongethit"), 0),

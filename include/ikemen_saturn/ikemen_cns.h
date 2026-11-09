@@ -831,10 +831,10 @@ typedef struct ik_cns_controller_context {
 
 typedef struct ik_cns_projectile {
     int32_t id;
-    int16_t anim_no;
-    int16_t hit_anim_no;
-    int16_t remove_anim_no;
-    int16_t cancel_anim_no;
+    int32_t anim_no;
+    int32_t hit_anim_no;
+    int32_t remove_anim_no;
+    int32_t cancel_anim_no;
     int16_t hitdef_global;
     int32_t pos_x_q8;
     int32_t pos_y_q8;
@@ -892,10 +892,10 @@ typedef struct ik_cns_projectile_mod {
     int32_t id;
     int16_t index;
     uint32_t mask;
-    int16_t anim_no;
-    int16_t hit_anim_no;
-    int16_t remove_anim_no;
-    int16_t cancel_anim_no;
+    int32_t anim_no;
+    int32_t hit_anim_no;
+    int32_t remove_anim_no;
+    int32_t cancel_anim_no;
     int32_t vel_x_q8;
     int32_t vel_y_q8;
     int32_t velmul_x_q8;
@@ -925,7 +925,7 @@ enum {
 };
 
 typedef struct ik_cns_explod {
-    int16_t anim_no;
+    int32_t anim_no;
     int32_t pos_x_q8;
     int32_t pos_y_q8;
     int32_t vel_x_q8;

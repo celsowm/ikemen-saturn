@@ -146,7 +146,7 @@ static const ik_frame_table_t* frames_for(
 
 static uint16_t anim_element_start_tick(
     const ik_frame_table_t* frames,
-    int16_t action,
+    int32_t action,
     uint16_t element
 ) {
     uint32_t first = 0u;
@@ -310,7 +310,7 @@ int ik_entity_runtime_enter_state(
         runtime_cns_for_owner(runtime, entity->state_owner);
     const ik_cns_state_t* spec =
         ik_cns_find_state(state_cns, state_no);
-    const int16_t previous_anim = entity->anim_no;
+    const int32_t previous_anim = entity->anim_no;
     entity->prev_state_no = entity->state_no;
     entity->state_no = state_no;
     /* Time 0 is the entry tick: the new state's controllers run with Time 0
@@ -336,9 +336,8 @@ int ik_entity_runtime_enter_state(
             if (runtime_eval_expr(runtime, state_cns, handle,
                                   spec->anim_expr_ofs,
                                   spec->anim_expr_count,
-                                  &dynamic_anim) &&
-                dynamic_anim >= INT16_MIN && dynamic_anim <= INT16_MAX) {
-                entity->anim_no = (int16_t)dynamic_anim;
+                                  &dynamic_anim)) {
+                entity->anim_no = dynamic_anim;
                 entity->anim_owner = entity->owner_player;
             } else {
                 entity->anim_no = previous_anim;
@@ -957,7 +956,10 @@ static int process_controllers(
                 continue;
             }
             if (ctrl->type == IK_CNS_CTRL_EXPLOD) {
-                evaluated_ctrl.value6 = value / 256;
+                evaluated_ctrl.value6 = value;
+            } else if (ctrl->type == IK_CNS_CTRL_CHANGE_ANIM) {
+                evaluated_ctrl.value0 = value;
+                evaluated_ctrl.value4 = value;
             } else {
                 evaluated_ctrl.value0 = value / 256;
                 evaluated_ctrl.value4 = value;
@@ -1098,7 +1100,7 @@ static int process_controllers(
 
             case IK_CNS_CTRL_CHANGE_ANIM:
                 entity->anim_owner = entity->owner_player;
-                entity->anim_no = (int16_t)ctrl->value0;
+                entity->anim_no = ctrl->value0;
                 entity->anim_time = anim_element_start_tick(
                     frames_for(runtime, entity), entity->anim_no,
                     (uint16_t)(ctrl->value1 < 1 ? 1 : ctrl->value1));
@@ -1106,7 +1108,7 @@ static int process_controllers(
 
             case IK_CNS_CTRL_CHANGE_ANIM2:
                 entity->anim_owner = entity->state_owner;
-                entity->anim_no = (int16_t)ctrl->value0;
+                entity->anim_no = ctrl->value0;
                 entity->anim_time = anim_element_start_tick(
                     frames_for(runtime, entity), entity->anim_no,
                     (uint16_t)(ctrl->value1 < 1 ? 1 : ctrl->value1));

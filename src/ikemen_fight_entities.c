@@ -49,8 +49,7 @@ void ikf_sync_fighter_entity(
     entity->state_no = fighter->state;
     entity->prev_state_no = fighter->prev_state;
     entity->state_time = fighter->state_time;
-    entity->anim_no = fighter->anim >= INT16_MIN &&
-        fighter->anim <= INT16_MAX ? (int16_t)fighter->anim : -1;
+    entity->anim_no = fighter->anim;
     entity->anim_time = fighter->anim_time;
     entity->life = fighter->hp;
     entity->power = fighter->power;

@@ -314,10 +314,13 @@ def compile_projectile_controller(
         "miss_time": max(0, integer(ctrl.get("projmisstime"), 0)),
         "priority": max(0, integer(ctrl.get("projpriority"), 1)),
         "remove_on_hit": integer(ctrl.get("projremove"), 1),
-        "spr_priority": integer(ctrl.get("projsprpriority"), 3),
-        "ownpal": integer(ctrl.get("ownpal"), 0),
-        "pause_move_time": max(0, integer(ctrl.get("pausemovetime"), 0)),
-        "super_move_time": max(0, integer(ctrl.get("supermovetime"), 0)),
+        "spr_priority": max(-127, min(127, integer(
+            ctrl.get("projsprpriority"), 3))),
+        "ownpal": int(integer(ctrl.get("ownpal"), 0) != 0),
+        "pause_move_time": min(0xFFFFFFFF, max(0, integer(
+            ctrl.get("pausemovetime"), 0))),
+        "super_move_time": min(0xFFFFFFFF, max(0, integer(
+            ctrl.get("supermovetime"), 0))),
         "bind_time": integer(ctrl.get("bindtime"), 0),
         "remove_on_gethit": integer(ctrl.get("removeongethit"), 0),
         "remove_on_state_change": integer(
@@ -406,9 +409,12 @@ def compile_modify_projectile_controller(
         "miss_time": max(0, integer(ctrl.get("projmisstime"), 0)),
         "priority": max(0, integer(ctrl.get("projpriority"), 1)),
         "remove_on_hit": integer(ctrl.get("projremove"), 1),
-        "spr_priority": integer(ctrl.get("projsprpriority"), 3),
-        "pause_move_time": max(0, integer(ctrl.get("pausemovetime"), 0)),
-        "super_move_time": max(0, integer(ctrl.get("supermovetime"), 0)),
+        "spr_priority": max(-127, min(127, integer(
+            ctrl.get("projsprpriority"), 3))),
+        "pause_move_time": min(0xFFFFFFFF, max(0, integer(
+            ctrl.get("pausemovetime"), 0))),
+        "super_move_time": min(0xFFFFFFFF, max(0, integer(
+            ctrl.get("supermovetime"), 0))),
         "bind_time": integer(ctrl.get("bindtime"), 0),
         "remove_on_gethit": integer(ctrl.get("removeongethit"), 0),
         "remove_on_state_change": integer(

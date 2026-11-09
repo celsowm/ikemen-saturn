@@ -567,7 +567,7 @@ def compile_runtime_controller(
             anim_expr = None
         except ValueError:
             anim_no = 0
-            anim_expr = compile_cns_expr(value_text, q16=True)
+            anim_expr = compile_cns_expr(value_text)
         ctrl.runtime_value0_expr = anim_expr
         return {
             "state_number": state_no,

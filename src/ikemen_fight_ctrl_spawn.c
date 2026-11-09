@@ -84,16 +84,14 @@ int ikf_ctrl_apply_spawn(const ik_ctrl_exec_t* x) {
             ik_entity_handle_t spawned = ik_entity_invalid_handle();
             ik_cns_explod_t explod = state_cns->explods[ctrl->value0];
             if (explod.anim_expr_count) {
-                int32_t anim_q16 = 0;
+                int32_t anim_no = 0;
                 if (!ikf_eval_cns_expr(
                         fight, f, state_cns,
                         explod.anim_expr_ofs, explod.anim_expr_count,
-                        &anim_q16)) {
+                        &anim_no)) {
                     break;
                 }
-                const int32_t anim_no = anim_q16 / 65536;
-                if (anim_no < INT16_MIN || anim_no > INT16_MAX) break;
-                explod.anim_no = (int16_t)anim_no;
+                explod.anim_no = anim_no;
             }
             if (explod.facing_expr_count) {
                 int32_t facing_q16 = 0;

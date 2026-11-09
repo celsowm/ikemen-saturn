@@ -83,7 +83,7 @@ typedef struct ik_sprite_prefetch {
      * fighter stays on that frame there is nothing left to prefetch. */
     uint8_t done;
     uint8_t done_owner;
-    int16_t done_anim;
+    int32_t done_anim;
     uint16_t done_index;
     uint16_t done_sprite;
 } ik_sprite_prefetch_t;
@@ -432,7 +432,7 @@ static void prefetch_mark_done(
     const ik_frame_t* current
 ) {
     pf->done_owner = fighter->anim_owner;
-    pf->done_anim = (int16_t)fighter->anim;
+    pf->done_anim = fighter->anim;
     pf->done_index = current->index;
     pf->done_sprite = current->sprite_index;
     pf->done = 1u;

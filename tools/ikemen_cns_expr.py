@@ -418,15 +418,7 @@ class _ExprCompiler(_ExprParser):
 
         name = self._take()[1]
         lower = name.lower()
-        if lower.startswith("animcmp_") and self._peek() == ("op", "("):
-            operator = lower.removeprefix("animcmp_")
-            operators = {
-                "eq": "IK_EXPR_EQ", "ne": "IK_EXPR_NE",
-                "lt": "IK_EXPR_LT", "le": "IK_EXPR_LE",
-                "gt": "IK_EXPR_GT", "ge": "IK_EXPR_GE",
-            }
-            if operator not in operators:
-                raise ValueError(f"unsupported Anim comparison {operator!r}")
+        if lower == "ishelper" and self._peek() == ("op", "("):
             self._take()
             sign = -1 if self._peek() == ("op", "-") else 1
             if sign < 0:
@@ -434,12 +426,59 @@ class _ExprCompiler(_ExprParser):
             token = self._peek()
             if token is None or token[0] != "num" or not re.fullmatch(
                     r"\d+", token[1]):
-                raise ValueError("Anim comparisons require integer constants")
+                raise ValueError("IsHelper() requires an integer ID")
+            helper_id = sign * int(self._take()[1])
+            if self._peek() != ("op", ")"):
+                raise ValueError("IsHelper() requires one integer ID")
+            self._take()
+            return (
+                self._load_runtime_field("IK_EXPR_FIELD_ENTITY_TYPE") +
+                [{"op": "IK_EXPR_PUSH_CONST", "value0": 2},
+                 {"op": "IK_EXPR_EQ"}] +
+                self._load("IK_EXPR_FIELD_ENTITY_ID") +
+                [{"op": "IK_EXPR_PUSH_CONST", "value0": helper_id},
+                 {"op": "IK_EXPR_EQ"}, {"op": "IK_EXPR_AND"}]
+            )
+        if lower.startswith("rawcmp_") and self._peek() == ("op", "("):
+            parts = lower.split("_")
+            if len(parts) != 3:
+                raise ValueError(f"unsupported integer comparison {name!r}")
+            field_name, operator = parts[1:]
+            operators = {
+                "eq": "IK_EXPR_EQ", "ne": "IK_EXPR_NE",
+                "lt": "IK_EXPR_LT", "le": "IK_EXPR_LE",
+                "gt": "IK_EXPR_GT", "ge": "IK_EXPR_GE",
+            }
+            fields = {
+                "anim": ("IK_EXPR_FIELD_ANIM_NO", "IK_EXPR_REDIRECT_SELF"),
+                "stateno": ("IK_EXPR_FIELD_STATE_NO", "IK_EXPR_REDIRECT_SELF"),
+                "prevstateno": (
+                    "IK_EXPR_FIELD_PREV_STATE_NO", "IK_EXPR_REDIRECT_SELF"),
+                "p2stateno": (
+                    "IK_EXPR_FIELD_STATE_NO", "IK_EXPR_REDIRECT_P2"),
+                "entityid": (
+                    "IK_EXPR_FIELD_ENTITY_ID", "IK_EXPR_REDIRECT_SELF"),
+            }
+            if operator not in operators:
+                raise ValueError(f"unsupported integer comparison {operator!r}")
+            if field_name not in fields:
+                raise ValueError(f"unsupported integer field {field_name!r}")
+            self._take()
+            sign = -1 if self._peek() == ("op", "-") else 1
+            if sign < 0:
+                self._take()
+            token = self._peek()
+            if token is None or token[0] != "num" or not re.fullmatch(
+                    r"\d+", token[1]):
+                raise ValueError("integer comparisons require integer constants")
             action = sign * int(self._take()[1])
             if self._peek() != ("op", ")"):
-                raise ValueError("Anim comparisons require one integer constant")
+                raise ValueError(
+                    "integer comparisons require one integer constant")
             self._take()
-            return (self._load("IK_EXPR_FIELD_ANIM_NO") +
+            field, redirect = fields[field_name]
+            return ([{"op": "IK_EXPR_LOAD_FIELD", "field": field,
+                      "redirect": redirect}] +
                     [{"op": "IK_EXPR_PUSH_CONST", "value0": action},
                      {"op": operators[operator]}])
         if lower == "ishelper" and self._peek() != ("op", "("):
@@ -1262,11 +1301,13 @@ def compile_cns_expr(
         flags=re.I,
     )
     normalized = re.sub(
-        r"(?<![\w.])anim\s*(==|!=|<=|>=|=|<|>)\s*(-?\d+)\b",
-        lambda match: "animcmp_{}({})".format(
+        r"(?<![\w.,])(anim|stateno|prevstateno|p2stateno|entityid)"
+        r"\s*(==|!=|<=|>=|=|<|>)\s*(-?\d+)\b",
+        lambda match: "rawcmp_{}_{}({})".format(
+            match.group(1).casefold(),
             {"=": "eq", "==": "eq", "!=": "ne", "<": "lt",
-             "<=": "le", ">": "gt", ">=": "ge"}[match.group(1)],
-            match.group(2)),
+             "<=": "le", ">": "gt", ">=": "ge"}[match.group(2)],
+            match.group(3)),
         normalized,
         flags=re.I,
     )

@@ -270,7 +270,10 @@ int ikf_process_cns_controllers(
                 continue;
             }
             if (ctrl->type == IK_CNS_CTRL_EXPLOD) {
-                evaluated_ctrl.value6 = value / 256;
+                evaluated_ctrl.value6 = value;
+            } else if (ctrl->type == IK_CNS_CTRL_CHANGE_ANIM) {
+                evaluated_ctrl.value4 = value;
+                evaluated_ctrl.value0 = value;
             } else {
                 evaluated_ctrl.value4 = value;
                 evaluated_ctrl.value0 = value / 256;
