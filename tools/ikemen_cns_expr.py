@@ -441,9 +441,9 @@ class _ExprCompiler(_ExprParser):
             )
         if lower.startswith("rawcmp_") and self._peek() == ("op", "("):
             parts = lower.split("_")
-            if len(parts) != 3:
+            if len(parts) < 3:
                 raise ValueError(f"unsupported integer comparison {name!r}")
-            field_name, operator = parts[1:]
+            field_name, operator = "_".join(parts[1:-1]), parts[-1]
             operators = {
                 "eq": "IK_EXPR_EQ", "ne": "IK_EXPR_NE",
                 "lt": "IK_EXPR_LT", "le": "IK_EXPR_LE",
@@ -458,6 +458,28 @@ class _ExprCompiler(_ExprParser):
                     "IK_EXPR_FIELD_STATE_NO", "IK_EXPR_REDIRECT_P2"),
                 "entityid": (
                     "IK_EXPR_FIELD_ENTITY_ID", "IK_EXPR_REDIRECT_SELF"),
+                "enemy_stateno": (
+                    "IK_EXPR_FIELD_STATE_NO", "IK_EXPR_REDIRECT_P2"),
+                "enemynear_stateno": (
+                    "IK_EXPR_FIELD_STATE_NO", "IK_EXPR_REDIRECT_P2"),
+                "p2_stateno": (
+                    "IK_EXPR_FIELD_STATE_NO", "IK_EXPR_REDIRECT_P2"),
+                "parent_stateno": (
+                    "IK_EXPR_FIELD_STATE_NO", "IK_EXPR_REDIRECT_PARENT"),
+                "root_stateno": (
+                    "IK_EXPR_FIELD_STATE_NO", "IK_EXPR_REDIRECT_ROOT"),
+                "target_stateno": (
+                    "IK_EXPR_FIELD_STATE_NO", "IK_EXPR_REDIRECT_TARGET"),
+                "enemy_anim": (
+                    "IK_EXPR_FIELD_ANIM_NO", "IK_EXPR_REDIRECT_P2"),
+                "enemynear_anim": (
+                    "IK_EXPR_FIELD_ANIM_NO", "IK_EXPR_REDIRECT_P2"),
+                "parent_anim": (
+                    "IK_EXPR_FIELD_ANIM_NO", "IK_EXPR_REDIRECT_PARENT"),
+                "root_anim": (
+                    "IK_EXPR_FIELD_ANIM_NO", "IK_EXPR_REDIRECT_ROOT"),
+                "target_anim": (
+                    "IK_EXPR_FIELD_ANIM_NO", "IK_EXPR_REDIRECT_TARGET"),
             }
             if operator not in operators:
                 raise ValueError(f"unsupported integer comparison {operator!r}")
@@ -1301,13 +1323,15 @@ def compile_cns_expr(
         flags=re.I,
     )
     normalized = re.sub(
-        r"(?<![\w.,])(anim|stateno|prevstateno|p2stateno|entityid)"
+        r"(?<![\w.])(?:(p2|enemy|enemynear|parent|root|target)\s*,\s*)?"
+        r"(anim|stateno|prevstateno|p2stateno|entityid)"
         r"\s*(==|!=|<=|>=|=|<|>)\s*(-?\d+)\b",
         lambda match: "rawcmp_{}_{}({})".format(
-            match.group(1).casefold(),
+            (match.group(1).casefold() + "_" if match.group(1) else "") +
+            match.group(2).casefold(),
             {"=": "eq", "==": "eq", "!=": "ne", "<": "lt",
-             "<=": "le", ">": "gt", ">=": "ge"}[match.group(2)],
-            match.group(3)),
+             "<=": "le", ">": "gt", ">=": "ge"}[match.group(3)],
+            match.group(4)),
         normalized,
         flags=re.I,
     )
