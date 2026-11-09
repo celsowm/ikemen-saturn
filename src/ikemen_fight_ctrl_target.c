@@ -57,6 +57,7 @@ int ikf_ctrl_apply_target(const ik_ctrl_exec_t* x) {
                     fight->winner =
                         (uint8_t)((target_index ^ 1) + 1);
                     fight->events |= IK_EVENT_KO;
+                    fight->win_by_ko = 1u;
                 }
                 target->hp = (int16_t)hp;
             }

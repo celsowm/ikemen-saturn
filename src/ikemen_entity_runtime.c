@@ -560,6 +560,7 @@ int ik_entity_runtime_spawn_explod(
         return 0;
     }
 
+    entity->id = explod->id;
     entity->x_q8 =
         base->x_q8 + (int32_t)base->facing * explod->pos_x_q8;
     entity->y_q8 = base->y_q8 + explod->pos_y_q8;

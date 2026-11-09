@@ -33,6 +33,25 @@ static int ikf_expr_read_field(
         *out_value = (int32_t)asset->constants.character_name_hash;
         return 1;
     }
+    if (field == IK_EXPR_FIELD_WIN_KO) {
+        uint8_t owner = 2u;
+        if (binding->fighter) {
+            owner = ikf_fighter_player_index(
+                binding->fight, binding->fighter);
+        } else {
+            const ik_entity_t* entity = ik_entity_get_const(
+                binding->entity.pool, binding->entity.self);
+            if (entity) owner = entity->owner_player;
+        }
+        if (redirect == IK_EXPR_REDIRECT_P2) owner ^= 1u;
+        else if (redirect != IK_EXPR_REDIRECT_SELF &&
+                 redirect != IK_EXPR_REDIRECT_ROOT &&
+                 redirect != IK_EXPR_REDIRECT_PARENT) return 0;
+        if (owner >= 2u) return 0;
+        *out_value = binding->fight->win_by_ko &&
+            binding->fight->winner == (uint8_t)(owner + 1u);
+        return 1;
+    }
     if (redirect == IK_EXPR_REDIRECT_SELF &&
         field == IK_EXPR_FIELD_GAME_TIME) {
         *out_value = (int32_t)binding->fight->frame;
@@ -116,6 +135,24 @@ static int ikf_expr_read_field(
         }
         return 1;
     }
+    if (redirect == IK_EXPR_REDIRECT_P2 &&
+        field == IK_EXPR_FIELD_BODY_DIST_X && binding->fighter) {
+        const uint8_t owner = ikf_fighter_player_index(
+            binding->fight, binding->fighter);
+        if (owner >= 2u) return 0;
+        const ik_fighter_t* self = binding->fighter;
+        const ik_fighter_t* foe = &binding->fight->fighters[owner ^ 1u];
+        int self_left = 0;
+        int self_right = 0;
+        int foe_left = 0;
+        int foe_right = 0;
+        ik_body_box(self, &self_left, 0, &self_right, 0);
+        ik_body_box(foe, &foe_left, 0, &foe_right, 0);
+        *out_value = self->facing >= 0
+            ? foe_left - self_right
+            : self_left - foe_right;
+        return 1;
+    }
     if (redirect == IK_EXPR_REDIRECT_SELF &&
         field == IK_EXPR_FIELD_HIT_PAUSE_TIME && binding->fighter) {
         *out_value = binding->fighter->hit_pause;
@@ -133,6 +170,34 @@ static int ikf_expr_read_field(
                 ? IK_CNS_Q8_ONE : 0;
         *out_value = (front_dist - f->edge_front * IK_CNS_Q8_ONE -
                       type_offset) / IK_CNS_Q8_ONE;
+        return 1;
+    }
+    if (redirect == IK_EXPR_REDIRECT_HELPER &&
+        field == IK_EXPR_FIELD_BACK_EDGE_DIST) {
+        const ik_entity_t* self = ik_entity_get_const(
+            binding->entity.pool, binding->entity.self);
+        if (!self || self->owner_player >= 2u || redirect_id < 0) return 0;
+        uint8_t found = 0u;
+        const ik_entity_t* helper = 0;
+        for (uint8_t slot = 0u; slot < IK_ENTITY_CAPACITY; ++slot) {
+            const ik_entity_t* candidate =
+                &binding->entity.pool->entities[slot];
+            if (candidate->type != IK_ENTITY_HELPER ||
+                candidate->owner_player != self->owner_player ||
+                candidate->id != redirect_id) continue;
+            if (found++ == redirect_index) {
+                helper = candidate;
+                break;
+            }
+        }
+        if (!helper) return 0;
+        const ik_fighter_t* bounds =
+            &binding->fight->fighters[self->owner_player];
+        const int32_t back_offset = helper->push_back * IK_CNS_Q8_ONE;
+        const int32_t distance = helper->facing > 0
+            ? helper->x_q8 - bounds->xmin_q8 - back_offset
+            : bounds->xmax_q8 - helper->x_q8 - back_offset;
+        *out_value = distance / IK_CNS_Q8_ONE;
         return 1;
     }
     if (redirect == IK_EXPR_REDIRECT_SELF &&

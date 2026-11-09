@@ -205,6 +205,7 @@ _RUNTIME_EXPR_FIELDS = {
     "p2statetype": "IK_EXPR_FIELD_STATE_TYPE",
     "p2movetype": "IK_EXPR_FIELD_MOVE_TYPE",
     "frontedgedist": "IK_EXPR_FIELD_FRONT_EDGE_DIST",
+    "backedgedist": "IK_EXPR_FIELD_BACK_EDGE_DIST",
     "anim": "IK_EXPR_FIELD_ANIM_NO",
     "animelem": "IK_EXPR_FIELD_ANIM_ELEM",
     "animtime": "IK_EXPR_FIELD_ANIM_TIME",
@@ -219,6 +220,7 @@ _RUNTIME_EXPR_FIELDS = {
     "numprojectile": "IK_EXPR_FIELD_NUM_PROJECTILES",
     "numprojectiles": "IK_EXPR_FIELD_NUM_PROJECTILES",
     "teamside": "IK_EXPR_FIELD_TEAM_SIDE",
+    "winko": "IK_EXPR_FIELD_WIN_KO",
 }
 
 
@@ -241,12 +243,17 @@ class _ExprCompiler(_ExprParser):
         field: str,
         index: int = 0,
         redirect: str = "IK_EXPR_REDIRECT_SELF",
+        redirect_id: int = 0,
+        redirect_index: int = 0,
     ) -> list[dict]:
         code = self._load(field, index)
         if redirect != "IK_EXPR_REDIRECT_SELF":
             for instruction in code:
                 if instruction.get("op") == "IK_EXPR_LOAD_FIELD":
                     instruction["redirect"] = redirect
+                    if redirect == "IK_EXPR_REDIRECT_HELPER":
+                        instruction["value1"] = redirect_id
+                        instruction["redirect_index"] = redirect_index
         if not self.q16 or field == "IK_EXPR_FIELD_FVAR_Q16":
             if not self.q16 and field.endswith("_Q8"):
                 return code + [{"op": "IK_EXPR_TRUNC_Q8"}]
@@ -438,6 +445,13 @@ class _ExprCompiler(_ExprParser):
                         target_id //= 65536
                     return self._load_runtime_field(
                         "IK_EXPR_FIELD_NUM_TARGETS", target_id, redirect)
+                if field_lower == "numhelper" and len(args) == 1:
+                    helper_id = self._integer_arg(args[0], field_name)
+                    if helper_id < 0 or helper_id > 2147483647:
+                        raise ValueError(
+                            "NumHelper() id is outside the signed 32-bit range")
+                    return self._load_runtime_field(
+                        "IK_EXPR_FIELD_NUM_HELPERS", helper_id, redirect)
                 if field_lower == "animelemtime" and len(args) == 1:
                     elem = self._integer_arg(args[0], field_name)
                     if elem < 1 or elem > 65535:
@@ -475,6 +489,64 @@ class _ExprCompiler(_ExprParser):
             raise ValueError(
                 f"unsupported redirected symbol in runtime expression: "
                 f"{name},{field_name}")
+        if lower == "helper" and self._peek() == ("op", "("):
+            self._take()
+            args = self._args()
+            if self._peek() != ("op", ")") or len(args) != 1:
+                raise ValueError("Helper() redirection requires one constant id")
+            self._take()
+            helper_id = self._integer_arg(args[0], name)
+            if helper_id < 0 or helper_id > 2147483647:
+                raise ValueError("Helper() id is outside the signed 32-bit range")
+            if self._peek() != ("op", ","):
+                raise ValueError("Helper() requires a redirected field")
+            self._take()
+            field = self._peek()
+            if field is None or field[0] != "ident":
+                raise ValueError("Helper() requires a redirected field")
+            field_name = self._take()[1]
+            field_lower = field_name.casefold()
+            redirect = "IK_EXPR_REDIRECT_HELPER"
+            if field_lower in _RUNTIME_EXPR_FIELDS:
+                return self._load_runtime_field(
+                    _RUNTIME_EXPR_FIELDS[field_lower],
+                    redirect=redirect, redirect_id=helper_id)
+            if field_lower in ("pos", "vel"):
+                axis = self._take()[1].lower()
+                if axis not in ("x", "y"):
+                    raise ValueError(
+                        f"unsupported Helper() {field_name} axis {axis!r}")
+                mapped = {
+                    ("pos", "x"): "IK_EXPR_FIELD_POS_X_Q8",
+                    ("pos", "y"): "IK_EXPR_FIELD_POS_Y_Q8",
+                    ("vel", "x"): "IK_EXPR_FIELD_VEL_X_Q8",
+                    ("vel", "y"): "IK_EXPR_FIELD_VEL_Y_Q8",
+                }[(field_lower, axis)]
+                return self._load_runtime_field(
+                    mapped, redirect=redirect, redirect_id=helper_id)
+            if field_lower in ("var", "sysvar", "fvar") and \
+                    self._peek() == ("op", "("):
+                self._take()
+                args = self._args()
+                if self._peek() != ("op", ")") or len(args) != 1:
+                    raise ValueError(
+                        f"Helper(),{field_name}() takes one constant index")
+                self._take()
+                index = self._integer_arg(args[0], field_name)
+                max_count = 60 if field_lower == "var" else 40
+                if index < 0 or index >= max_count:
+                    raise ValueError(
+                        f"{field_name}({index}) is outside 0..{max_count - 1}")
+                field = {
+                    "var": "IK_EXPR_FIELD_VAR",
+                    "sysvar": "IK_EXPR_FIELD_SYSVAR",
+                    "fvar": "IK_EXPR_FIELD_FVAR_Q16",
+                }[field_lower]
+                return self._load_runtime_field(
+                    field, index, redirect, helper_id)
+            raise ValueError(
+                f"unsupported Helper() field in runtime expression: "
+                f"{field_name}")
         if lower == "gethitvar" and self._peek() == ("op", "("):
             self._take()
             argument = self._peek()
@@ -556,6 +628,22 @@ class _ExprCompiler(_ExprParser):
                         {"op": "IK_EXPR_MUL"},
                     ])
                 return code
+            if lower == "numhelper" and len(args) == 1:
+                helper_id = self._integer_arg(args[0], name)
+                if helper_id < 0 or helper_id > 2147483647:
+                    raise ValueError(
+                        "NumHelper() id is outside the signed 32-bit range")
+                return self._load_runtime_field(
+                    "IK_EXPR_FIELD_NUM_HELPERS", helper_id)
+            if lower == "numexplod" and len(args) <= 1:
+                explod_id = (
+                    self._integer_arg(args[0], name)
+                    if args else -2147483648)
+                if explod_id < -2147483648 or explod_id > 2147483647:
+                    raise ValueError(
+                        "NumExplod() id is outside the signed 32-bit range")
+                return self._load_runtime_field(
+                    "IK_EXPR_FIELD_NUM_EXPLODS", explod_id)
             if lower in ("var", "sysvar", "fvar") and len(args) == 1:
                 index = self._constant_arg(args[0], name)
                 if self.q16:
@@ -624,15 +712,14 @@ class _ExprCompiler(_ExprParser):
             )
         if lower == "p2bodydist":
             axis = self._take()[1].lower()
-            if axis != "y":
-                raise ValueError(
-                    f"unsupported P2BodyDist axis {axis!r}; "
-                    "horizontal body-box distance is unavailable"
+            if axis == "x":
+                return self._load_runtime_field(
+                    "IK_EXPR_FIELD_BODY_DIST_X",
+                    redirect="IK_EXPR_REDIRECT_P2",
                 )
-            # Vertical body distance is the opponent's Y relative to self;
-            # horizontal body-box distance needs collision-box data that the
-            # Saturn runtime does not retain.
-            return self._load_runtime_field("IK_EXPR_FIELD_P2_DIST_Y_Q8")
+            if axis == "y":
+                return self._load_runtime_field("IK_EXPR_FIELD_P2_DIST_Y_Q8")
+            raise ValueError(f"unsupported P2BodyDist axis {axis!r}")
         raise ValueError(f"unsupported symbol in runtime expression: {name}")
 
 
@@ -746,6 +833,14 @@ def compile_cns_expr(
         flags=re.I,
     )
     normalized = re.sub(
+        r"\banimelem\s*=\s*(\d+)\s*,\s*(-?\d+)\b",
+        lambda match: (
+            f"animelemtime({match.group(1)}) = {match.group(2)}"
+        ),
+        normalized,
+        flags=re.I,
+    )
+    normalized = re.sub(
         r"\b((?:(?:p2|enemy|enemynear|parent|root)\s*,\s*)?"
         r"(?:stateno|p2stateno|prevstateno|anim))\s*(!=|=)\s*"
         r"\[\s*(-?\d+)\s*,\s*(-?\d+)\s*\]",
@@ -770,6 +865,19 @@ def compile_cns_expr(
     normalized = re.sub(
         r"\b(gethitvar\s*\(\s*[a-z][a-z0-9_.]*\s*\))"
         r"\s*(!=|=)\s*\[\s*(-?\d+)\s*,\s*(-?\d+)\s*\]",
+        lambda match: (
+            f"(({match.group(1)} >= {match.group(3)}) && "
+            f"({match.group(1)} <= {match.group(4)}))"
+            if match.group(2) == "=" else
+            f"(({match.group(1)} < {match.group(3)}) || "
+            f"({match.group(1)} > {match.group(4)}))"
+        ),
+        normalized,
+        flags=re.I,
+    )
+    normalized = re.sub(
+        r"\b(random)\s*(!=|=)\s*"
+        r"\[\s*(-?\d+)\s*,\s*(-?\d+)\s*\]",
         lambda match: (
             f"(({match.group(1)} >= {match.group(3)}) && "
             f"({match.group(1)} <= {match.group(4)}))"
@@ -847,7 +955,10 @@ def expand_dynamic_self_anim_exist(
     def replace(match: re.Match[str]) -> str:
         negated, expression = match.groups()
         expression = re.sub(r"\s+", "", expression).casefold()
-        if expression in {"anim", "anim+0"}:
+        fixed_action = re.fullmatch(r"\d+", expression)
+        if fixed_action:
+            result = "1" if int(expression) in self_anims else "0"
+        elif expression in {"anim", "anim+0"}:
             result = terms_for_values(self_anims, "anim")
         else:
             anim_offset = re.fullmatch(r"anim([+-])(\d+)", expression)

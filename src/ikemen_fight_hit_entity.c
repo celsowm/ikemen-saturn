@@ -234,6 +234,7 @@ void ikf_apply_guard_from_entity(
     if (guard_ko) {
         fight->winner = (uint8_t)(attacker->owner_player + 1u);
         fight->events |= IK_EVENT_KO;
+        fight->win_by_ko = 1u;
         if (!ik_cns_find_state(victim_cns, 5050)) {
             v->cur_move_type = IK_CNS_MOVE_HIT;
             v->juggle_owner = (int8_t)attacker->owner_player;
@@ -286,11 +287,47 @@ void ikf_apply_damage_from_entity(
         hitdef->envshake_freq_expr_count ||
         hitdef->fall_envshake_time_expr_count ||
         hitdef->fall_envshake_ampl_expr_count ||
-        hitdef->fall_envshake_freq_expr_count) {
+        hitdef->fall_envshake_freq_expr_count ||
+        hitdef->p1_state_no_expr_count ||
+        hitdef->p2_state_no_expr_count ||
+        hitdef->p1_facing_expr_count ||
+        hitdef->p2_facing_expr_count ||
+        hitdef->yaccel_expr_count) {
         evaluated_hitdef = *hitdef;
         const ik_cns_asset_t* cns =
             cns_for_owner(fight, attacker->state_owner);
         int32_t value = 0;
+        value = eval_entity_integer_expr(
+            fight, attacker, cns, hitdef->p1_state_no_expr_ofs,
+            hitdef->p1_state_no_expr_count, hitdef->p1_state_no);
+        evaluated_hitdef.p1_state_no = (int16_t)(
+            value < INT16_MIN ? INT16_MIN :
+            value > INT16_MAX ? INT16_MAX : value);
+        value = eval_entity_integer_expr(
+            fight, attacker, cns, hitdef->p2_state_no_expr_ofs,
+            hitdef->p2_state_no_expr_count, hitdef->p2_state_no);
+        evaluated_hitdef.p2_state_no = (int16_t)(
+            value < INT16_MIN ? INT16_MIN :
+            value > INT16_MAX ? INT16_MAX : value);
+        value = eval_entity_integer_expr(
+            fight, attacker, cns, hitdef->p1_facing_expr_ofs,
+            hitdef->p1_facing_expr_count, hitdef->p1_facing);
+        evaluated_hitdef.p1_facing = (int8_t)(
+            value < INT8_MIN ? INT8_MIN :
+            value > INT8_MAX ? INT8_MAX : value);
+        value = eval_entity_integer_expr(
+            fight, attacker, cns, hitdef->p2_facing_expr_ofs,
+            hitdef->p2_facing_expr_count, hitdef->p2_facing);
+        evaluated_hitdef.p2_facing = (int8_t)(
+            value < INT8_MIN ? INT8_MIN :
+            value > INT8_MAX ? INT8_MAX : value);
+        evaluated_hitdef.yaccel_q16 = eval_entity_integer_expr(
+            fight, attacker, cns, hitdef->yaccel_expr_ofs,
+            hitdef->yaccel_expr_count, hitdef->yaccel_q16);
+        evaluated_hitdef.yaccel_q8 = (int16_t)(
+            evaluated_hitdef.yaccel_q16 / 256 < INT16_MIN ? INT16_MIN :
+            evaluated_hitdef.yaccel_q16 / 256 > INT16_MAX ? INT16_MAX :
+            evaluated_hitdef.yaccel_q16 / 256);
         if (hitdef->ground_velocity_x_expr_count &&
             ikf_eval_cns_entity_expr(
                 fight, attacker, cns,
@@ -593,6 +630,7 @@ void ikf_apply_damage_from_entity(
         v->pending_damage = v->hp;
         fight->winner = (uint8_t)(attacker->owner_player + 1u);
         fight->events |= (uint16_t)(IK_EVENT_HIT | IK_EVENT_KO);
+        fight->win_by_ko = 1u;
     } else {
         fight->events |= IK_EVENT_HIT;
     }

@@ -14,7 +14,8 @@ typedef enum ik_expr_redirect {
     IK_EXPR_REDIRECT_P2,
     IK_EXPR_REDIRECT_PARENT,
     IK_EXPR_REDIRECT_ROOT,
-    IK_EXPR_REDIRECT_TARGET
+    IK_EXPR_REDIRECT_TARGET,
+    IK_EXPR_REDIRECT_HELPER
 } ik_expr_redirect_t;
 
 typedef enum ik_expr_field {
@@ -81,7 +82,10 @@ typedef enum ik_expr_field {
     IK_EXPR_FIELD_HIT_COUNT,
     IK_EXPR_FIELD_UNIQ_HIT_COUNT,
     IK_EXPR_FIELD_GET_HIT_HIT_COUNT,
-    IK_EXPR_FIELD_CHARACTER_NAME_HASH
+    IK_EXPR_FIELD_CHARACTER_NAME_HASH,
+    IK_EXPR_FIELD_WIN_KO,
+    IK_EXPR_FIELD_BACK_EDGE_DIST,
+    IK_EXPR_FIELD_NUM_EXPLODS
 } ik_expr_field_t;
 
 typedef enum ik_expr_op {

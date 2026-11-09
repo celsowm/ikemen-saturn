@@ -81,7 +81,8 @@ def emit_cns_source_files(
             "fall_damage", "envshake_time", "envshake_ampl",
             "envshake_freq", "fall_envshake_time",
             "fall_envshake_ampl", "fall_envshake_freq",
-            "guard_velocity_x",
+            "guard_velocity_x", "p1_state_no", "p2_state_no",
+            "p1_facing", "p2_facing", "yaccel",
         ):
             key = f"{field}_expr"
             hit[f"{key}_ofs"], hit[f"{key}_count"] = intern_expression(
@@ -114,7 +115,8 @@ def emit_cns_source_files(
     expression_lines = [
         "    {"
         f"{ins['op']}, {ins.get('field', '0u')}, "
-        f"{ins.get('redirect', 'IK_EXPR_REDIRECT_SELF')}, 0u, "
+        f"{ins.get('redirect', 'IK_EXPR_REDIRECT_SELF')}, "
+        f"{ins.get('redirect_index', 0)}u, "
         f"{ins.get('value0', 0)}, {ins.get('value1', 0)}"
         "},"
         for ins in expressions
@@ -304,7 +306,17 @@ def emit_cns_source_files(
         f"{h.get('fall_envshake_freq_expr_ofs', 0)}u, "
         f"{h.get('fall_envshake_freq_expr_count', 0)}u, "
         f"{h.get('guard_velocity_x_expr_ofs', 0)}u, "
-        f"{h.get('guard_velocity_x_expr_count', 0)}u"
+        f"{h.get('guard_velocity_x_expr_count', 0)}u, "
+        f"{h.get('p1_state_no_expr_ofs', 0)}u, "
+        f"{h.get('p1_state_no_expr_count', 0)}u, "
+        f"{h.get('p2_state_no_expr_ofs', 0)}u, "
+        f"{h.get('p2_state_no_expr_count', 0)}u, "
+        f"{h.get('p1_facing_expr_ofs', 0)}u, "
+        f"{h.get('p1_facing_expr_count', 0)}u, "
+        f"{h.get('p2_facing_expr_ofs', 0)}u, "
+        f"{h.get('p2_facing_expr_count', 0)}u, "
+        f"{h.get('yaccel_expr_ofs', 0)}u, "
+        f"{h.get('yaccel_expr_count', 0)}u"
         "},"
         for h in hitdefs
     ]
@@ -352,7 +364,7 @@ def emit_cns_source_files(
         f"{e.get('facing', 1)}, {e.get('vfacing', 1)}, "
         f"{e.get('scale_x_q8', 256)}, {e.get('scale_y_q8', 256)}, "
         f"{e.get('trans_mode', 'IK_CNS_TRANS_NONE')}, "
-        f"{e.get('alpha', 255)}u"
+        f"{e.get('alpha', 255)}u, {e.get('id', -1)}"
         "},"
         for e in explods
     ]

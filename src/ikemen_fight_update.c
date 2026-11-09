@@ -188,6 +188,7 @@ static void tick_round_timer(ik_fight_t* fight) {
     const int p1 = fight->fighters[0].hp;
     const int p2 = fight->fighters[1].hp;
     fight->winner = p1 == p2 ? 0u : (uint8_t)(p1 > p2 ? 1u : 2u);
+    fight->win_by_ko = 0u;
     fight->round_state = 3u;
     fight->round_outro_ticks = 0u;
     fight->ko_slow_ticks = 0u;
@@ -256,6 +257,7 @@ static void check_knockout(
             fight->round_state = 3u;
             fight->winner =
                 p1_dead == p2_dead ? 0u : (uint8_t)(p1_dead ? 2u : 1u);
+            fight->win_by_ko = 1u;
             /* Upstream consumes the first slow-time tick on the KO frame when
              * it selects turbo for the following rendered frame. */
             fight->ko_slow_ticks =

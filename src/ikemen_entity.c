@@ -399,6 +399,30 @@ uint8_t ik_entity_count_type(
     return count;
 }
 
+static ik_entity_handle_t helper_by_id(
+    const ik_entity_pool_t* pool,
+    const ik_entity_t* self,
+    int32_t helper_id,
+    uint8_t index
+) {
+    if (!pool || !self || helper_id < 0) {
+        return ik_entity_invalid_handle();
+    }
+    uint8_t found = 0u;
+    for (uint8_t slot = 0u; slot < IK_ENTITY_CAPACITY; ++slot) {
+        const ik_entity_t* helper = &pool->entities[slot];
+        if (helper->type != IK_ENTITY_HELPER ||
+            helper->owner_player != self->owner_player ||
+            helper->id != helper_id) continue;
+        if (found++ == index) {
+            return (ik_entity_handle_t){
+                slot, pool->generations[slot]
+            };
+        }
+    }
+    return ik_entity_invalid_handle();
+}
+
 static int32_t q8_to_int(int32_t value) {
     if (value >= 0) return value / IK_ENTITY_Q8_ONE;
     return -((-value) / IK_ENTITY_Q8_ONE);
@@ -423,6 +447,9 @@ int ik_entity_expr_read_field(
             ? ik_entity_redirect_target(
                 binding->pool, binding->self,
                 redirect_id, redirect_index)
+        : redirect == IK_EXPR_REDIRECT_HELPER
+            ? helper_by_id(binding->pool, self,
+                           redirect_id, redirect_index)
             : ik_entity_redirect(
                 binding->pool, binding->self, redirect);
     const ik_entity_t* entity =
@@ -552,6 +579,19 @@ int ik_entity_expr_read_field(
                 if (candidate->type == IK_ENTITY_HELPER &&
                     candidate->owner_player == entity->owner_player &&
                     candidate->id == target_id) {
+                    ++count;
+                }
+            }
+            *out_value = count;
+            return 1;
+        }
+        case IK_EXPR_FIELD_NUM_EXPLODS: {
+            uint8_t count = 0u;
+            for (uint8_t slot = 0u; slot < IK_ENTITY_CAPACITY; ++slot) {
+                const ik_entity_t* candidate = &binding->pool->entities[slot];
+                if (candidate->type == IK_ENTITY_EXPLOD &&
+                    candidate->owner_player == entity->owner_player &&
+                    (index == INT32_MIN || candidate->id == index)) {
                     ++count;
                 }
             }

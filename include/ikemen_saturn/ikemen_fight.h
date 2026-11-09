@@ -289,6 +289,7 @@ typedef struct ik_fight {
     uint16_t events;
     uint8_t round_over;
     uint8_t winner;
+    uint8_t win_by_ko;
     uint32_t hits_p1;
     uint32_t hits_p2;
     uint32_t ko_freeze;

@@ -210,6 +210,7 @@ int ikf_ctrl_apply_fx(const ik_ctrl_exec_t* x) {
                     ++fight->winner;
                     fight->events |=
                         (uint16_t)(IK_EVENT_HIT | IK_EVENT_KO);
+                    fight->win_by_ko = 1u;
                 }
             }
             break;

@@ -180,6 +180,7 @@ void ik_fight_init_players(
     fight->events = IK_EVENT_NONE;
     fight->round_over = 0;
     fight->winner = 0;
+    fight->win_by_ko = 0u;
     fight->hits_p1 = 0;
     fight->hits_p2 = 0;
     fight->ko_freeze = 0;

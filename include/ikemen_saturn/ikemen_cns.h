@@ -618,6 +618,16 @@ typedef struct ik_cns_hitdef {
     uint8_t fall_envshake_freq_expr_count;
     uint16_t guard_velocity_x_expr_ofs;
     uint8_t guard_velocity_x_expr_count;
+    uint16_t p1_state_no_expr_ofs;
+    uint8_t p1_state_no_expr_count;
+    uint16_t p2_state_no_expr_ofs;
+    uint8_t p2_state_no_expr_count;
+    uint16_t p1_facing_expr_ofs;
+    uint8_t p1_facing_expr_count;
+    uint16_t p2_facing_expr_ofs;
+    uint8_t p2_facing_expr_count;
+    uint16_t yaccel_expr_ofs;
+    uint8_t yaccel_expr_count;
 } ik_cns_hitdef_t;
 
 typedef struct ik_cns_reversaldef {
@@ -896,6 +906,7 @@ typedef struct ik_cns_explod {
     int16_t scale_y_q8;
     uint8_t trans_mode;
     uint8_t alpha;
+    int32_t id;
 } ik_cns_explod_t;
 
 typedef struct ik_cns_helper {

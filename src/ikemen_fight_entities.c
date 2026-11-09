@@ -157,6 +157,7 @@ static int apply_entity_target_controller_one(
                     fight->winner =
                         (uint8_t)((target_index ^ 1) + 1);
                     fight->events |= IK_EVENT_KO;
+                    fight->win_by_ko = 1u;
                 }
                 target_fighter->hp = (int16_t)hp;
                 ikf_sync_fighter_entity(fight, target_fighter);
