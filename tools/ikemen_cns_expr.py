@@ -1,0 +1,809 @@
+"""Expression parsing and bytecode compilation for CNS triggers and values."""
+from __future__ import annotations
+
+import math
+import re
+
+# MUGEN expression parser for CNS parameters.
+# Supports arithmetic, comparisons, logical operators, ifelse(), var(), sysvar(), fvar(), const(), GetHitVar().
+_EXPR_TOK_RE = re.compile(
+    r"\s*(?:"
+    r"(?P<num>(?:\d+(?:\.\d*)?|\.\d+))|"
+    r"(?P<ident>[A-Za-z_][A-Za-z0-9_.]*)|"
+    r"(?P<op>\+\+|\*\*|==|!=|>=|<=|&&|\|\||[!()+\-*/%=<>,])"
+    r")"
+)
+
+
+class _ExprParser:
+    def __init__(self, text: str):
+        self.text = text
+        self.tokens: list[tuple[str, str]] = []
+        self.i = 0
+        self._tokenize()
+
+    def _tokenize(self):
+        pos = 0
+        while pos < len(self.text):
+            m = _EXPR_TOK_RE.match(self.text, pos)
+            if not m:
+                raise ValueError(f"unexpected expression token at {pos}: {self.text[pos:]!r}")
+            kind = m.lastgroup
+            value = m.group(kind)
+            if kind == "num":
+                self.tokens.append(("num", value))
+            elif kind == "ident":
+                self.tokens.append(("ident", value))
+            elif kind == "op":
+                self.tokens.append(("op", value))
+            pos = m.end()
+
+    def _peek(self) -> tuple[str, str] | None:
+        if self.i < len(self.tokens):
+            return self.tokens[self.i]
+        return None
+
+    def _take(self):
+        tok = self.tokens[self.i]
+        self.i += 1
+        return tok
+
+    def parse(self) -> float:
+        result = self._or()
+        if self._peek() is not None:
+            tok = self._peek()
+            raise ValueError(f"unexpected token in expression: {tok!r}")
+        return result
+
+    def _or(self) -> float:
+        left = self._and()
+        while self._peek() and self._peek()[1] in ("||",):
+            self._take()
+            right = self._and()
+            # MUGEN || returns first truthy value, or last value
+            left = right if right != 0 else left
+        return left
+
+    def _and(self) -> float:
+        left = self._equality()
+        while self._peek() and self._peek()[1] in ("&&",):
+            self._take()
+            right = self._equality()
+            left = right if left != 0 and right != 0 else 0
+        return left
+
+    def _equality(self) -> float:
+        left = self._rel()
+        while self._peek() and self._peek()[1] in ("==", "!=", "="):
+            op = self._take()[1]
+            right = self._rel()
+            if op in ("=", "=="):
+                left = 1.0 if left == right else 0.0
+            else:
+                left = 1.0 if left != right else 0.0
+        return left
+
+    def _rel(self) -> float:
+        left = self._add()
+        while self._peek() and self._peek()[1] in (">", "<", ">=", "<="):
+            op = self._take()[1]
+            right = self._add()
+            if op == ">":
+                left = 1.0 if left > right else 0.0
+            elif op == "<":
+                left = 1.0 if left < right else 0.0
+            elif op == ">=":
+                left = 1.0 if left >= right else 0.0
+            elif op == "<=":
+                left = 1.0 if left <= right else 0.0
+        return left
+
+    def _add(self) -> float:
+        left = self._mul()
+        while self._peek() and self._peek()[1] in ("+", "-"):
+            op = self._take()[1]
+            right = self._mul()
+            if op == "+":
+                left = left + right
+            else:
+                left = left - right
+        return left
+
+    def _mul(self) -> float:
+        left = self._power()
+        while self._peek() and self._peek()[1] in ("*", "/", "%"):
+            op = self._take()[1]
+            right = self._power()
+            if op == "*":
+                left = left * right
+            elif op == "/":
+                left = left / right if right != 0 else 0
+            else:
+                left = left % right if right != 0 else 0
+        return left
+
+    def _power(self) -> float:
+        left = self._unary()
+        if self._peek() and self._peek()[1] == "**":
+            self._take()
+            right = self._power()
+            left = left ** right
+        return left
+
+    def _unary(self) -> float:
+        if self._peek() and self._peek()[1] == "-":
+            self._take()
+            return -self._primary()
+        if self._peek() and self._peek()[1] == "+":
+            self._take()
+            return self._primary()
+        return self._primary()
+
+    def _primary(self) -> float:
+        tok = self._peek()
+        if tok is None:
+            raise ValueError("unexpected end of expression")
+        if tok[0] == "num":
+            self._take()
+            return float(tok[1])
+        if tok[0] == "ident":
+            name = self._take()[1]
+            # Check for function call
+            if self._peek() == ("op", "("):
+                self._take()  # consume (
+                args = self._parse_args()
+                if self._peek() == ("op", ")"):
+                    self._take()  # consume )
+                else:
+                    raise ValueError(f"missing closing paren in {name}()")
+                return self._call_function(name, args)
+            raise ValueError(f"unsupported symbol in expression: {name}")
+        if tok == ("op", "("):
+            self._take()
+            val = self._or()
+            if self._peek() == ("op", ")"):
+                self._take()
+            else:
+                raise ValueError("missing closing parenthesis")
+            return val
+        raise ValueError(f"unexpected token in expression: {tok!r}")
+
+    def _parse_args(self) -> list[float]:
+        args = []
+        if self._peek() == ("op", ")"):
+            return args
+        args.append(self._or())
+        while self._peek() and self._peek()[1] == ",":
+            self._take()
+            args.append(self._or())
+        return args
+
+    def _call_function(self, name: str, args: list[float]) -> float:
+        nl = name.lower()
+        if nl == "ifelse":
+            if len(args) != 3:
+                raise ValueError(f"ifelse expects 3 args, got {len(args)}")
+            return args[1] if args[0] != 0 else args[2]
+        raise ValueError(f"unsupported function in expression: {name}")
+
+
+_RUNTIME_EXPR_FIELDS = {
+    "stateno": "IK_EXPR_FIELD_STATE_NO",
+    "prevstateno": "IK_EXPR_FIELD_PREV_STATE_NO",
+    "time": "IK_EXPR_FIELD_STATE_TIME",
+    "gametime": "IK_EXPR_FIELD_GAME_TIME",
+    "roundstate": "IK_EXPR_FIELD_ROUND_STATE",
+    "power": "IK_EXPR_FIELD_POWER",
+    "life": "IK_EXPR_FIELD_LIFE",
+    "ctrl": "IK_EXPR_FIELD_CTRL",
+    "movecontact": "IK_EXPR_FIELD_MOVE_CONTACT",
+    "movehit": "IK_EXPR_FIELD_MOVE_HIT",
+    "movereversed": "IK_EXPR_FIELD_MOVE_REVERSED",
+    "statetype": "IK_EXPR_FIELD_STATE_TYPE",
+    "movetype": "IK_EXPR_FIELD_MOVE_TYPE",
+    "p2statetype": "IK_EXPR_FIELD_STATE_TYPE",
+    "p2movetype": "IK_EXPR_FIELD_MOVE_TYPE",
+    "frontedgedist": "IK_EXPR_FIELD_FRONT_EDGE_DIST",
+    "anim": "IK_EXPR_FIELD_ANIM_NO",
+    "animelem": "IK_EXPR_FIELD_ANIM_ELEM",
+    "animtime": "IK_EXPR_FIELD_ANIM_TIME",
+    "hitpausetime": "IK_EXPR_FIELD_HIT_PAUSE_TIME",
+    "hitover": "IK_EXPR_FIELD_HIT_OVER",
+    "inguarddist": "IK_EXPR_FIELD_IN_GUARD_DIST",
+    "random": "IK_EXPR_FIELD_RANDOM",
+    "numenemy": "IK_EXPR_FIELD_NUM_ENEMIES",
+    "teamside": "IK_EXPR_FIELD_TEAM_SIDE",
+}
+
+
+class _ExprCompiler(_ExprParser):
+    """Compile the integer/runtime CNS expression subset to postfix bytecode."""
+
+    def __init__(self, text: str, q16: bool = False):
+        super().__init__(text)
+        self.q16 = q16
+
+    def _load_runtime_field(
+        self,
+        field: str,
+        index: int = 0,
+        redirect: str = "IK_EXPR_REDIRECT_SELF",
+    ) -> list[dict]:
+        code = self._load(field, index)
+        if redirect != "IK_EXPR_REDIRECT_SELF":
+            for instruction in code:
+                if instruction.get("op") == "IK_EXPR_LOAD_FIELD":
+                    instruction["redirect"] = redirect
+        if not self.q16 or field == "IK_EXPR_FIELD_FVAR_Q16":
+            return code
+        factor = (256 if field.endswith("_Q8") else 65536)
+        return code + [
+            {"op": "IK_EXPR_PUSH_CONST", "value0": factor},
+            {"op": "IK_EXPR_MUL"},
+        ]
+
+    def parse(self) -> list[dict]:
+        code = self._or()
+        if self._peek() is not None:
+            raise ValueError(f"unexpected token in expression: {self._peek()!r}")
+        return code
+
+    def _or(self) -> list[dict]:
+        code = self._and()
+        while self._peek() and self._peek()[1] == "||":
+            self._take()
+            code += self._and()
+            code.append({"op": "IK_EXPR_OR"})
+        return code
+
+    def _and(self) -> list[dict]:
+        code = self._equality()
+        while self._peek() and self._peek()[1] == "&&":
+            self._take()
+            code += self._equality()
+            code.append({"op": "IK_EXPR_AND"})
+        return code
+
+    def _equality(self) -> list[dict]:
+        code = self._rel()
+        while self._peek() and self._peek()[1] in ("=", "==", "!="):
+            op = self._take()[1]
+            code += self._rel()
+            code.append({"op": "IK_EXPR_NE" if op == "!=" else "IK_EXPR_EQ"})
+        return code
+
+    def _rel(self) -> list[dict]:
+        code = self._add()
+        while self._peek() and self._peek()[1] in (">", "<", ">=", "<="):
+            op = self._take()[1]
+            code += self._add()
+            code.append({"op": {
+                ">": "IK_EXPR_GT", "<": "IK_EXPR_LT",
+                ">=": "IK_EXPR_GE", "<=": "IK_EXPR_LE",
+            }[op]})
+        return code
+
+    def _add(self) -> list[dict]:
+        code = self._mul()
+        while self._peek() and self._peek()[1] in ("+", "-"):
+            op = self._take()[1]
+            code += self._mul()
+            code.append({"op": "IK_EXPR_ADD" if op == "+" else "IK_EXPR_SUB"})
+        return code
+
+    def _mul(self) -> list[dict]:
+        code = self._power()
+        while self._peek() and self._peek()[1] in ("*", "/", "%"):
+            op = self._take()[1]
+            code += self._power()
+            code.append({"op": {
+                "*": "IK_EXPR_MUL_Q16" if self.q16 else "IK_EXPR_MUL",
+                "/": "IK_EXPR_DIV_Q16" if self.q16 else "IK_EXPR_DIV",
+                "%": "IK_EXPR_MOD",
+            }[op]})
+        return code
+
+    def _power(self) -> list[dict]:
+        code = self._unary()
+        if self._peek() and self._peek()[1] == "**":
+            self._take()
+            code += self._power()
+            code.append({"op": "IK_EXPR_POW"})
+        return code
+
+    def _unary(self) -> list[dict]:
+        if self._peek() and self._peek()[1] in ("-", "+", "!"):
+            op = self._take()[1]
+            code = self._unary()
+            if op == "-":
+                code.append({"op": "IK_EXPR_NEG"})
+            elif op == "!":
+                code.append({"op": "IK_EXPR_NOT"})
+            return code
+        return self._primary()
+
+    @staticmethod
+    def _load(field: str, index: int = 0) -> list[dict]:
+        return [{"op": "IK_EXPR_LOAD_FIELD", "field": field,
+                 "value0": index}]
+
+    def _args(self) -> list[list[dict]]:
+        args: list[list[dict]] = []
+        if self._peek() and self._peek()[1] == ")":
+            return args
+        args.append(self._or())
+        while self._peek() and self._peek()[1] == ",":
+            self._take()
+            args.append(self._or())
+        return args
+
+    @staticmethod
+    def _constant_arg(code: list[dict], function: str) -> int:
+        if len(code) != 1 or code[0].get("op") != "IK_EXPR_PUSH_CONST":
+            raise ValueError(f"{function}() index must be a constant integer")
+        return int(code[0]["value0"])
+
+    def _integer_arg(self, code: list[dict], function: str) -> int:
+        value = self._constant_arg(code, function)
+        if self.q16:
+            if value % 65536:
+                raise ValueError(f"{function}() argument must be an integer")
+            value //= 65536
+        return value
+
+    def _primary(self) -> list[dict]:
+        tok = self._peek()
+        if tok is None:
+            raise ValueError("unexpected end of expression")
+        if tok == ("op", "("):
+            self._take()
+            code = self._or()
+            if self._peek() != ("op", ")"):
+                raise ValueError("missing closing parenthesis")
+            self._take()
+            return code
+        if tok[0] == "num":
+            self._take()
+            value = float(tok[1])
+            if not self.q16 and int(value) != value:
+                raise ValueError("runtime CNS expression requires integer constants")
+            scaled = int(round(value * 65536)) if self.q16 else int(value)
+            return [{"op": "IK_EXPR_PUSH_CONST", "value0": scaled}]
+        if tok[0] != "ident":
+            raise ValueError(f"unexpected token in expression: {tok!r}")
+
+        name = self._take()[1]
+        lower = name.lower()
+        redirects = {
+            "p2": "IK_EXPR_REDIRECT_P2",
+            "enemy": "IK_EXPR_REDIRECT_P2",
+            "enemynear": "IK_EXPR_REDIRECT_P2",
+            "parent": "IK_EXPR_REDIRECT_PARENT",
+            "root": "IK_EXPR_REDIRECT_ROOT",
+        }
+        if lower in redirects and self._peek() == ("op", ","):
+            self._take()
+            if self._peek() is None or self._peek()[0] != "ident":
+                raise ValueError(f"missing redirected field after {name},")
+            field_name = self._take()[1]
+            field_lower = field_name.lower()
+            redirect = redirects[lower]
+            if self._peek() == ("op", "("):
+                self._take()
+                args = self._args()
+                if self._peek() != ("op", ")"):
+                    raise ValueError(
+                        f"missing closing parenthesis in {name},{field_name}()")
+                self._take()
+                if field_lower in ("var", "sysvar", "fvar") and len(args) == 1:
+                    index = self._constant_arg(args[0], field_name)
+                    if self.q16:
+                        if index % 65536:
+                            raise ValueError(
+                                f"{field_name}() index must be an integer constant")
+                        index //= 65536
+                    max_count = 60 if field_lower == "var" else 40
+                    if index < 0 or index >= max_count:
+                        raise ValueError(
+                            f"{field_name}({index}) is outside the supported "
+                            f"range 0..{max_count - 1}")
+                    runtime_field = {
+                        "var": "IK_EXPR_FIELD_VAR",
+                        "sysvar": "IK_EXPR_FIELD_SYSVAR",
+                        "fvar": "IK_EXPR_FIELD_FVAR_Q16",
+                    }[field_lower]
+                    return self._load_runtime_field(
+                        runtime_field, index, redirect)
+                if field_lower == "numtarget" and len(args) == 1:
+                    target_id = self._constant_arg(args[0], field_name)
+                    if self.q16:
+                        if target_id % 65536:
+                            raise ValueError(
+                                "NumTarget() id must be an integer constant")
+                        target_id //= 65536
+                    return self._load_runtime_field(
+                        "IK_EXPR_FIELD_NUM_TARGETS", target_id, redirect)
+                if field_lower == "animelemtime" and len(args) == 1:
+                    elem = self._integer_arg(args[0], field_name)
+                    if elem < 1 or elem > 65535:
+                        raise ValueError(
+                            "AnimElemTime() index must be in the range 1..65535")
+                    return self._load_runtime_field(
+                        "IK_EXPR_FIELD_ANIM_ELEM_TIME", elem, redirect)
+                raise ValueError(
+                    f"unsupported redirected function {name},{field_name}()")
+            if field_lower in _RUNTIME_EXPR_FIELDS:
+                return self._load_runtime_field(
+                    _RUNTIME_EXPR_FIELDS[field_lower], redirect=redirect)
+            if field_lower in ("pos", "vel"):
+                axis = self._take()[1].lower()
+                if axis not in ("x", "y"):
+                    raise ValueError(
+                        f"unsupported {name},{field_name} axis {axis!r}")
+                field = {
+                    ("pos", "x"): "IK_EXPR_FIELD_POS_X_Q8",
+                    ("pos", "y"): "IK_EXPR_FIELD_POS_Y_Q8",
+                    ("vel", "x"): "IK_EXPR_FIELD_VEL_X_Q8",
+                    ("vel", "y"): "IK_EXPR_FIELD_VEL_Y_Q8",
+                }[(field_lower, axis)]
+                return self._load_runtime_field(field, redirect=redirect)
+            raise ValueError(
+                f"unsupported redirected symbol in runtime expression: "
+                f"{name},{field_name}")
+        if lower == "gethitvar" and self._peek() == ("op", "("):
+            self._take()
+            argument = self._peek()
+            if argument is None or argument[0] != "ident":
+                raise ValueError("GetHitVar() requires a supported field name")
+            field_name = self._take()[1].casefold()
+            if self._peek() != ("op", ")"):
+                raise ValueError("GetHitVar() takes exactly one field name")
+            self._take()
+            fields = {
+                "animtype": "IK_EXPR_FIELD_GET_HIT_ANIM_TYPE",
+                "groundtype": "IK_EXPR_FIELD_GET_HIT_GROUND_TYPE",
+                "slidetime": "IK_EXPR_FIELD_GET_HIT_SLIDE_TIME",
+                "ctrltime": "IK_EXPR_FIELD_GET_HIT_CTRL_TIME",
+                "xvel": "IK_EXPR_FIELD_GET_HIT_XVEL_Q8",
+                "yvel": "IK_EXPR_FIELD_GET_HIT_YVEL_Q8",
+                "yaccel": "IK_EXPR_FIELD_GET_HIT_YACCEL_Q16",
+                "fall": "IK_EXPR_FIELD_GET_HIT_FALL",
+                "fall.xvel": "IK_EXPR_FIELD_GET_HIT_FALL_XVEL_Q8",
+                "fall.yvel": "IK_EXPR_FIELD_GET_HIT_FALL_YVEL_Q8",
+                "fall.recover": "IK_EXPR_FIELD_GET_HIT_FALL_RECOVER",
+                "isbound": "IK_EXPR_FIELD_GET_HIT_IS_BOUND",
+            }
+            if field_name not in fields:
+                raise ValueError(
+                    f"unsupported GetHitVar field {field_name!r}")
+            return self._load_runtime_field(fields[field_name])
+
+        if self._peek() == ("op", "("):
+            self._take()
+            args = self._args()
+            if self._peek() != ("op", ")"):
+                raise ValueError(f"missing closing parenthesis in {name}()")
+            self._take()
+            if lower == "animelemtime" and len(args) == 1:
+                index = self._integer_arg(args[0], name)
+                if index < 1 or index > 65535:
+                    raise ValueError(
+                        f"{name}() index must be in the range 1..65535")
+                return self._load_runtime_field(
+                    "IK_EXPR_FIELD_ANIM_ELEM_TIME", index)
+            if lower == "animelemno" and len(args) == 1:
+                if self._integer_arg(args[0], name) != 0:
+                    raise ValueError("AnimElemNo currently supports only argument 0")
+                return self._load_runtime_field("IK_EXPR_FIELD_ANIM_ELEM")
+            if lower == "numtarget" and len(args) == 1:
+                target_id = self._integer_arg(args[0], name)
+                return self._load_runtime_field(
+                    "IK_EXPR_FIELD_NUM_TARGETS", target_id)
+            if lower == "abs" and len(args) == 1:
+                return args[0] + [{"op": "IK_EXPR_ABS"}]
+            if lower == "ishelper" and len(args) == 1:
+                helper_id = self._integer_arg(args[0], name)
+                return (
+                    self._load_runtime_field("IK_EXPR_FIELD_ENTITY_TYPE") +
+                    [{"op": "IK_EXPR_PUSH_CONST", "value0": 2},
+                     {"op": "IK_EXPR_EQ"}] +
+                    self._load_runtime_field("IK_EXPR_FIELD_ENTITY_ID") +
+                    [{"op": "IK_EXPR_PUSH_CONST", "value0": helper_id},
+                     {"op": "IK_EXPR_EQ"}, {"op": "IK_EXPR_AND"}]
+                )
+            if lower == "ceil" and len(args) == 1:
+                code = args[0]
+                if any(ins.get("field") == "IK_EXPR_FIELD_FVAR_Q16"
+                       for ins in code):
+                    return code + [{"op": "IK_EXPR_CEIL_Q16"}]
+                return code
+            if lower == "floor" and len(args) == 1:
+                return args[0]
+            if lower == "command" and len(args) == 1:
+                command_id = self._integer_arg(args[0], name)
+                if command_id < 0 or command_id >= 128:
+                    raise ValueError("command() id is outside 0..127")
+                code = [{"op": "IK_EXPR_LOAD_COMMAND", "value0": command_id}]
+                if self.q16:
+                    code.extend([
+                        {"op": "IK_EXPR_PUSH_CONST", "value0": 65536},
+                        {"op": "IK_EXPR_MUL"},
+                    ])
+                return code
+            if lower in ("var", "sysvar", "fvar") and len(args) == 1:
+                index = self._constant_arg(args[0], name)
+                if self.q16:
+                    if index % 65536:
+                        raise ValueError(
+                            f"{name}() index must be an integer constant")
+                    index //= 65536
+                max_count = 60 if lower == "var" else 40
+                if index < 0 or index >= max_count:
+                    raise ValueError(
+                        f"{name}({index}) is outside the supported range 0..{max_count - 1}")
+                field = {
+                    "var": "IK_EXPR_FIELD_VAR",
+                    "sysvar": "IK_EXPR_FIELD_SYSVAR",
+                    "fvar": "IK_EXPR_FIELD_FVAR_Q16",
+                }[lower]
+                return self._load_runtime_field(field, index)
+            if lower == "ifelse" and len(args) == 3:
+                condition, when_true, when_false = args
+                return (when_false + condition + when_true + when_false +
+                        [{"op": "IK_EXPR_SUB"}, {"op": "IK_EXPR_MUL"},
+                         {"op": "IK_EXPR_ADD"}])
+            raise ValueError(f"unsupported function in runtime expression: {name}")
+
+        if lower in ("true", "false"):
+            return [{"op": "IK_EXPR_PUSH_CONST", "value0": int(lower == "true")}]
+        if lower == "numtarget":
+            return self._load_runtime_field("IK_EXPR_FIELD_NUM_TARGETS", -1)
+        if lower in ("p2statetype", "p2movetype"):
+            return self._load_runtime_field(
+                _RUNTIME_EXPR_FIELDS[lower],
+                redirect="IK_EXPR_REDIRECT_P2",
+            )
+        if lower in _RUNTIME_EXPR_FIELDS:
+            return self._load_runtime_field(_RUNTIME_EXPR_FIELDS[lower])
+        if lower == "p2stateno":
+            return self._load_runtime_field(
+                "IK_EXPR_FIELD_STATE_NO",
+                redirect="IK_EXPR_REDIRECT_P2",
+            )
+        if lower in ("pos", "vel"):
+            axis = self._take()[1].lower()
+            if axis not in ("x", "y"):
+                raise ValueError(f"unsupported {name} axis {axis!r}")
+            field = {
+                ("pos", "x"): "IK_EXPR_FIELD_POS_X_Q8",
+                ("pos", "y"): "IK_EXPR_FIELD_POS_Y_Q8",
+                ("vel", "x"): "IK_EXPR_FIELD_VEL_X_Q8",
+                ("vel", "y"): "IK_EXPR_FIELD_VEL_Y_Q8",
+            }[(lower, axis)]
+            return self._load_runtime_field(field)
+        raise ValueError(f"unsupported symbol in runtime expression: {name}")
+
+
+def compile_cns_expr(
+    text: str,
+    q16: bool = False,
+    *,
+    command_ids: dict[str, int] | None = None,
+    localcoord_x: float = 320.0,
+    const_values: dict[str, float] | None = None,
+    self_anims: set[int] | None = None,
+) -> list[dict]:
+    def expand_state_range(match: re.Match[str]) -> str:
+        field, operator, low, high = match.groups()
+        field = field.lower()
+        if operator == "=":
+            return f"(({field}>={low}) && ({field}<={high}))"
+        return f"(({field}<{low}) || ({field}>{high}))"
+
+    normalized = text
+    if self_anims is not None:
+        normalized = expand_dynamic_self_anim_exist(normalized, self_anims)
+    normalized = re.sub(
+        r"\bconst\s*\(\s*([a-z][a-z0-9_.]*)\s*\)",
+        lambda match: str((const_values or {})[match.group(1).casefold()])
+        if match.group(1).casefold() in (const_values or {}) else match.group(0),
+        normalized,
+        flags=re.I,
+    )
+    normalized = re.sub(r"\balive\b", "(life > 0)", normalized, flags=re.I)
+    def const_720p(match: re.Match[str]) -> str:
+        value = float(match.group(1)) * localcoord_x / 1280.0
+        if not q16 and int(value) != value:
+            raise ValueError(
+                f"Const720p({match.group(1)}) is fractional in "
+                f"localcoord.x={localcoord_x:g}; expression needs Q16 context")
+        return str(int(value) if int(value) == value else value)
+
+    normalized = re.sub(
+        r"\bconst720p\s*\(\s*(-?\d+(?:\.\d+)?)\s*\)",
+        const_720p,
+        normalized,
+        flags=re.I,
+    )
+    def command_name(match: re.Match[str]) -> str:
+        name = match.group(2)
+        command_id = (command_ids or {}).get(name.casefold())
+        if command_id is None:
+            raise ValueError(
+                f"command {name!r} has no matching --command-source entry")
+        return f"command({command_id}) {match.group(1)} 1"
+
+    normalized = re.sub(
+        r"\bcommand\s*(=|!=|==)\s*\"([^\"]+)\"",
+        command_name,
+        normalized,
+        flags=re.I,
+    )
+    normalized = re.sub(
+        r"\bfloor\s*\(\s*(\d+)\s*\*\s*ifelse\s*\(\s*"
+        r"(.+?)\s*,\s*(-?\d+(?:\.\d+)?)\s*,\s*"
+        r"(-?\d+(?:\.\d+)?)\s*\)\s*\)",
+        lambda match: f"IfElse({match.group(2)},"
+        f"{int(math.floor(int(match.group(1)) * float(match.group(3))))},"
+        f"{int(math.floor(int(match.group(1)) * float(match.group(4))))})",
+        normalized,
+        flags=re.I,
+    )
+    normalized = re.sub(
+        r"\bceil\s*\(\s*(\d+(?:\.\d+)?)\s*\*\s*"
+        r"(parent|root|p2)\s*,\s*fvar\s*\(\s*(\d+)\s*\)"
+        r"\s*\*\s*(\d+)\s*\)",
+        lambda match: (
+            f"Ceil({match.group(2)},FVar({match.group(3)})*"
+            f"{int(round(float(match.group(1)) * int(match.group(4))))})"
+        ),
+        normalized,
+        flags=re.I,
+    )
+    normalized = re.sub(
+        r"\banimelemno\s*\(\s*0\s*\)\s*(!=|=)\s*"
+        r"\[\s*(-?\d+)\s*,\s*(-?\d+)\s*\]",
+        lambda match: (
+            f"((animelem >= {match.group(2)}) && "
+            f"(animelem <= {match.group(3)}))"
+            if match.group(1) == "=" else
+            f"((animelem < {match.group(2)}) || "
+            f"(animelem > {match.group(3)}))"
+        ),
+        normalized,
+        flags=re.I,
+    )
+    normalized = re.sub(
+        r"\b(p2?stateno|prevstateno|anim)\s*(!=|=)\s*"
+        r"\[\s*(-?\d+)\s*,\s*(-?\d+)\s*\]",
+        expand_state_range,
+        normalized,
+        flags=re.I,
+    )
+    normalized = re.sub(
+        r"\b((?:(?:parent|root|p2)\s*,\s*)?"
+        r"(?:var|sysvar|fvar)\s*\(\s*\d+\s*\))"
+        r"\s*(!=|=)\s*\[\s*(-?\d+)\s*,\s*(-?\d+)\s*\]",
+        lambda match: (
+            f"(({match.group(1)} >= {match.group(3)}) && "
+            f"({match.group(1)} <= {match.group(4)}))"
+            if match.group(2) == "=" else
+            f"(({match.group(1)} < {match.group(3)}) || "
+            f"({match.group(1)} > {match.group(4)}))"
+        ),
+        normalized,
+        flags=re.I,
+    )
+    normalized = re.sub(
+        r"\b(gethitvar\s*\(\s*[a-z][a-z0-9_.]*\s*\))"
+        r"\s*(!=|=)\s*\[\s*(-?\d+)\s*,\s*(-?\d+)\s*\]",
+        lambda match: (
+            f"(({match.group(1)} >= {match.group(3)}) && "
+            f"({match.group(1)} <= {match.group(4)}))"
+            if match.group(2) == "=" else
+            f"(({match.group(1)} < {match.group(3)}) || "
+            f"({match.group(1)} > {match.group(4)}))"
+        ),
+        normalized,
+        flags=re.I,
+    )
+    state_types = {"u": 0, "s": 1, "c": 2, "a": 3, "l": 4}
+    move_types = {"u": 0, "i": 1, "a": 2, "h": 3}
+    for field in ("p2statetype", "statetype"):
+        normalized = re.sub(
+            rf"\b{field}\s*(=|!=)\s*([UCALS])\b",
+            lambda match: f"{field}{match.group(1)}"
+            f"{state_types[match.group(2).lower()]}",
+            normalized,
+            flags=re.I,
+        )
+    for field in ("p2movetype", "movetype"):
+        normalized = re.sub(
+            rf"\b{field}\s*(=|!=)\s*([UIAH])\b",
+            lambda match: f"{field}{match.group(1)}"
+            f"{move_types[match.group(2).lower()]}",
+            normalized,
+            flags=re.I,
+        )
+    normalized = re.sub(
+        r"\banimelem\s*=\s*(\d+)\s*,\s*(<=|<|>=|>|=)\s*(-?\d+)",
+        lambda match: (
+            f"animelemtime({match.group(1)}) "
+            f"{match.group(2)} {match.group(3)}"
+        ),
+        normalized,
+        flags=re.I,
+    )
+    code = _ExprCompiler(normalized, q16=q16).parse()
+    if len(code) > 255:
+        raise ValueError("runtime CNS expression exceeds 255 instructions")
+    return code
+
+def expand_dynamic_self_anim_exist(
+    text: str, self_anims: set[int] | None
+) -> str:
+    """Fold dynamic SelfAnimExist expressions against this character's AIR.
+
+    The runtime only has the current animation number, not the source AIR
+    action table. Expand the two common arithmetic forms into exact boolean
+    expressions so missing actions remain false at runtime.
+    """
+    if self_anims is None:
+        return text
+
+    def terms_for_values(values: set[int], field: str) -> str:
+        if not values:
+            return "0"
+        ordered = sorted(values)
+        ranges: list[tuple[int, int]] = []
+        start = previous = ordered[0]
+        for value in ordered[1:]:
+            if value == previous + 1:
+                previous = value
+                continue
+            ranges.append((start, previous))
+            start = previous = value
+        ranges.append((start, previous))
+        checks = [
+            f"({field}>={low})" if low == high else
+            f"(({field}>={low}) && ({field}<={high}))"
+            for low, high in ranges
+        ]
+        return "(" + " || ".join(checks) + ")"
+
+    def replace(match: re.Match[str]) -> str:
+        negated, expression = match.groups()
+        expression = re.sub(r"\s+", "", expression).casefold()
+        if expression in {"anim", "anim+0"}:
+            result = terms_for_values(self_anims, "anim")
+        else:
+            anim_offset = re.fullmatch(r"anim([+-])(\d+)", expression)
+            hit_offset = re.fullmatch(
+                r"(\d+)\+gethitvar\(animtype\)", expression)
+            if anim_offset:
+                sign, amount = anim_offset.groups()
+                offset = int(amount) * (1 if sign == "+" else -1)
+                result = terms_for_values(
+                    {action - offset for action in self_anims}, "anim")
+            elif hit_offset:
+                base = int(hit_offset.group(1))
+                values = sorted(
+                    hit_type for hit_type in range(0, 16)
+                    if base + hit_type in self_anims)
+                if len(values) > 8:
+                    raise ValueError(
+                        "SelfAnimExist dynamic animtype has too many cases")
+                result = "(" + " || ".join(
+                    f"(gethitvar(animtype)={value})" for value in values
+                ) + ")" if values else "0"
+            else:
+                raise ValueError(
+                    f"unsupported dynamic SelfAnimExist({expression})")
+        return f"!({result})" if negated else result
+
+    return re.sub(
+        r"(!?)\s*SelfAnimExist\s*\(\s*([^()]+)\s*\)",
+        replace,
+        text,
+        flags=re.I,
+    )
