@@ -112,6 +112,22 @@ int ik_character_bundle_get_table(
     return 1;
 }
 
+int ik_character_bundle_get_section(
+    const ik_character_bundle_view_t* view,
+    uint16_t section_id, const void** out_data,
+    uint32_t* out_count, uint32_t* out_bytes
+) {
+    if (!view || !out_data || !out_count || !out_bytes) return 0;
+    const ik_character_bundle_entry_t* entry =
+        find_section(view, section_id);
+    if (!entry) return 0;
+    *out_data = entry->bytes == 0u
+        ? NULL : view->data + entry->offset;
+    *out_count = entry->count;
+    *out_bytes = entry->bytes;
+    return 1;
+}
+
 int ik_character_bundle_bind_cns(
     const ik_character_bundle_view_t* view,
     ik_cns_asset_t* out_cns
@@ -169,5 +185,159 @@ int ik_character_bundle_bind_cns(
 #undef IKCB_BIND_TABLE
 
     *out_cns = result;
+    return 1;
+}
+
+int ik_character_bundle_bind_graphics(
+    const ik_character_bundle_view_t* view,
+    ik_character_bundle_graphics_t* out_graphics,
+    const uint16_t** palette_storage,
+    uint16_t palette_capacity
+) {
+    if (!view || !out_graphics || !palette_storage) return 0;
+    const void* table = NULL;
+    uint32_t frame_count = 0u;
+    uint32_t clsn_count = 0u;
+    uint32_t sprite_count = 0u;
+    uint32_t palette_words = 0u;
+    if (!ik_character_bundle_get_table(
+            view, IK_CHARACTER_BUNDLE_FRAMES, sizeof(ik_frame_t),
+            &table, &frame_count)) return 0;
+    const ik_frame_t* frames = (const ik_frame_t*)table;
+    if (!ik_character_bundle_get_table(
+            view, IK_CHARACTER_BUNDLE_CLSN_BOXES, sizeof(ik_clsn_box_t),
+            &table, &clsn_count)) return 0;
+    const ik_clsn_box_t* clsn = (const ik_clsn_box_t*)table;
+    if (!ik_character_bundle_get_table(
+            view, IK_CHARACTER_BUNDLE_SPRITES, sizeof(ik_sprite_source_t),
+            &table, &sprite_count) || sprite_count > UINT16_MAX) return 0;
+    const ik_sprite_source_t* sprites =
+        (const ik_sprite_source_t*)table;
+    if (!ik_character_bundle_get_table(
+            view, IK_CHARACTER_BUNDLE_PALETTES, sizeof(uint16_t),
+            &table, &palette_words) ||
+        palette_words == 0u || (palette_words % 256u) != 0u) return 0;
+    const uint32_t palette_count = palette_words / 256u;
+    if (palette_count > palette_capacity || palette_count > UINT16_MAX) {
+        return 0;
+    }
+    const uint16_t* palette_data = (const uint16_t*)table;
+    for (uint32_t i = 0u; i < palette_count; ++i) {
+        palette_storage[i] = palette_data + i * 256u;
+    }
+
+    *out_graphics = (ik_character_bundle_graphics_t){
+        .frames = {
+            .frames = frames,
+            .count = frame_count,
+            .clsn_boxes = clsn,
+            .clsn_box_count = clsn_count,
+        },
+        .sprites = sprites,
+        .sprite_count = sprite_count,
+        .palettes = palette_storage,
+        .palette_count = (uint16_t)palette_count,
+    };
+    return 1;
+}
+
+int ik_character_bundle_bind_commands(
+    const ik_character_bundle_view_t* view,
+    ik_command_asset_t* out_commands,
+    ik_cmd_name_t* name_storage,
+    uint16_t name_capacity
+) {
+    if (!view || !out_commands || !name_storage) return 0;
+    const void* table = NULL;
+    uint32_t key_count = 0u;
+    uint32_t step_count = 0u;
+    uint32_t loop_count = 0u;
+    uint32_t pattern_count = 0u;
+    uint32_t name_count = 0u;
+    if (!ik_character_bundle_get_table(
+            view, IK_CHARACTER_BUNDLE_COMMAND_KEYS,
+            sizeof(ik_cmd_key_spec_t), &table, &key_count) ||
+        key_count > UINT16_MAX) return 0;
+    const ik_cmd_key_spec_t* keys = (const ik_cmd_key_spec_t*)table;
+    if (!ik_character_bundle_get_table(
+            view, IK_CHARACTER_BUNDLE_COMMAND_STEPS,
+            sizeof(ik_cmd_step_t), &table, &step_count) ||
+        step_count > UINT16_MAX) return 0;
+    const ik_cmd_step_t* steps = (const ik_cmd_step_t*)table;
+    if (!ik_character_bundle_get_table(
+            view, IK_CHARACTER_BUNDLE_COMMAND_LOOPS, sizeof(uint8_t),
+            &table, &loop_count) || loop_count > UINT16_MAX) return 0;
+    const uint8_t* loops = (const uint8_t*)table;
+    if (!ik_character_bundle_get_table(
+            view, IK_CHARACTER_BUNDLE_COMMAND_PATTERNS,
+            sizeof(ik_cmd_pattern_t), &table, &pattern_count) ||
+        pattern_count > UINT16_MAX) return 0;
+    const ik_cmd_pattern_t* patterns = (const ik_cmd_pattern_t*)table;
+
+    uint32_t refs_bytes = 0u;
+    if (!ik_character_bundle_get_section(
+            view, IK_CHARACTER_BUNDLE_COMMAND_NAMES,
+            &table, &name_count, &refs_bytes) ||
+        name_count > name_capacity || name_count > IK_CMD_MAX_NAMES ||
+        refs_bytes != name_count * 8u) return 0;
+    const uint8_t* refs = (const uint8_t*)table;
+    uint32_t strings_count = 0u;
+    uint32_t strings_bytes = 0u;
+    if (!ik_character_bundle_get_section(
+            view, IK_CHARACTER_BUNDLE_COMMAND_STRINGS,
+            &table, &strings_count, &strings_bytes) ||
+        strings_bytes == 0u || strings_count != strings_bytes) return 0;
+    const char* strings = (const char*)table;
+    for (uint32_t i = 0u; i < name_count; ++i) {
+        const uint8_t* record = refs + i * 8u;
+        const uint32_t name_offset = read_be32(record);
+        if (name_offset >= strings_bytes) return 0;
+        uint32_t end = name_offset;
+        while (end < strings_bytes && strings[end] != '\0') ++end;
+        if (end == strings_bytes) return 0;
+        name_storage[i].name = strings + name_offset;
+        name_storage[i].pattern_ofs = read_be16(record + 4u);
+        name_storage[i].pattern_count = record[6u];
+        name_storage[i].reserved = record[7u];
+    }
+
+    *out_commands = (ik_command_asset_t){
+        .keys = keys,
+        .key_count = (uint16_t)key_count,
+        .steps = steps,
+        .step_count = (uint16_t)step_count,
+        .loop_order = loops,
+        .loop_count = (uint16_t)loop_count,
+        .patterns = patterns,
+        .pattern_count = (uint16_t)pattern_count,
+        .names = name_storage,
+        .name_count = (uint16_t)name_count,
+    };
+    return 1;
+}
+
+int ik_character_bundle_bind_state_rules(
+    const ik_character_bundle_view_t* view,
+    ik_state_rule_asset_t* out_state_rules
+) {
+    if (!view || !out_state_rules) return 0;
+    const void* table = NULL;
+    uint32_t instruction_count = 0u;
+    uint32_t rule_count = 0u;
+    if (!ik_character_bundle_get_table(
+            view, IK_CHARACTER_BUNDLE_STATE_RULE_CODE,
+            sizeof(ik_state_rule_instr_t), &table, &instruction_count) ||
+        instruction_count > UINT16_MAX) return 0;
+    const ik_state_rule_instr_t* instructions =
+        (const ik_state_rule_instr_t*)table;
+    if (!ik_character_bundle_get_table(
+            view, IK_CHARACTER_BUNDLE_STATE_RULES, sizeof(ik_state_rule_t),
+            &table, &rule_count) || rule_count > UINT16_MAX) return 0;
+    *out_state_rules = (ik_state_rule_asset_t){
+        .instructions = instructions,
+        .instruction_count = (uint16_t)instruction_count,
+        .rules = (const ik_state_rule_t*)table,
+        .rule_count = (uint16_t)rule_count,
+    };
     return 1;
 }
