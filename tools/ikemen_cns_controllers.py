@@ -44,6 +44,7 @@ def compile_runtime_controller(
     no_hit_by_attr_mask = services['no_hit_by_attr_mask']
     no_hit_by_state_mask = services['no_hit_by_state_mask']
     number = services['number']
+    number_or_runtime_expr = services['number_or_runtime_expr']
     pair = services['pair']
     pair_runtime_expr = services['pair_runtime_expr']
     q16 = services['q16']
@@ -649,8 +650,10 @@ def compile_runtime_controller(
         }
 
     if ctype == "posset":
-        x = number(ctrl.get("x"), 0)
-        y = number(ctrl.get("y"), 0)
+        x, x_expr = number_or_runtime_expr(ctrl.get("x"), 0)
+        y, y_expr = number_or_runtime_expr(ctrl.get("y"), 0)
+        ctrl.runtime_value0_expr = x_expr
+        ctrl.runtime_value1_expr = y_expr
         axis: list[str] = []
         if ctrl.get("x") is not None:
             axis.append("IK_CNS_CTRL_AXIS_X")
@@ -662,8 +665,8 @@ def compile_runtime_controller(
             "trigger_kind": trig_kind,
             "trigger_value": trig_value,
             "trigger_value2": trig_value2,
-            "value0": q8(x),
-            "value1": q8(y),
+            "value0": q8(x, wide=True),
+            "value1": q8(y, wide=True),
             "flags": " | ".join(axis + flags) if axis or flags else "0u",
         }
 

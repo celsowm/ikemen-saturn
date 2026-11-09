@@ -99,6 +99,11 @@ def emit(
                     CONST_VALUES[f"velocity.{key.split('.')[0].casefold()}.y"] = values[1]
                 if key.casefold() == "runjump.fwd" and len(values) > 1:
                     CONST_VALUES["velocity.runjump.y"] = values[1]
+            if (section_name == "movement" and
+                    key.casefold() == "down.bounce.offset"):
+                CONST_VALUES[f"{prefix}.x"] = values[0]
+                if len(values) > 1:
+                    CONST_VALUES[f"{prefix}.y"] = values[1]
     coordinate_scale = 320.0 / LOCALCOORD_X
     CONST_VALUES.setdefault(
         "movement.stand.friction.threshold",
@@ -161,6 +166,12 @@ def emit(
     CONST_VALUES.setdefault(
         "movement.down.bounce.groundlevel",
         const["down_bounce_groundlevel_q8"] / Q8)
+    CONST_VALUES.setdefault(
+        "movement.down.bounce.offset.x",
+        const["down_bounce_offset_x_q8"] / Q8)
+    CONST_VALUES.setdefault(
+        "movement.down.bounce.offset.y",
+        const["down_bounce_offset_y_q8"] / Q8)
     # Only strict, source-checked ZSS states are admitted. Every other P2
     # state deliberately keeps its original classic-CNS compatibility path.
     zss_overrides = {}
