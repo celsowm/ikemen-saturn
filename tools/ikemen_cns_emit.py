@@ -80,6 +80,7 @@ def emit_cns_source_files(
                     intern_expression(hit.pop(f"_{key}_expr", None))
         for field in (
             "damage", "guard_damage", "pause_p1", "pause_p2",
+            "mindist_x", "mindist_y", "maxdist_x", "maxdist_y",
             "ground_slide_time", "ground_hit_time", "air_hit_time",
             "guard_hit_time", "guard_slide_time", "guard_ctrl_time",
             "spark_x", "spark_y", "trigger2_spark_y",
@@ -232,6 +233,14 @@ def emit_cns_source_files(
         f"{h.get('mindist_x_q8', 0)}, {h.get('mindist_y_q8', 0)}, "
         f"{h.get('maxdist_x_q8', 0)}, {h.get('maxdist_y_q8', 0)}, "
         f"{h.get('dist_flags', 0)}u, "
+        f"{h.get('mindist_x_expr_ofs', 0)}u, "
+        f"{h.get('mindist_y_expr_ofs', 0)}u, "
+        f"{h.get('maxdist_x_expr_ofs', 0)}u, "
+        f"{h.get('maxdist_y_expr_ofs', 0)}u, "
+        f"{h.get('mindist_x_expr_count', 0)}u, "
+        f"{h.get('mindist_y_expr_count', 0)}u, "
+        f"{h.get('maxdist_x_expr_count', 0)}u, "
+        f"{h.get('maxdist_y_expr_count', 0)}u, "
         f"{h.get('get_power_hit_expr_ofs', 0)}u, "
         f"{h.get('get_power_guard_expr_ofs', 0)}u, "
         f"{h.get('give_power_hit_expr_ofs', 0)}u, "

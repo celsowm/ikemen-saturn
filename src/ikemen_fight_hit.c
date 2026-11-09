@@ -238,7 +238,7 @@ void ikf_apply_guard(ik_fight_t* fight, int victim,
     a->move_contact = 1u;
     a->move_contact_time = fight->ko_split_clocks ? 1u : 0u;
     ikf_credit_hit_power(fight, a, v, hitdef, 1);
-    ikf_hit_snap(a, v, hitdef, 1);
+    ikf_hit_snap(fight, a, cns_for_fighter(fight, a), v, hitdef, 1);
     a->target_index = (int8_t)victim;
     a->target_id = hitdef->id;
     a->hitdef_target = (int8_t)victim;
@@ -343,7 +343,7 @@ void ikf_apply_throw(ik_fight_t* fight, int attacker,
     a->move_contact = 1u;
     a->move_contact_time = fight->ko_split_clocks ? 1u : 0u;
     ikf_credit_hit_power(fight, a, v, hitdef, 0);
-    ikf_hit_snap(a, v, hitdef, 0);
+    ikf_hit_snap(fight, a, cns_for_fighter(fight, a), v, hitdef, 0);
     ikf_record_hit(a, (uint8_t)victim);
 
     if (hitdef->p1_facing != 0) {
@@ -822,7 +822,7 @@ void ikf_apply_damage(ik_fight_t* fight, int victim,
     if (!victim_was_dead) {
         ikf_credit_hit_power(fight, a, v, hitdef, 0);
     }
-    ikf_hit_snap(a, v, hitdef, 0);
+    ikf_hit_snap(fight, a, cns_for_fighter(fight, a), v, hitdef, 0);
     ikf_record_hit(a, (uint8_t)victim);
 
     if (!airborne && !downed &&

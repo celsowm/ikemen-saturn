@@ -437,7 +437,8 @@ void ikf_auto_turn(ik_fight_t* fight, ik_fighter_t* f);
 void ikf_turn_before_change(ik_fight_t* fight, ik_fighter_t* f);
 
 /* The victim offset HitDef mindist/maxdist/snap asks for. */
-void ikf_hit_snap(const ik_fighter_t* attacker, ik_fighter_t* victim,
+void ikf_hit_snap(const ik_fight_t* fight, const ik_fighter_t* attacker,
+                  const ik_cns_asset_t* attacker_cns, ik_fighter_t* victim,
                   const ik_cns_hitdef_t* hitdef, int guarded);
 void ikf_credit_hit_power(
     const ik_fight_t* fight,

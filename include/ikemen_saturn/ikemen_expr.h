@@ -118,6 +118,7 @@ typedef enum ik_expr_op {
     IK_EXPR_NEG,
     IK_EXPR_POW,
     IK_EXPR_CEIL_Q16,
+    IK_EXPR_FLOOR_Q16,
     IK_EXPR_MUL_Q16,
     IK_EXPR_DIV_Q16,
     IK_EXPR_ABS,

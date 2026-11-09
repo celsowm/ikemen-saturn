@@ -536,6 +536,14 @@ typedef struct ik_cns_hitdef {
     int16_t maxdist_x_q8;
     int16_t maxdist_y_q8;
     uint8_t dist_flags;
+    uint16_t mindist_x_expr_ofs;
+    uint16_t mindist_y_expr_ofs;
+    uint16_t maxdist_x_expr_ofs;
+    uint16_t maxdist_y_expr_ofs;
+    uint8_t mindist_x_expr_count;
+    uint8_t mindist_y_expr_count;
+    uint8_t maxdist_x_expr_count;
+    uint8_t maxdist_y_expr_count;
     uint16_t get_power_hit_expr_ofs;
     uint16_t get_power_guard_expr_ofs;
     uint16_t give_power_hit_expr_ofs;

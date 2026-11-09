@@ -1,6 +1,8 @@
 /* Hit eligibility: target attributes, chains, juggle, guard threat. */
 #include "ikemen_fight_internal.h"
 
+#include <limits.h>
+
 void ikf_advance_projectile_query_times(
     ik_fight_t* fight
 ) {
@@ -386,10 +388,42 @@ int ikf_can_guard_hit(const ik_fight_t* fight,
 /* Power a connecting HitDef earns: its defaults are 70% of the damage for the
  * attacker (nothing for hypers) and 60% for the victim, halved when guarded.
  * It lands on the next tick, like upstream's mhv/ghv power. */
-void ikf_hit_snap(const ik_fighter_t* attacker, ik_fighter_t* victim,
+static int16_t hit_snap_distance_expr(
+    const ik_fight_t* fight,
+    const ik_fighter_t* attacker,
+    const ik_cns_asset_t* cns,
+    uint16_t offset,
+    uint8_t count,
+    int16_t fallback
+) {
+    int32_t value = 0;
+    if (!count || !ikf_eval_cns_expr(
+            fight, attacker, cns, offset, count, &value)) {
+        return fallback;
+    }
+    value /= 256;
+    if (value < INT16_MIN) return INT16_MIN;
+    if (value > INT16_MAX) return INT16_MAX;
+    return (int16_t)value;
+}
+
+void ikf_hit_snap(const ik_fight_t* fight, const ik_fighter_t* attacker,
+                  const ik_cns_asset_t* attacker_cns, ik_fighter_t* victim,
                   const ik_cns_hitdef_t* hitdef, int guarded) {
     victim->snap_flags = 0u;
     if (hitdef->dist_flags == 0u) return;
+    const int16_t mindist_x_q8 = hit_snap_distance_expr(
+        fight, attacker, attacker_cns, hitdef->mindist_x_expr_ofs,
+        hitdef->mindist_x_expr_count, hitdef->mindist_x_q8);
+    const int16_t mindist_y_q8 = hit_snap_distance_expr(
+        fight, attacker, attacker_cns, hitdef->mindist_y_expr_ofs,
+        hitdef->mindist_y_expr_count, hitdef->mindist_y_q8);
+    const int16_t maxdist_x_q8 = hit_snap_distance_expr(
+        fight, attacker, attacker_cns, hitdef->maxdist_x_expr_ofs,
+        hitdef->maxdist_x_expr_count, hitdef->maxdist_x_q8);
+    const int16_t maxdist_y_q8 = hit_snap_distance_expr(
+        fight, attacker, attacker_cns, hitdef->maxdist_y_expr_ofs,
+        hitdef->maxdist_y_expr_count, hitdef->maxdist_y_q8);
     const int32_t by_x = attacker->x_q8;
     const int32_t by_y = attacker->y_q8;
     const int32_t vx = victim->x_q8;
@@ -399,25 +433,25 @@ void ikf_hit_snap(const ik_fighter_t* attacker, ik_fighter_t* victim,
     int32_t snap_x = 0, snap_y = 0;
 
     if (hitdef->dist_flags & 1u) {
-        const int32_t limit = left ? by_x - hitdef->mindist_x_q8
-                                   : by_x + hitdef->mindist_x_q8;
+        const int32_t limit = left ? by_x - mindist_x_q8
+                                   : by_x + mindist_x_q8;
         if (left ? vx > limit : vx < limit) { snap_x = limit; have_x = 1; }
     }
     if (hitdef->dist_flags & 4u) {
-        const int32_t limit = left ? by_x - hitdef->maxdist_x_q8
-                                   : by_x + hitdef->maxdist_x_q8;
+        const int32_t limit = left ? by_x - maxdist_x_q8
+                                   : by_x + maxdist_x_q8;
         if (left ? vx < limit : vx > limit) { snap_x = limit; have_x = 1; }
     }
     /* Vertical limits only apply to a hit, or to a guarded airborne victim. */
     if (!guarded || victim->cur_state_type == IK_CNS_STATE_AIR) {
         if ((hitdef->dist_flags & 2u) &&
-            vy < by_y + hitdef->mindist_y_q8) {
-            snap_y = by_y + hitdef->mindist_y_q8;
+            vy < by_y + mindist_y_q8) {
+            snap_y = by_y + mindist_y_q8;
             have_y = 1;
         }
         if ((hitdef->dist_flags & 8u) &&
-            vy > by_y + hitdef->maxdist_y_q8) {
-            snap_y = by_y + hitdef->maxdist_y_q8;
+            vy > by_y + maxdist_y_q8) {
+            snap_y = by_y + maxdist_y_q8;
             have_y = 1;
         }
     }

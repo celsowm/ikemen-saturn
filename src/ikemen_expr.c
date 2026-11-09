@@ -24,6 +24,13 @@ static int unary(int32_t* stack, uint8_t sp, uint8_t op) {
                 : value / 65536;
             return 1;
         }
+        case IK_EXPR_FLOOR_Q16: {
+            const int32_t value = stack[sp - 1u];
+            int32_t integer = value / 65536;
+            if (value < 0 && value % 65536 != 0) --integer;
+            stack[sp - 1u] = integer * 65536;
+            return 1;
+        }
         case IK_EXPR_TRUNC_Q16:
             stack[sp - 1u] /= 65536;
             return 1;
@@ -190,6 +197,7 @@ int ik_expr_eval(
                 break;
 
             case IK_EXPR_CEIL_Q16:
+            case IK_EXPR_FLOOR_Q16:
             case IK_EXPR_TRUNC_Q16:
             case IK_EXPR_TRUNC_Q8:
             case IK_EXPR_ABS:

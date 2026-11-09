@@ -297,7 +297,11 @@ def dist_fields(ctrl: Section) -> dict:
         parts = [p for p in _split_top_level(text) if p]
         for name in names:
             for axis, part in zip("xy", parts):
-                out[f"{name}dist_{axis}_q8"] = q8(number(part))
+                value, expression = number_or_runtime_expr(part, 0)
+                field = f"{name}dist_{axis}"
+                out[f"{field}_q8"] = q8(value)
+                if expression is not None:
+                    out[f"_{field}_expr"] = expression
                 out["dist_flags"] |= {
                     ("min", "x"): 1, ("min", "y"): 2,
                     ("max", "x"): 4, ("max", "y"): 8}[(name, axis)]

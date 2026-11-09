@@ -733,6 +733,8 @@ class _ExprCompiler(_ExprParser):
                     return code + [{"op": "IK_EXPR_CEIL_Q16"}]
                 return code
             if lower == "floor" and len(args) == 1:
+                if self.q16:
+                    return args[0] + [{"op": "IK_EXPR_FLOOR_Q16"}]
                 return args[0]
             if lower == "command" and len(args) == 1:
                 command_id = self._integer_arg(args[0], name)
