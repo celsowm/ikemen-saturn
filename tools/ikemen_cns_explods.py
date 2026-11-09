@@ -9,6 +9,13 @@ except ImportError:  # direct `python tools/ikemen_cns.py` invocation
     from ikemen_cns_parse import Section
 
 
+def _explod_scale_q8(value: float, q8) -> int:
+    # Large authored scales are full-screen overlay sentinels. Keep them
+    # representable; the renderer bounds the resulting rectangle.
+    bounded = max(-128.0, min(32767 / 256.0, float(value)))
+    return q8(bounded)
+
+
 def compile_explod_controller(
     state_no: int,
     ctrl: Section,
@@ -109,6 +116,7 @@ def compile_explod_controller(
     alpha_src, _alpha_dst, alpha_src_expr, _alpha_dst_expr = pair_runtime_expr(
         ctrl.get("alpha"), 256, 256)
     alpha_value = max(0, min(255, int(round(float(alpha_src) * 255.0 / 256.0))))
+
     if ctrl.get("supermovetime") is not None:
         super_move_time = max(0, integer(ctrl.get("supermovetime"), 0))
     else:
@@ -170,8 +178,8 @@ def compile_explod_controller(
             ctrl.get("removeonchangestate"), 0),
         "facing": facing,
         "vfacing": 1 if integer(ctrl.get("vfacing"), 1) >= 0 else -1,
-        "scale_x_q8": q8(sx),
-        "scale_y_q8": q8(sy),
+        "scale_x_q8": _explod_scale_q8(sx, q8),
+        "scale_y_q8": _explod_scale_q8(sy, q8),
         "trans_mode": trans_map[trans_text],
         "alpha": alpha_value,
         "under": 1 if integer(ctrl.get("under"), 0) else 0,
