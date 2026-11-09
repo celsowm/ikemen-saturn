@@ -241,10 +241,12 @@ void ikf_configure_fight_entity_runtime(
 ) {
     if (!fight || !runtime) return;
     runtime->game_time = fight->frame;
-    runtime->command_active[0][0] = fight->fighters[0].command_active[0];
-    runtime->command_active[0][1] = fight->fighters[0].command_active[1];
-    runtime->command_active[1][0] = fight->fighters[1].command_active[0];
-    runtime->command_active[1][1] = fight->fighters[1].command_active[1];
+    for (uint8_t player = 0u; player < 2u; ++player) {
+        for (uint8_t word = 0u; word < IK_CMD_MAX_NAMES / 64u; ++word) {
+            runtime->command_active[player][word] =
+                fight->fighters[player].command_active[word];
+        }
+    }
     ik_entity_runtime_set_player_cns(
         runtime, 0u, cns_for_owner(fight, 0u));
     ik_entity_runtime_set_player_cns(

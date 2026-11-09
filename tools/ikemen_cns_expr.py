@@ -890,8 +890,8 @@ class _ExprCompiler(_ExprParser):
                 return args[0]
             if lower == "command" and len(args) == 1:
                 command_id = self._integer_arg(args[0], name)
-                if command_id < 0 or command_id >= 128:
-                    raise ValueError("command() id is outside 0..127")
+                if command_id < 0 or command_id >= 192:
+                    raise ValueError("command() id is outside 0..191")
                 code = [{"op": "IK_EXPR_LOAD_COMMAND", "value0": command_id}]
                 if self.q16:
                     code.extend([

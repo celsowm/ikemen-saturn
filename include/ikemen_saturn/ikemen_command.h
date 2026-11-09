@@ -13,7 +13,7 @@ extern "C" {
 
 #define IK_CMD_INVALID_ID 0xFFFFu
 #define IK_CMD_MAX_PATTERNS 256u
-#define IK_CMD_MAX_NAMES 128u
+#define IK_CMD_MAX_NAMES 192u
 #define IK_CMD_MAX_STEPS_PER_PATTERN 64u
 
 typedef enum ik_cmd_key {

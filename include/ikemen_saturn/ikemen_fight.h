@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 #include "ikemen_anim.h"
+#include "ikemen_command.h"
 #include "ikemen_cns.h"
 #include "ikemen_entity.h"
 
@@ -244,7 +245,7 @@ typedef struct ik_fighter {
     int8_t active_hitdef_local;
     int16_t active_hitdef_global;
     uint8_t active_hitdef_secondary;
-    uint64_t command_active[2];
+    uint64_t command_active[IK_CMD_MAX_NAMES / 64u];
     uint8_t pos_freeze_x;
     uint8_t pos_freeze_y;
     uint8_t pause_fired;

@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 #include "ikemen_anim.h"
+#include "ikemen_command.h"
 #include "ikemen_cns.h"
 #include "ikemen_entity.h"
 
@@ -24,7 +25,7 @@ typedef struct ik_entity_runtime {
     const ik_cns_asset_t* player_cns[2];
     const ik_frame_table_t* frames[3];
     uint16_t command_masks[2];
-    uint64_t command_active[2][2];
+    uint64_t command_active[2][IK_CMD_MAX_NAMES / 64u];
     uint32_t game_time;
     uint32_t explod_random_sequence;
     int16_t stage_min_x;

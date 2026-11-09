@@ -238,10 +238,12 @@ static void sync_expression_commands(
 ) {
     if (!ctx || !fight || player >= 2u) return;
     ik_fighter_t* fighter = &fight->fighters[player];
-    fighter->command_active[0] = 0u;
-    fighter->command_active[1] = 0u;
+    for (uint16_t word = 0u; word < IK_CMD_MAX_NAMES / 64u; ++word) {
+        fighter->command_active[word] = 0u;
+    }
     const ik_command_asset_t* commands = ctx->characters[player].commands;
-    for (uint16_t id = 0u; commands && id < commands->name_count && id < 128u; ++id) {
+    for (uint16_t id = 0u; commands && id < commands->name_count &&
+         id < IK_CMD_MAX_NAMES; ++id) {
         if (ik_command_active(&ctx->command_states[player], commands, id)) {
             fighter->command_active[id / 64u] |= UINT64_C(1) << (id % 64u);
         }

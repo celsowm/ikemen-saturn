@@ -1,4 +1,5 @@
 #include "ikemen_saturn/ikemen_entity_runtime.h"
+#include "ikemen_saturn/ikemen_command.h"
 
 typedef struct ik_entity_runtime_expr_binding {
     const ik_entity_runtime_t* runtime;
@@ -90,7 +91,7 @@ static int runtime_expr_read_field(
 static int runtime_expr_read_command(
     void* user, uint16_t command_id, int32_t* out_value
 ) {
-    if (!user || !out_value || command_id >= 128u) return 0;
+    if (!user || !out_value || command_id >= IK_CMD_MAX_NAMES) return 0;
     const ik_entity_runtime_expr_binding_t* binding =
         (const ik_entity_runtime_expr_binding_t*)user;
     const ik_entity_t* entity = ik_entity_get_const(

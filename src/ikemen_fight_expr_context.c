@@ -583,7 +583,7 @@ static int ikf_expr_read_field(
 static int ikf_expr_read_command(
     void* user, uint16_t command_id, int32_t* out_value
 ) {
-    if (!user || !out_value || command_id >= 128u) return 0;
+    if (!user || !out_value || command_id >= IK_CMD_MAX_NAMES) return 0;
     const ikf_expr_binding_t* binding =
         (const ikf_expr_binding_t*)user;
     const ik_fighter_t* fighter = binding->fighter;

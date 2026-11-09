@@ -54,8 +54,8 @@ def main(argv: list[str] | None = None, *, services: dict) -> int:
             key = command.casefold()
             if key not in COMMAND_IDS:
                 COMMAND_IDS[key] = len(COMMAND_IDS)
-    if len(COMMAND_IDS) > 128:
-        raise ValueError("CNS command table exceeds the 128-name expression limit")
+    if len(COMMAND_IDS) > 192:
+        raise ValueError("CNS command table exceeds the 192-name runtime limit")
 
     globals_dict["LOCALCOORD_X"] = 320.0
     globals_dict["CHARACTER_NAME_HASH"] = 0
