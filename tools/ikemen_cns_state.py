@@ -365,6 +365,14 @@ def compile_state(
                         ).strip().lower(),
                         "IK_CNS_GROUND_NORMAL",
                     ),
+                    "air_type": GROUND_TYPE.get(
+                        (
+                            ctrl.get("air.type")
+                            or ctrl.get("ground.type", "normal")
+                            or "normal"
+                        ).strip().lower(),
+                        "IK_CNS_GROUND_NORMAL",
+                    ),
                     "ground_slide_time": ground_slide_time,
                     "ground_hit_time": ground_hit_time,
                     "air_hit_time": air_hit_time,

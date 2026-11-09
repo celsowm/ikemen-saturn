@@ -347,6 +347,7 @@ void ikf_apply_damage(ik_fight_t* fight, int victim,
     v->gethit_yaccel_q8 = hitdef->yaccel_q8;
     v->gethit_yaccel_q16 = hitdef->yaccel_q16;
     v->gethit_ground_type = hitdef->ground_type;
+    v->gethit_air_type = hitdef->air_type;
     /* A liedown victim launched by down.velocity always enters the fall
      * graph so it returns to a downed state on landing. down.bounce only
      * controls whether state 5100 receives a non-zero fall Y velocity and

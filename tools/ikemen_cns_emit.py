@@ -349,7 +349,8 @@ def emit_cns_source_files(
         f"{h.get('no_chain_id2_expr_ofs', 0)}u, "
         f"{h.get('no_chain_id2_expr_count', 0)}u, "
         f"{h.get('p1_spr_priority_expr_ofs', 0)}u, "
-        f"{h.get('p1_spr_priority_expr_count', 0)}u"
+        f"{h.get('p1_spr_priority_expr_count', 0)}u, "
+        f"{h.get('air_type', 'IK_CNS_GROUND_NORMAL')}"
         "},"
         for h in hitdefs
     ]

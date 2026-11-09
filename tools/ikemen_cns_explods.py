@@ -26,6 +26,7 @@ def compile_explod_controller(
         "velocity", "velset", "accel", "space",
         "removetime", "sprpriority", "persistent", "ignorehitpause",
         "ownpal", "pausemovetime", "supermovetime", "bindtime",
+        "pausemove",
         "removeongethit", "removeonchangestate", "facing", "vfacing",
         "face", "scale", "trans", "alpha", "under", "ontop",
         "unhittable", "shadow",
@@ -132,7 +133,8 @@ def compile_explod_controller(
         "spr_priority": integer(ctrl.get("sprpriority"), 0),
         "postype": postype,
         "ownpal": integer(ctrl.get("ownpal"), int(use_fightfx)),
-        "pause_move_time": max(0, integer(ctrl.get("pausemovetime"), 0)),
+        "pause_move_time": max(0, integer(
+            ctrl.get("pausemovetime", ctrl.get("pausemove")), 0)),
         "super_move_time": super_move_time,
         "bind_time": integer(ctrl.get("bindtime"), 0),
         "remove_on_gethit": integer(ctrl.get("removeongethit"), 0),

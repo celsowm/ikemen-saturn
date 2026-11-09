@@ -97,7 +97,8 @@ typedef enum ik_expr_field {
     IK_EXPR_FIELD_GET_HIT_CHAIN_ID,
     IK_EXPR_FIELD_HIT_SHAKE_OVER,
     IK_EXPR_FIELD_CAN_RECOVER,
-    IK_EXPR_FIELD_FRONT_EDGE_BODY_DIST
+    IK_EXPR_FIELD_FRONT_EDGE_BODY_DIST,
+    IK_EXPR_FIELD_GET_HIT_AIR_TYPE
 } ik_expr_field_t;
 
 typedef enum ik_expr_op {

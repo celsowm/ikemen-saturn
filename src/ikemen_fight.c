@@ -53,6 +53,7 @@ static void fighter_spawn(ik_fight_t* fight, ik_fighter_t* f,
     f->gethit_vy_q8 = 0;
     f->gethit_yaccel_q8 = 0;
     f->gethit_ground_type = IK_CNS_GROUND_NORMAL;
+    f->gethit_air_type = IK_CNS_GROUND_NORMAL;
     f->gethit_anim_type = 0u;
     f->gethit_fall = 0u;
     f->gethit_fall_x_q8 = 0;

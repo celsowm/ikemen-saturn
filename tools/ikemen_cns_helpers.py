@@ -22,7 +22,8 @@ def compile_helper_controller(
     supported_keys = {
         "type", "helpertype", "postype", "ownpal", "stateno", "name",
         "keyctrl", "id", "pos", "facing", "ignorehitpause",
-        "pausemovetime", "supermovetime", "persistent", "sprpriority",
+        "pausemovetime", "pausemove", "supermovetime", "persistent",
+        "sprpriority",
     }
     for key, _ in ctrl.values:
         lowered = key.strip().lower()
@@ -68,7 +69,8 @@ def compile_helper_controller(
         # semantics instead of truncating the source integer (99999 -> 159).
         "keyctrl": int(integer(ctrl.get("keyctrl"), 0) != 0),
         "ownpal": int(integer(ctrl.get("ownpal"), 0) != 0),
-        "pause_move_time": max(0, integer(ctrl.get("pausemovetime"), 0)),
+        "pause_move_time": max(0, integer(
+            ctrl.get("pausemovetime", ctrl.get("pausemove")), 0)),
         "super_move_time": max(0, integer(ctrl.get("supermovetime"), 0)),
     }
     controller = {

@@ -265,6 +265,8 @@ typedef struct ik_fighter {
     uint8_t owner_player;
     uint8_t state_owner;
     uint8_t anim_owner;
+    /* Appended for compatibility with existing fighter struct layouts. */
+    uint8_t gethit_air_type;
 } ik_fighter_t;
 
 /* Stage [Camera]/[PlayerInfo]/[Bound] values the fight needs, in stage

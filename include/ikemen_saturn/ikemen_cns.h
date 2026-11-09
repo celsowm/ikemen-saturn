@@ -665,6 +665,8 @@ typedef struct ik_cns_hitdef {
     uint8_t no_chain_id2_expr_count;
     uint16_t p1_spr_priority_expr_ofs;
     uint8_t p1_spr_priority_expr_count;
+    /* Appended for source compatibility with positional HitDef initializers. */
+    uint8_t air_type;
 } ik_cns_hitdef_t;
 
 typedef struct ik_cns_reversaldef {

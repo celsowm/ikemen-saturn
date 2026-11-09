@@ -123,6 +123,13 @@ def _projectile_hitdef_row(
         "ground_type": GROUND_TYPE.get(
             (ctrl.get("ground.type", "normal") or "normal").strip().lower(),
             "IK_CNS_GROUND_NORMAL"),
+        "air_type": GROUND_TYPE.get(
+            (
+                ctrl.get("air.type")
+                or ctrl.get("ground.type", "normal")
+                or "normal"
+            ).strip().lower(),
+            "IK_CNS_GROUND_NORMAL"),
         "ground_slide_time": integer(ctrl.get("ground.slidetime"), 0),
         "ground_hit_time": integer(ctrl.get("ground.hittime"), 0),
         "air_hit_time": integer(

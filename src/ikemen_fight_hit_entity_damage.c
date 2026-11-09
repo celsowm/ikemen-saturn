@@ -268,6 +268,7 @@ void ikf_apply_damage_from_entity(
     v->gethit_yaccel_q8 = hitdef->yaccel_q8;
     v->gethit_yaccel_q16 = hitdef->yaccel_q16;
     v->gethit_ground_type = hitdef->ground_type;
+    v->gethit_air_type = hitdef->air_type;
     v->gethit_fall = (uint8_t)(
         ((hitdef->flags & IK_CNS_HITDEF_FALL) != 0u) ||
         (airborne &&

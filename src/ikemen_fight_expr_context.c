@@ -444,6 +444,9 @@ static int ikf_expr_read_field(
             case IK_EXPR_FIELD_GET_HIT_GROUND_TYPE:
                 *out_value = f->gethit_ground_type;
                 return 1;
+            case IK_EXPR_FIELD_GET_HIT_AIR_TYPE:
+                *out_value = f->gethit_air_type;
+                return 1;
             case IK_EXPR_FIELD_GET_HIT_SLIDE_TIME:
                 *out_value = f->hit_slide_time;
                 return 1;
