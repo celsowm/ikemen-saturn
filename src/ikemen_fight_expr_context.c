@@ -312,7 +312,8 @@ static int ikf_expr_read_field(
         return 1;
     }
     if (redirect == IK_EXPR_REDIRECT_SELF &&
-        field == IK_EXPR_FIELD_FRONT_EDGE_DIST && binding->fighter) {
+        (field == IK_EXPR_FIELD_FRONT_EDGE_DIST ||
+         field == IK_EXPR_FIELD_FRONT_EDGE_BODY_DIST) && binding->fighter) {
         const ik_fighter_t* f = binding->fighter;
         const int32_t front_dist = f->facing > 0
             ? f->xmax_q8 - f->x_q8
@@ -467,6 +468,10 @@ static int ikf_expr_read_field(
                 return 1;
             case IK_EXPR_FIELD_HIT_SHAKE_OVER:
                 *out_value = f->hit_shake_time == 0u;
+                return 1;
+            case IK_EXPR_FIELD_CAN_RECOVER:
+                *out_value = f->gethit_fall_recover != 0u &&
+                    f->fall_time >= f->gethit_fall_recover_time;
                 return 1;
             case IK_EXPR_FIELD_IN_GUARD_DIST:
                 *out_value = f->in_guard_dist != 0u;

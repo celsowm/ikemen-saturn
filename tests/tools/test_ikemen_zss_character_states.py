@@ -15,6 +15,17 @@ from tools.ikemen_zss_character_states import (
     compile_zss_overrides,
     zss_row_patch,
 )  # noqa: E402
+from tools import ikemen_cns as _cns  # noqa: E402
+
+# This direct fixture bypasses the CLI's CMD loader; provide the command names
+# used by the verified ZSS/CNS states so their grouped trigger bytecode can be
+# checked with the same command table shape as a real character build.
+_cns.COMMAND_IDS.update({
+    name: index for index, name in enumerate((
+        "holdback", "holdfwd", "a", "b", "recovery", "blocking",
+        "holddown",
+    ))
+})
 
 folder = ROOT / ".external" / "Ikemen-GO-Screenpack" / "chars" / "kfm_zss"
 character = folder / "kfm.zss"
@@ -111,7 +122,8 @@ for number, (state, controllers) in overrides.items():
         assert len(controls) == 6 and row["unsupported_controllers"] == []
         if number == 1071:
             cancel = next(c for c in controls if c["type"] == "IK_CNS_CTRL_CHANGE_STATE" and c["value0"] == 1075)
-            assert cancel["trigger_kind"] == "IK_CNS_TRIGGER_COMMAND_ANY_VY_LT_Q8_AFTER_ENTRY"
+            assert cancel["trigger_kind"] == "IK_CNS_TRIGGER_ALWAYS"
+            assert cancel["trigger_expr"]
         assert all(not values for values in rest)
         continue
     if number in (1400, 1410, 1420):

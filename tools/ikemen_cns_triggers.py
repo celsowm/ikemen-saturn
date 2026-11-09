@@ -496,7 +496,48 @@ def compile_controller_trigger(
                 parsed[1],
             )
 
-    return simple_trigger(ctrl)
+    # The compact trigger enum stores one predicate only. TriggerAll, repeated
+    # lines in a group, and additional triggerN groups need the expression
+    # bytecode path so their AND/OR semantics are retained. Run specialized
+    # multi-line patterns above first; they lower exact known conjunctions.
+    if controller_requires_runtime_expr(ctrl):
+        ctrl.runtime_trigger_expr = services[
+            "compile_controller_trigger_expr"](ctrl)
+        return "IK_CNS_TRIGGER_ALWAYS", 0, 0
+
+    try:
+        result = simple_trigger(ctrl)
+    except ValueError:
+        ctrl.runtime_trigger_expr = services[
+            "compile_controller_trigger_expr"](ctrl)
+        return "IK_CNS_TRIGGER_ALWAYS", 0, 0
+    if result[0] == "IK_CNS_TRIGGER_ALWAYS":
+        texts = [
+            expr.strip().casefold()
+            for index in range(1, 9)
+            for expr in ctrl.all(f"trigger{index}")
+        ]
+        if texts and any(text not in {"1", "1.0", "true"} for text in texts):
+            ctrl.runtime_trigger_expr = services[
+                "compile_controller_trigger_expr"](ctrl)
+    return result
+
+
+def controller_requires_runtime_expr(ctrl: Section) -> bool:
+    if ctrl.all("triggerall"):
+        return True
+    if move_contact_window(ctrl.all("trigger1")) is not None:
+        return False
+    groups = [
+        ctrl.all(f"trigger{index}")
+        for index in range(1, 9)
+    ]
+    present = [index for index, group in enumerate(groups, start=1) if group]
+    return (
+        len(present) != 1 or
+        present[0] != 1 or
+        len(groups[0]) != 1
+    )
 
 
 def compile_simple_trigger(
@@ -564,7 +605,11 @@ def compile_simple_trigger(
     if STRICT_CONVERSION:
         raise ValueError(message)
     import sys
-    print(f"[WARN] {message}; using compatibility fallback", file=sys.stderr)
+    print(
+        f"[INFO] [{section.name}] no compact trigger opcode for {expr!r}; "
+        "trying runtime expression bytecode",
+        file=sys.stderr,
+    )
     return "IK_CNS_TRIGGER_ALWAYS", 0, 0
 
 

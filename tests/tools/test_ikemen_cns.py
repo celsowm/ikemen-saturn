@@ -1427,6 +1427,10 @@ with tempfile.TemporaryDirectory() as td:
     common = root / "common1.cns.zss"
     source.write_text(SOURCE, encoding="utf-8")
     common.write_text(COMMON, encoding="utf-8")
+    from tools import ikemen_cns as _cns
+    _cns.COMMAND_IDS.update({
+        "recovery": 0, "a": 1, "b": 2, "holdfwd": 3,
+    })
     report = emit(
         source, [200,1234,800,810,820,821,1000,1010,1020,1025,1026,1027,1028,1050,1051,1052,1055,1056,1060,1061,1100,1110,1120,1200,1210,1220], root / "kfm_cns", "kfm",
         common, [0,10,11,12,20,40,45,50,51,52,100,105,106,
@@ -2420,9 +2424,10 @@ assert palm_far["p2_body_dist_x"] == 40
 palm1000_ctrls = [
     c for c in report["controllers"] if c["state_number"] == 1000
 ]
-assert palm1000_ctrls[1]["trigger_kind"] == "IK_CNS_TRIGGER_ANIM_ELEM_MASK"
-assert palm1000_ctrls[1]["trigger_value"] == (1 << 2) | (1 << 12)  # elems 3, 13
-assert palm1000_ctrls[1]["trigger_value2"] == 0
+# Duplicate trigger1 lines are ANDed, so these distinct AnimElem predicates
+# cannot be flattened into the OR mask used for triggerN alternatives.
+assert palm1000_ctrls[1]["trigger_kind"] == "IK_CNS_TRIGGER_ALWAYS"
+assert palm1000_ctrls[1]["trigger_expr_count"] > 0
 
 palm1010_ctrls = [
     c for c in report["controllers"] if c["state_number"] == 1010
@@ -2470,8 +2475,8 @@ no_scroll = next(
     c for c in report["controllers"]
     if c["state_number"] == 1026 and c["type"] == "IK_CNS_CTRL_SCREEN_BOUND"
 )
-assert no_scroll["trigger_kind"] == "IK_CNS_TRIGGER_AIR_NEAR_BODY_EDGE_LT"
-assert no_scroll["trigger_value2"] == 65
+assert no_scroll["trigger_kind"] == "IK_CNS_TRIGGER_ALWAYS"
+assert no_scroll["trigger_expr_count"] > 0
 state1026_ctrls = [
     c for c in report["controllers"] if c["state_number"] == 1026
 ]
@@ -2486,9 +2491,8 @@ wall_branch = next(
     c for c in state1026_ctrls
     if c["type"] == "IK_CNS_CTRL_CHANGE_STATE"
 )
-assert wall_branch["trigger_kind"] == "IK_CNS_TRIGGER_AIR_NEAR_BODY_EDGE"
-assert wall_branch["trigger_value"] == -15 * 256
-assert wall_branch["trigger_value2"] == 20
+assert wall_branch["trigger_kind"] == "IK_CNS_TRIGGER_ALWAYS"
+assert wall_branch["trigger_expr_count"] > 0
 assert wall_branch["value0"] == 1027
 
 assert source_rows[1027]["anim"] == -1
@@ -2545,9 +2549,8 @@ knee1051 = [
     c for c in report["controllers"] if c["state_number"] == 1051
 ]
 kick_branch = next(c for c in knee1051 if c["value0"] == 1055)
-assert kick_branch["trigger_kind"] == "IK_CNS_TRIGGER_COMMAND_ANY_VY_LT_Q8"
-assert kick_branch["trigger_value"] == (1 << 5) | (1 << 6)
-assert kick_branch["trigger_value2"] == -256
+assert kick_branch["trigger_kind"] == "IK_CNS_TRIGGER_ALWAYS"
+assert kick_branch["trigger_expr_count"] > 0
 land_branch = next(c for c in knee1051 if c["value0"] == 1052)
 assert land_branch["trigger_kind"] == "IK_CNS_TRIGGER_VY_GT_Q8_AT_LEVEL"
 assert land_branch["trigger_value"] == -10 * 256
@@ -2846,12 +2849,10 @@ assert "IK_CNS_ATTR_NORMAL_THROW" in str(invuln3000[0]["value0"])
 steps3000 = next(
     c for c in super3000 if c["type"] == "IK_CNS_CTRL_POS_ADD"
 )
-assert steps3000["trigger_kind"] == "IK_CNS_TRIGGER_ANIM_ELEM_MASK"
+assert steps3000["trigger_kind"] == "IK_CNS_TRIGGER_ALWAYS"
 # trigger4 lists AnimElem = 19 and AnimElem = 31: one AND group that can
 # never hold, so neither element fires (upstream agrees).
-mask3000 = (1 << 2) | (1 << 10) | (1 << 12) | (1 << 20)
-assert (steps3000["trigger_value"] & 0xffff) == (mask3000 & 0xffff)
-assert (steps3000["trigger_value2"] & 0xffff) == ((mask3000 >> 16) & 0xffff)
+assert steps3000["trigger_expr_count"] > 0
 super3050 = [
     c for c in super_report["controllers"]
     if c["state_number"] == 3050
@@ -2893,10 +2894,8 @@ zankou_1400 = [
     if c["state_number"] == 1400
 ]
 step1400 = next(c for c in zankou_1400 if c["type"] == "IK_CNS_CTRL_POS_ADD")
-assert step1400["trigger_kind"] == "IK_CNS_TRIGGER_ANIM_ELEM_MASK"
-assert step1400["trigger_value"] == (
-    (1 << (2 - 1)) | (1 << (3 - 1)) | (1 << (4 - 1))
-)
+assert step1400["trigger_kind"] == "IK_CNS_TRIGGER_ALWAYS"
+assert step1400["trigger_expr_count"] > 0
 zankou_1420 = [
     c for c in zankou_report["controllers"]
     if c["state_number"] == 1420
@@ -3098,6 +3097,42 @@ getpower = ifelse(Var(23)>0,0,42),ifelse(Var(23)>0,0,42)
     generated_dynamic_c = (
         dynamic_root / "dynamic_power.c").read_text(encoding="utf-8")
     assert "dynamic_test_expressions[" in generated_dynamic_c
+
+# Unsupported runtime triggers must defer the controller rather than turn it
+# into an unconditional action in permissive conversion mode.
+with tempfile.TemporaryDirectory() as unsafe_dir:
+    unsafe_root = Path(unsafe_dir)
+    unsafe_source = unsafe_root / "unsafe_trigger.cns"
+    unsafe_source.write_text("""[Statedef 200]
+type = S
+movetype = A
+physics = S
+anim = 200
+
+[State 200, Unsafe VarSet]
+type = VarSet
+trigger1 = UnsupportedTrigger()
+var(0) = 1
+
+[State 200, Unsafe PlaySnd]
+type = PlaySnd
+trigger1 = UnsupportedTrigger()
+value = 1, 1
+
+[State 200, Unsafe Explod]
+type = Explod
+trigger1 = UnsupportedTrigger()
+anim = 10
+""", encoding="utf-8")
+    unsafe_report = _cns.emit(
+        unsafe_source, [200], unsafe_root / "unsafe_trigger", "unsafe_test")
+    unsafe_state = unsafe_report["states"][0]
+    assert unsafe_state["unsupported_controllers"] == [
+        "explod", "playsnd", "varset",
+    ]
+    assert unsafe_state["controller_count"] == 0
+    assert unsafe_state["playsnd_count"] == 0
+
 # An omitted guard value is half the hit value, truncated toward zero.
 assert _cns.power_fields(Section("h", [("getpower", "-5")]))[
     "get_power_guard"] == -2
@@ -3133,16 +3168,25 @@ assert _env_color["type"] == "IK_CNS_CTRL_ENV_COLOR"
 assert (_env_color["value0"], _env_color["value1"],
         _env_color["value2"], _env_color["value3"]) == (0xFF8000, -1, 1, 1)
 
-_bound = compile_runtime_controller(1026, Section("sb", [
+_random_explod = compile_explod_controller(0, Section("random explod", [
+    ("type", "Explod"), ("trigger1", "1"),
+    ("anim", "10"), ("random", "5,-2"),
+]), 0)
+assert _random_explod is not None
+assert (_random_explod[1]["random_x_q8"],
+        _random_explod[1]["random_y_q8"]) == (5 * 256, -2 * 256)
+
+_bound_section = Section("sb", [
     ("type", "ScreenBound"),
     ("triggerall", "Pos y < -15"),
     ("trigger1", "BackEdgeBodyDist < 65"),
     ("trigger2", "FrontEdgeBodyDist < 65"),
     ("value", "1"), ("movecamera", "0,1"),
-]))
+])
+_bound = compile_runtime_controller(1026, _bound_section)
 assert _bound["type"] == "IK_CNS_CTRL_SCREEN_BOUND"
-assert _bound["trigger_kind"] == "IK_CNS_TRIGGER_AIR_NEAR_BODY_EDGE_LT"
-assert _bound["trigger_value2"] == 65
+assert _bound["trigger_kind"] == "IK_CNS_TRIGGER_ALWAYS"
+assert _bound_section.runtime_trigger_expr is not None
 assert (_bound["value0"], _bound["value1"], _bound["value2"],
         _bound["value3"]) == (1, 0, 1, 3)
 
@@ -3212,10 +3256,10 @@ try:
 
     try:
         controller_trigger(Section("unsafe", [
-            ("type", "PosAdd"), ("trigger1", "var(1) = 2"), ("x", "1"),
+            ("type", "PosAdd"), ("trigger1", "var(60) = 2"), ("x", "1"),
         ]), "posadd")
     except ValueError as exc:
-        assert "will not replace it with an always-true trigger" in str(exc)
+        assert "outside the supported range" in str(exc)
     else:
         raise AssertionError("unsupported CNS trigger was silently treated as true")
 finally:

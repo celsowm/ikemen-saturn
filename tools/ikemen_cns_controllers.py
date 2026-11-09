@@ -21,6 +21,7 @@ def compile_runtime_controller(
     _split_top_level = services['_split_top_level']
     compile_cns_expr = services['compile_cns_expr']
     compile_controller_trigger_expr = services['compile_controller_trigger_expr']
+    controller_requires_runtime_expr = services['controller_requires_runtime_expr']
     controller_trigger = services['controller_trigger']
     eval_int = services['eval_int']
     integer = services['integer']
@@ -80,6 +81,8 @@ def compile_runtime_controller(
     ctrl.runtime_value0_expr = None
     ctrl.runtime_value1_expr = None
     try:
+        if controller_requires_runtime_expr(ctrl):
+            raise ValueError("combined controller trigger expression")
         trig_kind, trig_value, trig_value2 = controller_trigger(ctrl, ctype)
     except ValueError:
         ctrl.runtime_trigger_expr = compile_controller_trigger_expr(ctrl)
@@ -98,6 +101,10 @@ def compile_runtime_controller(
             except ValueError:
                 if STRICT_CONVERSION:
                     raise
+                # A trigger we cannot represent must never become an
+                # unconditional controller. The caller records this
+                # controller as deferred when None is returned.
+                return None
 
     flags: list[str] = []
     if integer(ctrl.get("ignorehitpause"), 0):
@@ -1486,7 +1493,7 @@ def compile_explod_controller(
     pair = services['pair']
     q8 = services['q8']
     supported_keys = {
-        "type", "anim", "id", "supermove", "postype", "pos", "vel",
+        "type", "anim", "id", "supermove", "postype", "pos", "random", "vel",
         "velocity", "velset", "accel", "space",
         "removetime", "sprpriority", "persistent", "ignorehitpause",
         "ownpal", "pausemovetime", "supermovetime", "bindtime",

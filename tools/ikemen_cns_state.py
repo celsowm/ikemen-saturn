@@ -39,6 +39,8 @@ def compile_state(
     compile_modify_projectile_controller = services['compile_modify_projectile_controller']
     compile_projectile_controller = services['compile_projectile_controller']
     compile_runtime_controller = services['compile_runtime_controller']
+    compile_controller_trigger_expr = services['compile_controller_trigger_expr']
+    controller_requires_runtime_expr = services['controller_requires_runtime_expr']
     dist_fields = services['dist_fields']
     dynamic_power_add_expr = services['dynamic_power_add_expr']
     eval_int = services['eval_int']
@@ -117,6 +119,26 @@ def compile_state(
                 break
         controller["trigger_aux"] = selector
         return controller
+
+    def attach_runtime_trigger_expression(
+        controller: dict,
+        section: Section,
+    ) -> bool:
+        expression = getattr(section, "runtime_trigger_expr", None)
+        if expression is None and not controller_requires_runtime_expr(section):
+            return True
+        try:
+            if expression is None:
+                expression = compile_controller_trigger_expr(section)
+        except ValueError:
+            if STRICT_CONVERSION:
+                raise
+            return False
+        controller["trigger_expr"] = expression
+        controller["trigger_kind"] = "IK_CNS_TRIGGER_ALWAYS"
+        controller["trigger_value"] = 0
+        controller["trigger_value2"] = 0
+        return True
 
     for ctrl in state.controllers:
         folded = fold_self_anim_exist(ctrl)
@@ -585,12 +607,23 @@ def compile_state(
                         )
                         trig_kind, trig_value, _ = simple_trigger(probe)
                         trigger_expr = None
+                        if (trig_kind == "IK_CNS_TRIGGER_ALWAYS" and
+                                trigger_exprs[0].strip().casefold() not in
+                                {"1", "1.0", "true"}):
+                            trigger_expr = compile_cns_expr(
+                                trigger_exprs[0], q16=True)
                     else:
                         raise ValueError("combined trigger expression")
                 except ValueError:
                     expression_text = " && ".join(trigger_exprs) or "1"
-                    trigger_expr = compile_cns_expr(
-                        expression_text, q16=True)
+                    try:
+                        trigger_expr = compile_cns_expr(
+                            expression_text, q16=True)
+                    except ValueError:
+                        if STRICT_CONVERSION:
+                            raise
+                        unsupported.append(ctype)
+                        continue
                     trig_kind, trig_value = "IK_CNS_TRIGGER_ALWAYS", 0
                 sounds.append(
                     {
@@ -605,6 +638,17 @@ def compile_state(
                     }
                 )
             if not has_trigger_group:
+                try:
+                    trigger_expr = (
+                        compile_cns_expr(
+                            " && ".join(triggerall), q16=True)
+                        if triggerall else None
+                    )
+                except ValueError:
+                    if STRICT_CONVERSION:
+                        raise
+                    unsupported.append(ctype)
+                    continue
                 sounds.append({
                     "state_number": state.number,
                     "trigger_kind": "IK_CNS_TRIGGER_ALWAYS",
@@ -613,11 +657,7 @@ def compile_state(
                     "item": item,
                     "_group_expr": group_expr,
                     "_item_expr": item_expr,
-                    "_trigger_expr": (
-                        compile_cns_expr(
-                            " && ".join(triggerall), q16=True)
-                        if triggerall else None
-                    ),
+                    "_trigger_expr": trigger_expr,
                 })
 
         elif ctype == "helper":
@@ -629,10 +669,13 @@ def compile_state(
                 compiled_helper = None
             if compiled_helper is not None:
                 controller, helper = compiled_helper
-                controllers.append(
-                    attach_target_query_selector(controller, ctrl)
-                )
-                helpers.append(helper)
+                if attach_runtime_trigger_expression(controller, ctrl):
+                    controllers.append(
+                        attach_target_query_selector(controller, ctrl)
+                    )
+                    helpers.append(helper)
+                else:
+                    unsupported.append(ctype)
             else:
                 unsupported.append(ctype)
 
@@ -645,10 +688,13 @@ def compile_state(
                 compiled_explod = None
             if compiled_explod is not None:
                 controller, explod = compiled_explod
-                controllers.append(
-                    attach_target_query_selector(controller, ctrl)
-                )
-                explods.append(explod)
+                if attach_runtime_trigger_expression(controller, ctrl):
+                    controllers.append(
+                        attach_target_query_selector(controller, ctrl)
+                    )
+                    explods.append(explod)
+                else:
+                    unsupported.append(ctype)
             else:
                 unsupported.append(ctype)
 
@@ -666,11 +712,14 @@ def compile_state(
                 compiled_projectile = None
             if compiled_projectile is not None:
                 controller, projectile, projectile_hitdef = compiled_projectile
-                controllers.append(
-                    attach_target_query_selector(controller, ctrl)
-                )
-                projectiles.append(projectile)
-                projectile_hitdefs.append(projectile_hitdef)
+                if attach_runtime_trigger_expression(controller, ctrl):
+                    controllers.append(
+                        attach_target_query_selector(controller, ctrl)
+                    )
+                    projectiles.append(projectile)
+                    projectile_hitdefs.append(projectile_hitdef)
+                else:
+                    unsupported.append(ctype)
             else:
                 unsupported.append(ctype)
 
@@ -685,10 +734,13 @@ def compile_state(
                 compiled_mod = None
             if compiled_mod is not None:
                 controller, projectile_mod = compiled_mod
-                controllers.append(
-                    attach_target_query_selector(controller, ctrl)
-                )
-                projectile_mods.append(projectile_mod)
+                if attach_runtime_trigger_expression(controller, ctrl):
+                    controllers.append(
+                        attach_target_query_selector(controller, ctrl)
+                    )
+                    projectile_mods.append(projectile_mod)
+                else:
+                    unsupported.append(ctype)
             else:
                 unsupported.append(ctype)
 

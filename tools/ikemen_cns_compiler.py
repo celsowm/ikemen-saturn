@@ -218,6 +218,10 @@ def controller_trigger(
         ctrl, ctype, services=globals())
 
 
+def controller_requires_runtime_expr(ctrl: Section) -> bool:
+    return _cns_triggers.controller_requires_runtime_expr(ctrl)
+
+
 def constants(globals_: dict[str, Section]) -> dict[str, int]:
     return _cns_character.compile_character_constants(
         globals_, services=globals())
