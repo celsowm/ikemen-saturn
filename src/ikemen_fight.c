@@ -30,6 +30,7 @@ static void fighter_spawn(ik_fight_t* fight, ik_fighter_t* f,
     f->ctrl = 1;
     f->spr_priority = 0;
     f->hp = (int16_t)hp;
+    f->attack_mul_q16 = 65536;
     f->pending_damage = 0;
     f->power = 0;
     f->hitstun = 0;

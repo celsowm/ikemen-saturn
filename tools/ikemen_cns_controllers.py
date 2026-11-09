@@ -66,6 +66,7 @@ def compile_runtime_controller(
         "varadd",
         "varrandom",
         "lifeadd",
+        "attackmulset",
         "hitfalldamage",
         "hitfallset",
         "fallenvshake",
@@ -303,6 +304,30 @@ def compile_runtime_controller(
             # LifeAdd's absolute switch has no numeric effect yet.
             "value1": int(integer(ctrl.get("absolute"), 0) != 0),
             "value2": int(integer(ctrl.get("kill"), 1) != 0),
+            "flags": flag_expr(),
+        }
+
+    if ctype == "attackmulset":
+        allowed = {
+            "type", "trigger1", "trigger2", "trigger3", "trigger4",
+            "trigger5", "trigger6", "trigger7", "trigger8", "triggerall",
+            "value", "damage", "ignorehitpause", "persistent",
+        }
+        if any(key.strip().casefold() not in allowed for key, _ in ctrl.values):
+            return None
+        if ctrl.get("value") is not None and ctrl.get("damage") is not None:
+            return None
+        value_text = ctrl.get("value") or ctrl.get("damage") or "1"
+        value, value_expr = number_or_runtime_expr(value_text, 1.0)
+        ctrl.runtime_value0_expr = value_expr
+        return {
+            "state_number": state_no,
+            "type": "IK_CNS_CTRL_ATTACK_MUL_SET",
+            "trigger_kind": trig_kind,
+            "trigger_value": trig_value,
+            "trigger_value2": trig_value2,
+            "value0": q16(value),
+            "value1": 0,
             "flags": flag_expr(),
         }
 

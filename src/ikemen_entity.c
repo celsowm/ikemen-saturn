@@ -103,9 +103,11 @@ int ik_entity_spawn(
     entity->state_owner = owner_player;
     entity->anim_owner = owner_player;
     entity->id = id;
+    entity->attack_mul_q16 = 65536;
     entity->parent = ik_entity_invalid_handle();
     entity->root = ik_entity_invalid_handle();
     entity->target = ik_entity_invalid_handle();
+    entity->projectile_parent_attack_mul_q16 = 65536;
     for (uint8_t target_i = 0u;
          target_i < IK_ENTITY_TARGET_CAPACITY; ++target_i) {
         entity->targets[target_i] = ik_entity_invalid_handle();

@@ -149,6 +149,8 @@ typedef struct ik_fighter {
     uint8_t up_latched;
 
     int16_t hp;
+    /* Q16.16 AttackMulSet value applied to subsequent hit/guard contacts. */
+    int32_t attack_mul_q16;
     /* Damage dealt this tick; upstream lowers life when the victim next
      * acts, one tick after the hit. */
     int16_t pending_damage;

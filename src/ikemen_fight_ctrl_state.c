@@ -51,6 +51,11 @@ int ikf_ctrl_apply_state(const ik_ctrl_exec_t* x) {
             break;
         }
 
+        case IK_CNS_CTRL_ATTACK_MUL_SET:
+            f->attack_mul_q16 = ctrl->value0_expr_count
+                ? ctrl->value4 : ctrl->value0;
+            break;
+
         case IK_CNS_CTRL_HIT_FALL_SET:
             if ((ctrl->value3 & IK_CNS_HIT_FALL_SET_VALUE) != 0) {
                 f->gethit_fall = (uint8_t)(ctrl->value0 != 0);

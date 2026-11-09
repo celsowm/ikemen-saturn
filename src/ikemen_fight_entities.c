@@ -53,6 +53,7 @@ void ikf_sync_fighter_entity(
     entity->anim_time = fighter->anim_time;
     entity->life = fighter->hp;
     entity->power = fighter->power;
+    entity->attack_mul_q16 = fighter->attack_mul_q16;
     entity->push_back = fighter->push_back;
     entity->push_front = fighter->push_front;
     entity->facing = fighter->facing;

@@ -55,6 +55,8 @@ typedef struct ik_entity {
     uint8_t anim_owner;
     int32_t id;
     uint32_t name_hash;
+    /* Q16.16 attack multiplier for helper-owned HitDefs. */
+    int32_t attack_mul_q16;
 
     ik_entity_handle_t parent;
     ik_entity_handle_t root;
@@ -107,6 +109,8 @@ typedef struct ik_entity {
     int16_t projectile_velmul_y_q8;
     int16_t projectile_bind_time;
     int32_t projectile_parent_state_no;
+    /* Projectile snapshot of its owner's AttackMulSet damage multiplier. */
+    int32_t projectile_parent_attack_mul_q16;
     ik_entity_handle_t projectile_bind_anchor;
     int32_t projectile_bind_x_q8;
     int32_t projectile_bind_y_q8;

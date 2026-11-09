@@ -1,6 +1,21 @@
 #ifndef IKEMEN_FIGHT_HIT_VALUES_H
 #define IKEMEN_FIGHT_HIT_VALUES_H
 
+static inline int32_t ikf_scale_attack_damage(
+    int32_t damage,
+    int32_t attack_mul_q16
+) {
+    if (damage == 0 || attack_mul_q16 == 65536) return damage;
+    const int64_t product = (int64_t)damage * attack_mul_q16;
+    const int64_t rounded = product >= 0
+        ? (product + 32768) / 65536
+        : (product - 32768) / 65536;
+    if (rounded > INT32_MAX) return INT32_MAX;
+    if (rounded < INT32_MIN) return INT32_MIN;
+    if (damage > 0 && rounded == 0 && attack_mul_q16 > 0) return 1;
+    return (int32_t)rounded;
+}
+
 static inline uint8_t eval_fighter_time_expr(
     const ik_fight_t* fight,
     const ik_fighter_t* fighter,

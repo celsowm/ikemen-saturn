@@ -60,6 +60,12 @@ int ikf_ctrl_apply_spawn(const ik_ctrl_exec_t* x) {
                 &runtime, ikf_fighter_entity_handle(fight, f),
                 &state_cns->projectiles[ctrl->value0],
                 &spawned);
+            ik_entity_t* projectile =
+                ik_entity_get(fight->entities, spawned);
+            if (projectile && projectile->type == IK_ENTITY_PROJECTILE) {
+                projectile->projectile_parent_attack_mul_q16 =
+                    f->attack_mul_q16;
+            }
             break;
         }
 

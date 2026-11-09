@@ -1,6 +1,7 @@
 /* Resolve helper/projectile HitDef damage and get-hit state metadata. */
 #include "ikemen_fight_internal.h"
 #include "ikemen_fight_entity_hit_internal.h"
+#include "ikemen_fight_hit_values.h"
 
 void ikf_apply_damage_from_entity(
     ik_fight_t* fight,
@@ -248,6 +249,10 @@ void ikf_apply_damage_from_entity(
         attacker->prev_state_no == hitdef->alt_damage_prev_state) {
         damage = hitdef->alt_damage;
     }
+    const int32_t attack_mul_q16 = attacker->type == IK_ENTITY_PROJECTILE
+        ? attacker->projectile_parent_attack_mul_q16
+        : attacker->attack_mul_q16;
+    damage = ikf_scale_attack_damage(damage, attack_mul_q16);
 
     int pending_damage = v->pending_damage + damage;
     if (((v->assert_controller_flags & IK_CNS_ASSERT_NO_KO) != 0u ||

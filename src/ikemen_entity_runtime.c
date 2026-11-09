@@ -840,6 +840,7 @@ int ik_entity_runtime_spawn_projectile_spec(
     entity->super_move_time = projectile->super_move_time;
     entity->projectile_bind_time = projectile->bind_time;
     entity->projectile_parent_state_no = parent->state_no;
+    entity->projectile_parent_attack_mul_q16 = parent->attack_mul_q16;
     entity->projectile_bind_anchor = base_handle;
     entity->projectile_bind_x_q8 = projectile->pos_x_q8;
     entity->projectile_bind_y_q8 = projectile->pos_y_q8;
@@ -1026,7 +1027,8 @@ static int process_controllers(
                 evaluated_ctrl.value6 = value;
             } else if (ctrl->type == IK_CNS_CTRL_CHANGE_ANIM ||
                        ctrl->type == IK_CNS_CTRL_LIFE_ADD ||
-                       ctrl->type == IK_CNS_CTRL_HIT_FALL_SET) {
+                       ctrl->type == IK_CNS_CTRL_HIT_FALL_SET ||
+                       ctrl->type == IK_CNS_CTRL_ATTACK_MUL_SET) {
                 evaluated_ctrl.value0 = value;
                 evaluated_ctrl.value4 = value;
             } else {
@@ -1110,6 +1112,11 @@ static int process_controllers(
                 entity->life = (int16_t)life;
                 break;
             }
+
+            case IK_CNS_CTRL_ATTACK_MUL_SET:
+                entity->attack_mul_q16 = ctrl->value0_expr_count
+                    ? ctrl->value4 : ctrl->value0;
+                break;
 
             case IK_CNS_CTRL_VAR_SET:
                 if (ctrl->value0 >= 0 &&

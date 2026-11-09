@@ -1,6 +1,7 @@
 /* Resolve guard and throw contacts from helper/projectile owners. */
 #include "ikemen_fight_internal.h"
 #include "ikemen_fight_entity_hit_internal.h"
+#include "ikemen_fight_hit_values.h"
 
 void ikf_apply_guard_from_entity(
     ik_fight_t* fight,
@@ -69,7 +70,12 @@ void ikf_apply_guard_from_entity(
 
     int guard_ko = 0;
     if (hitdef->guard_damage > 0) {
-        v->hp = (int16_t)(v->hp - hitdef->guard_damage);
+        const int32_t attack_mul_q16 = attacker->type == IK_ENTITY_PROJECTILE
+            ? attacker->projectile_parent_attack_mul_q16
+            : attacker->attack_mul_q16;
+        const int32_t damage = ikf_scale_attack_damage(
+            hitdef->guard_damage, attack_mul_q16);
+        v->hp = (int16_t)(v->hp - damage);
         if (v->hp <= 0) {
             if (hitdef->guard_kill &&
                 (v->assert_controller_flags & IK_CNS_ASSERT_NO_KO) == 0u &&
