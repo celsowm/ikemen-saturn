@@ -482,6 +482,9 @@ int ik_entity_expr_read_field(
     const ik_entity_t* entity =
         ik_entity_get_const(binding->pool, redirected);
     if (!self || !entity) return 0;
+    const ik_entity_t* query_root =
+        ik_entity_get_const(binding->pool, entity->root);
+    if (!query_root) query_root = entity;
 
     switch ((ik_expr_field_t)field) {
         case IK_EXPR_FIELD_STATE_NO:
@@ -587,22 +590,22 @@ int ik_entity_expr_read_field(
             return 1;
         }
         case IK_EXPR_FIELD_PROJ_CONTACT:
-            *out_value = entity->proj_query_contact;
+            *out_value = query_root->proj_query_contact;
             return 1;
         case IK_EXPR_FIELD_PROJ_HIT:
-            *out_value = entity->proj_query_hit;
+            *out_value = query_root->proj_query_hit;
             return 1;
         case IK_EXPR_FIELD_PROJ_GUARDED:
-            *out_value = entity->proj_query_guarded;
+            *out_value = query_root->proj_query_guarded;
             return 1;
         case IK_EXPR_FIELD_PROJ_CONTACT_TIME:
-            *out_value = entity->proj_query_contact_time;
+            *out_value = query_root->proj_query_contact_time;
             return 1;
         case IK_EXPR_FIELD_PROJ_HIT_TIME:
-            *out_value = entity->proj_query_hit_time;
+            *out_value = query_root->proj_query_hit_time;
             return 1;
         case IK_EXPR_FIELD_PROJ_GUARDED_TIME:
-            *out_value = entity->proj_query_guarded_time;
+            *out_value = query_root->proj_query_guarded_time;
             return 1;
         case IK_EXPR_FIELD_NUM_TARGETS:
             *out_value = ik_entity_target_count(
