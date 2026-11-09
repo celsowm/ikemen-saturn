@@ -96,7 +96,7 @@ static inline void record_entity_hit(ik_fight_t* fight, ik_entity_t* attacker) {
 static inline void enter_entity_contact_state(
     ik_fight_t* fight,
     ik_entity_handle_t handle,
-    int16_t state,
+    int32_t state,
     const ik_frame_table_t* p1_frames,
     const ik_frame_table_t* p2_frames
 ) {

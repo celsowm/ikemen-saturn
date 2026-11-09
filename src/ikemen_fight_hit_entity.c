@@ -99,7 +99,7 @@ void ikf_apply_guard_from_entity(
     ikf_credit_hit_power(
         fight, &fight->fighters[attacker->owner_player], v, hitdef, 1);
 
-    int16_t state = 150;
+    int32_t state = 150;
     if (type == IK_CNS_STATE_CROUCH) state = 152;
     else if (type == IK_CNS_STATE_AIR) state = 154;
 

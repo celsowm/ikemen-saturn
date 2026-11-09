@@ -206,7 +206,7 @@ static int step_airborne(const ik_step_t* s) {
     const ik_cns_state_t* spec = fighter_state_spec(fight, f);
     const int custom_landing =
         spec && spec->physics == IK_CNS_PHYS_NONE && spec->owns_air_accel;
-    int16_t guard_land_state = -1;
+    int32_t guard_land_state = -1;
     if (f->state == 132 || f->state == 155) {
         guard_land_state =
             s->controls && s->controls->back && f->in_guard_dist ? 130 : 52;

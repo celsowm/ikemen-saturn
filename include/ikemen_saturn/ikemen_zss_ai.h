@@ -10,7 +10,7 @@ extern "C" {
 /* Return 1 and set destination when an original CPU State -1 branch fires.
  * Other branches (including random neutral choices) are not implemented. */
 int ik_zss_ai_request(const ik_fight_t* fight, uint8_t player,
-                      uint8_t level, int16_t* destination);
+                      uint8_t level, int32_t* destination);
 /* Original pinned Go Park-Miller Random() and OC_random (0..999) for
  * seeded isolated streams. Does not reproduce the engine's call order.
  * state stores the full bit pattern of an Ikemen int32 random seed. */

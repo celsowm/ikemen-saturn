@@ -24,7 +24,7 @@ static int runtime_expr_read_field(
             binding->entity.pool, binding->entity.self);
         uint32_t value = binding->runtime->game_time * 0x9e3779b9u;
         if (entity) {
-            value ^= (uint32_t)(uint16_t)entity->state_no * 0x85ebca6bu;
+            value ^= (uint32_t)entity->state_no * 0x85ebca6bu;
             value ^= (uint32_t)entity->state_time * 0xc2b2ae35u;
             value ^= (uint32_t)entity->id * 0x27d4eb2fu;
         }
@@ -300,7 +300,7 @@ void ik_entity_runtime_set_command_mask(
 int ik_entity_runtime_enter_state(
     ik_entity_runtime_t* runtime,
     ik_entity_handle_t handle,
-    int16_t state_no
+    int32_t state_no
 ) {
     if (!runtime || !runtime->pool || !runtime->cns) return 0;
     ik_entity_t* entity = ik_entity_get(runtime->pool, handle);
@@ -607,7 +607,7 @@ int ik_entity_runtime_spawn_explod(
     }
 
     const uint32_t random_seed = runtime->game_time ^
-        ((uint32_t)(uint16_t)parent->state_no << 16) ^
+        ((uint32_t)parent->state_no * 0x85ebca6bu) ^
         ((uint32_t)parent->state_time << 1) ^
         ((uint32_t)parent->owner_player << 28) ^
         runtime->explod_random_sequence++;
@@ -794,7 +794,7 @@ int ik_entity_runtime_spawn_projectile(
     ik_entity_runtime_t* runtime,
     ik_entity_handle_t parent_handle,
     int32_t id,
-    int16_t state_no,
+    int32_t state_no,
     int32_t pos_x_q8,
     int32_t pos_y_q8,
     int32_t vel_x_q8,

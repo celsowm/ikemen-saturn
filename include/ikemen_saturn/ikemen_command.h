@@ -111,7 +111,7 @@ typedef ik_expr_instr_t ik_state_rule_instr_t;
 typedef struct ik_state_rule {
     uint16_t instruction_ofs;
     uint8_t instruction_count;
-    int16_t target_state;
+    int32_t target_state;
     /* 0: always evaluate. Otherwise (command id + 1) of a command the
      * expression cannot be true without; the rule is skipped, unevaluated,
      * while that command is inactive. Computed by tools/ikemen_state_rules.py
@@ -127,8 +127,8 @@ typedef struct ik_state_rule_asset {
 } ik_state_rule_asset_t;
 
 typedef struct ik_state_rule_context {
-    int16_t state_no;
-    int16_t p2_state_no;
+    int32_t state_no;
+    int32_t p2_state_no;
     uint16_t state_time;
     uint16_t p2_state_time;
     int16_t p2_body_dist_x;
@@ -173,13 +173,13 @@ int ik_command_active(const ik_command_state_t* state,
 int ik_command_eval_state_change_expr(
     const ik_state_rule_asset_t* rules,
     const ik_expr_context_t* expression,
-    int16_t* out_state);
+    int32_t* out_state);
 
 int ik_command_eval_state_change(const ik_command_state_t* state,
                                  const ik_command_asset_t* commands,
                                  const ik_state_rule_asset_t* rules,
                                  const ik_state_rule_context_t* context,
-                                 int16_t* out_state);
+                                 int32_t* out_state);
 void ik_command_update(ik_command_state_t* state,
                        const ik_command_asset_t* asset,
                        const sat_pad_state_t* pad,

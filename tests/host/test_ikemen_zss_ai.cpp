@@ -45,7 +45,7 @@ int main() {
     ik_fight_t fight{};
     fight.round_state = 2;
     ik_fighter_t* f = &fight.fighters[1];
-    int16_t next = 77;
+    int32_t next = 77;
     OK(!ik_zss_ai_request(nullptr, 1, 8, &next));
     OK(!ik_zss_ai_request(&fight, 2, 8, &next));
     OK(!ik_zss_ai_request(&fight, 1, 0, &next));

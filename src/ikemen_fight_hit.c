@@ -162,7 +162,7 @@ void ikf_apply_guard(ik_fight_t* fight, int victim,
     a->target_id = hitdef->id;
     a->hitdef_target = (int8_t)victim;
 
-    int16_t state = 150;
+    int32_t state = 150;
     if (type == IK_CNS_STATE_CROUCH) state = 152;
     else if (type == IK_CNS_STATE_AIR) state = 154;
 
@@ -221,15 +221,11 @@ void ikf_apply_throw(ik_fight_t* fight, int attacker,
         int32_t state_no = eval_fighter_integer_expr(
             fight, a, cns, hitdef->p1_state_no_expr_ofs,
             hitdef->p1_state_no_expr_count, hitdef->p1_state_no);
-        evaluated_hitdef.p1_state_no = (int16_t)(
-            state_no < INT16_MIN ? INT16_MIN :
-            state_no > INT16_MAX ? INT16_MAX : state_no);
+        evaluated_hitdef.p1_state_no = state_no;
         state_no = eval_fighter_integer_expr(
             fight, a, cns, hitdef->p2_state_no_expr_ofs,
             hitdef->p2_state_no_expr_count, hitdef->p2_state_no);
-        evaluated_hitdef.p2_state_no = (int16_t)(
-            state_no < INT16_MIN ? INT16_MIN :
-            state_no > INT16_MAX ? INT16_MAX : state_no);
+        evaluated_hitdef.p2_state_no = state_no;
         state_no = eval_fighter_integer_expr(
             fight, a, cns, hitdef->p1_facing_expr_ofs,
             hitdef->p1_facing_expr_count, hitdef->p1_facing);

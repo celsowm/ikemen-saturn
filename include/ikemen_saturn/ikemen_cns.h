@@ -395,7 +395,7 @@ enum {
 };
 
 typedef struct ik_cns_state {
-    int16_t number;
+    int32_t number;
     int16_t anim;
     int16_t power_add;
     int16_t velset_x_q8;
@@ -412,7 +412,7 @@ typedef struct ik_cns_state {
     uint8_t playsnd_count;
     uint16_t controller_ofs;
     uint8_t controller_count;
-    int16_t land_state;
+    int32_t land_state;
     int16_t air_accel_q8;
     int16_t land_level_q8;
     uint16_t air_motion_start;
@@ -449,7 +449,7 @@ typedef struct ik_cns_state {
 } ik_cns_state_t;
 
 typedef struct ik_cns_hitdef {
-    int16_t state_number;
+    int32_t state_number;
     uint8_t trigger_kind;
     int16_t trigger_value;
 
@@ -502,8 +502,8 @@ typedef struct ik_cns_hitdef {
     uint8_t priority_type;
     uint8_t air_juggle;
 
-    int16_t p1_state_no;
-    int16_t p2_state_no;
+    int32_t p1_state_no;
+    int32_t p2_state_no;
     int16_t guard_dist;
     int8_t p1_facing;
     int8_t p2_facing;
@@ -511,7 +511,7 @@ typedef struct ik_cns_hitdef {
     uint8_t p2_body_dist_op;
     int16_t p2_body_dist_x;
     int16_t alt_damage;
-    int16_t alt_damage_prev_state;
+    int32_t alt_damage_prev_state;
     uint8_t trigger2_kind;
     int16_t trigger2_value;
     int16_t yaccel_q8;
@@ -670,7 +670,7 @@ typedef struct ik_cns_hitdef {
 } ik_cns_hitdef_t;
 
 typedef struct ik_cns_reversaldef {
-    int16_t state_number;
+    int32_t state_number;
     uint16_t start_time;
     uint16_t end_time;
     uint8_t attacker_state_mask;
@@ -682,22 +682,22 @@ typedef struct ik_cns_reversaldef {
     int16_t spark_y;
     int16_t hit_sound_group;
     int16_t hit_sound_item;
-    int16_t p1_state_no;
+    int32_t p1_state_no;
     int8_t p1_spr_priority;
     int8_t p2_spr_priority;
 } ik_cns_reversaldef_t;
 
 typedef struct ik_cns_hitoverride {
-    int16_t state_number;
+    int32_t state_number;
     uint16_t start_time;
     uint16_t end_time;
     uint8_t self_state_mask;
     uint16_t incoming_attr_mask;
-    int16_t target_state;
+    int32_t target_state;
 } ik_cns_hitoverride_t;
 
 typedef struct ik_cns_playsnd {
-    int16_t state_number;
+    int32_t state_number;
     uint8_t trigger_kind;
     int16_t trigger_value;
     int16_t group;
@@ -759,7 +759,7 @@ typedef struct ik_cns_playsnd {
  *   PalFX: duration / packed add RGB; value2=packed sinadd RGB, value3=cycle
  */
 typedef struct ik_cns_controller {
-    int16_t state_number;
+    int32_t state_number;
     uint8_t type;
     uint8_t trigger_kind;
     int16_t trigger_value;
@@ -957,7 +957,7 @@ typedef struct ik_cns_explod {
 
 typedef struct ik_cns_helper {
     int32_t id;
-    int16_t state_no;
+    int32_t state_no;
     int32_t pos_x_q8;
     int32_t pos_y_q8;
     int8_t facing;
@@ -999,7 +999,7 @@ typedef struct ik_cns_asset {
 int16_t ik_cns_q8_from_int(int16_t value);
 int16_t ik_cns_q8_to_int(int32_t value);
 const ik_cns_state_t* ik_cns_find_state(const ik_cns_asset_t* asset,
-                                        int16_t state_number);
+                                        int32_t state_number);
 
 int ik_cns_trigger_now(uint8_t trigger_kind, int16_t trigger_value,
                        uint16_t state_time, uint16_t anim_element,
@@ -1016,7 +1016,7 @@ int ik_cns_controller_trigger_context_now(
     const ik_cns_controller_context_t* context);
 
 const ik_cns_hitdef_t* ik_cns_active_hitdef(const ik_cns_asset_t* asset,
-                                            int16_t state_number,
+                                            int32_t state_number,
                                             uint16_t state_time,
                                             uint16_t anim_element);
 

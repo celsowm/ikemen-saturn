@@ -629,7 +629,7 @@ static int eval_state_rule_expr(
 int ik_command_eval_state_change_expr(
     const ik_state_rule_asset_t* rules,
     const ik_expr_context_t* expression,
-    int16_t* out_state
+    int32_t* out_state
 ) {
     if (!rules || !expression || !out_state) return 0;
     for (uint16_t i = 0u; i < rules->rule_count; ++i) {
@@ -658,7 +658,7 @@ int ik_command_eval_state_change(const ik_command_state_t* state,
                                  const ik_command_asset_t* commands,
                                  const ik_state_rule_asset_t* rules,
                                  const ik_state_rule_context_t* context,
-                                 int16_t* out_state) {
+                                 int32_t* out_state) {
     if (!state || !commands || !rules || !context || !out_state) return 0;
     const ik_state_rule_eval_user_t user = {
         state, commands, context

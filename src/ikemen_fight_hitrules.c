@@ -273,12 +273,12 @@ int ikf_entity_juggle_allows_target(
 }
 
 /* Upstream's inGuardState(): every state of the guard family. */
-int ikf_in_guard_state(int16_t state) {
+int ikf_in_guard_state(int32_t state) {
     return state == 120 || (state >= 130 && state <= 132) || state == 140 ||
            (state >= 150 && state <= 155);
 }
 
-int ikf_is_active_guard_state(int16_t state) {
+int ikf_is_active_guard_state(int32_t state) {
     return state == 120 || state == 130 || state == 131 || state == 132;
 }
 

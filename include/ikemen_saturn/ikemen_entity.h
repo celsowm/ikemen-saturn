@@ -52,14 +52,14 @@ typedef struct ik_entity {
     int32_t ax_q8;
     int32_t ay_q8;
     int16_t remove_time;
-    int16_t state_no;
+    int32_t state_no;
     int16_t projectile_main_anim_no;
     int16_t projectile_hit_anim_no;
     int16_t projectile_remove_anim_no;
     int16_t projectile_cancel_anim_no;
     int16_t projectile_edge_bound;
     int16_t projectile_stage_bound;
-    int16_t prev_state_no;
+    int32_t prev_state_no;
     int16_t anim_no;
     uint16_t state_time;
     uint16_t anim_time;
@@ -88,7 +88,7 @@ typedef struct ik_entity {
     int16_t projectile_velmul_x_q8;
     int16_t projectile_velmul_y_q8;
     int16_t projectile_bind_time;
-    int16_t projectile_parent_state_no;
+    int32_t projectile_parent_state_no;
     ik_entity_handle_t projectile_bind_anchor;
     int32_t projectile_bind_x_q8;
     int32_t projectile_bind_y_q8;
@@ -101,7 +101,7 @@ typedef struct ik_entity {
     uint32_t pause_move_time;
     uint32_t super_move_time;
     int16_t explod_bind_time;
-    int16_t explod_parent_state_no;
+    int32_t explod_parent_state_no;
     ik_entity_handle_t explod_bind_anchor;
     int32_t explod_bind_x_q8;
     int32_t explod_bind_y_q8;

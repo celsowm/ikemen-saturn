@@ -67,7 +67,7 @@ void ik_entity_runtime_set_command_mask(
 int ik_entity_runtime_enter_state(
     ik_entity_runtime_t* runtime,
     ik_entity_handle_t handle,
-    int16_t state_no);
+    int32_t state_no);
 
 int ik_entity_runtime_spawn_helper(
     ik_entity_runtime_t* runtime,
@@ -96,7 +96,7 @@ int ik_entity_runtime_spawn_projectile(
     ik_entity_runtime_t* runtime,
     ik_entity_handle_t parent,
     int32_t id,
-    int16_t state_no,
+    int32_t state_no,
     int32_t pos_x_q8,
     int32_t pos_y_q8,
     int32_t vel_x_q8,

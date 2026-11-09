@@ -215,11 +215,11 @@ int ikf_ctrl_apply_motion(const ik_ctrl_exec_t* x);
 int ikf_ctrl_apply_target(const ik_ctrl_exec_t* x);
 
 /* ---- State transitions: ChangeState bookkeeping and controlled input ---- */
-void ikf_enter_state(ik_fight_t* fight, ik_fighter_t* f, int16_t state);
+void ikf_enter_state(ik_fight_t* fight, ik_fighter_t* f, int32_t state);
 void ikf_enter_state_deferred(
     ik_fight_t* fight,
     ik_fighter_t* f,
-    int16_t state);
+    int32_t state);
 void ikf_init_statedef(ik_fight_t* fight, ik_fighter_t* f);
 int ikf_dispatch_controlled_input(
     ik_fight_t* fight,
@@ -381,8 +381,8 @@ int ikf_entity_juggle_allows_target(
     const ik_entity_t* attacker,
     const ik_fighter_t* victim,
     const ik_cns_hitdef_t* hitdef);
-int ikf_is_active_guard_state(int16_t state);
-int ikf_in_guard_state(int16_t state);
+int ikf_is_active_guard_state(int32_t state);
+int ikf_in_guard_state(int32_t state);
 uint8_t ikf_guard_type_for(
     const ik_fight_t* fight,
     const ik_fighter_t* f,
@@ -568,7 +568,7 @@ void ikf_step_air(
     ik_fight_t* fight,
     ik_fighter_t* f,
     int allow_land_transition,
-    int16_t guard_land_state);
+    int32_t guard_land_state);
 
 /* ---- Per-fighter tick: timers, guard stance, controllers, physics ---- */
 void ikf_step_fighter(

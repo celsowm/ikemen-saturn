@@ -10,7 +10,7 @@ int16_t ik_cns_q8_to_int(int32_t value) {
 }
 
 const ik_cns_state_t* ik_cns_find_state(const ik_cns_asset_t* asset,
-                                        int16_t state_number) {
+                                        int32_t state_number) {
     if (!asset || !asset->states) return 0;
     for (uint16_t i = 0u; i < asset->state_count; ++i) {
         if (asset->states[i].number == state_number) return &asset->states[i];
@@ -494,7 +494,7 @@ static int hitdef_has_fired(const ik_cns_hitdef_t* hitdef,
 }
 
 const ik_cns_hitdef_t* ik_cns_active_hitdef(const ik_cns_asset_t* asset,
-                                            int16_t state_number,
+                                            int32_t state_number,
                                             uint16_t state_time,
                                             uint16_t anim_element) {
     const ik_cns_state_t* state = ik_cns_find_state(asset, state_number);

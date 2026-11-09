@@ -194,7 +194,7 @@ int main() {
     ctx.state_time=1;
     ctx.state_type=1;
     ctx.ctrl=1;
-    int16_t requested=0;
+    int32_t requested=0;
     OK(ik_command_eval_state_change(
         &state,&k_asset,&rule_asset,&ctx,&requested));
     OK(requested==200);

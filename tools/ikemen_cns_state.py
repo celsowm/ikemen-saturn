@@ -166,7 +166,7 @@ def compile_state(
 
             damage_text = ctrl.get("damage") or "0,0"
             alt_damage = -1
-            alt_damage_prev_state = -32768
+            alt_damage_prev_state = -2147483648
             damage_expr = re.fullmatch(
                 r"\s*(-?\d+)\s*\+\s*"
                 r"\(\s*prevstateno\s*=\s*(-?\d+)\s*\)"

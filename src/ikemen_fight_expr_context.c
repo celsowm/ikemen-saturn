@@ -260,14 +260,14 @@ static int ikf_expr_read_field(
         const ik_fighter_t* f = binding->fighter;
         uint32_t value = binding->fight->frame * 0x9e3779b9u;
         if (f) {
-            value ^= (uint32_t)(uint16_t)f->state * 0x85ebca6bu;
+            value ^= (uint32_t)f->state * 0x85ebca6bu;
             value ^= (uint32_t)f->state_time * 0xc2b2ae35u;
             value ^= (uint32_t)f->owner_player * 0x27d4eb2fu;
         } else {
             const ik_entity_t* e = ik_entity_get_const(
                 binding->entity.pool, binding->entity.self);
             if (e) {
-                value ^= (uint32_t)(uint16_t)e->state_no * 0x85ebca6bu;
+                value ^= (uint32_t)e->state_no * 0x85ebca6bu;
                 value ^= (uint32_t)e->state_time * 0xc2b2ae35u;
                 value ^= (uint32_t)e->id * 0x27d4eb2fu;
             }

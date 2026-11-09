@@ -21,7 +21,7 @@ uint8_t ik_fight_state_type(const ik_fight_t* fight,
     return fighter ? fighter->cur_state_type : IK_CNS_STATE_UNCHANGED;
 }
 
-int ik_action_for_state(const ik_cns_asset_t* cns, int16_t state) {
+int ik_action_for_state(const ik_cns_asset_t* cns, int32_t state) {
     const ik_cns_state_t* spec = ik_cns_find_state(cns, state);
     if (spec) return spec->anim;
 
@@ -36,13 +36,13 @@ int ik_action_for_state(const ik_cns_asset_t* cns, int16_t state) {
     }
 }
 
-static int default_ctrl_for_state(int16_t state) {
+static int default_ctrl_for_state(int32_t state) {
     return state == IK_STATE_IDLE || state == IK_STATE_WALK ||
            state == IK_STATE_CROUCH || state == IK_STATE_JUMP;
 }
 
 /* Upstream stateChange1: only the state number and its clocks change. */
-static void change_state_number(ik_fighter_t* f, int16_t state) {
+static void change_state_number(ik_fighter_t* f, int32_t state) {
     f->prev_state = f->state;
     f->state = state;
     f->state_time = 0u;
@@ -202,7 +202,7 @@ void ikf_turn_before_change(ik_fight_t* fight, ik_fighter_t* f) {
 
 /* ChangeState from the fighter's own controllers: the new state's StateDef
  * applies at once and its controllers run in the same tick. */
-void ikf_enter_state(ik_fight_t* fight, ik_fighter_t* f, int16_t state) {
+void ikf_enter_state(ik_fight_t* fight, ik_fighter_t* f, int32_t state) {
     /* The old state's VelAdd already ran this tick; that accumulates across
      * a chain of ChangeStates. */
     const int32_t ran = ikf_pre_move_gravity(fight, f);
@@ -218,7 +218,7 @@ void ikf_enter_state(ik_fight_t* fight, ik_fighter_t* f, int16_t state) {
  * only the number changes now; the StateDef applies when the fighter next
  * acts, as in upstream. */
 void ikf_enter_state_deferred(
-    ik_fight_t* fight, ik_fighter_t* f, int16_t state
+    ik_fight_t* fight, ik_fighter_t* f, int32_t state
 ) {
     (void)fight;
     change_state_number(f, state);
@@ -258,7 +258,7 @@ int ikf_dispatch_controlled_input(ik_fight_t* fight, ik_fighter_t* f,
 
     if (!f->ctrl) return 0;
     if (controls->down) {
-        const int16_t crouch_state =
+        const int32_t crouch_state =
             ik_cns_find_state(native_cns, 10)
                 ? 10
                 : IK_STATE_CROUCH;

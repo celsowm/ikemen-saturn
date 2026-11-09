@@ -278,7 +278,7 @@ static void controls_from_commands(
     const ik_expr_context_t expression = {
         &user, rule_expr_read_field, rule_expr_read_command
     };
-    int16_t requested = 0;
+    int32_t requested = 0;
     if (character->state_rules && ik_command_eval_state_change_expr(
             character->state_rules, &expression, &requested)) {
         controls->requested_state = requested;

@@ -43,7 +43,7 @@ int32_t ikf_pre_move_gravity(const ik_fight_t* fight, const ik_fighter_t* f) {
 
 void ikf_step_air(ik_fight_t* fight, ik_fighter_t* f,
                      int allow_land_transition,
-                     int16_t guard_land_state) {
+                     int32_t guard_land_state) {
     const ik_cns_constants_t* c =
         constants_for_fighter(fight, f);
     const ik_cns_state_t* spec = fighter_state_spec(fight, f);

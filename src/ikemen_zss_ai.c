@@ -3,7 +3,7 @@
  * Source drift is rejected by the KFM ZSS asset compiler.
  */
 int ik_zss_ai_request(const ik_fight_t* fight, uint8_t player,
-                      uint8_t level, int16_t* destination) {
+                      uint8_t level, int32_t* destination) {
     if (!fight || !destination || player >= 2u || level < 1u ||
         level > 8u || fight->round_state != 2u) return 0;
     const ik_fighter_t* f = &fight->fighters[player];
@@ -51,7 +51,7 @@ static uint16_t ai_roll(uint32_t* rng) {
 static uint16_t ai_threshold(uint8_t level, uint16_t base) {
     return (uint16_t)(((uint32_t)base * level * level) / 48u);
 }
-static void ai_state(ik_fight_controls_t* out, int16_t state) {
+static void ai_state(ik_fight_controls_t* out, int32_t state) {
     out->has_state_request = 1u;
     out->requested_state = state;
 }

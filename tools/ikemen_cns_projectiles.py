@@ -183,7 +183,7 @@ def _projectile_hitdef_row(
         "p2_body_dist_op": "IK_CNS_P2_DIST_NONE",
         "p2_body_dist_x": 0,
         "alt_damage": -1,
-        "alt_damage_prev_state": -32768,
+        "alt_damage_prev_state": -2147483648,
         "trigger2_kind": 255,
         "trigger2_value": 0,
         "yaccel_q8": q8(number(ctrl.get("yaccel"), .35)),

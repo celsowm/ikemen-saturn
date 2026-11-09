@@ -93,16 +93,12 @@ void ikf_apply_damage(ik_fight_t* fight, int victim,
             fight, &fight->fighters[attacker], cns,
             hitdef->p1_state_no_expr_ofs,
             hitdef->p1_state_no_expr_count, hitdef->p1_state_no);
-        evaluated_hitdef.p1_state_no = (int16_t)(
-            value < INT16_MIN ? INT16_MIN :
-            value > INT16_MAX ? INT16_MAX : value);
+        evaluated_hitdef.p1_state_no = value;
         value = eval_fighter_integer_expr(
             fight, &fight->fighters[attacker], cns,
             hitdef->p2_state_no_expr_ofs,
             hitdef->p2_state_no_expr_count, hitdef->p2_state_no);
-        evaluated_hitdef.p2_state_no = (int16_t)(
-            value < INT16_MIN ? INT16_MIN :
-            value > INT16_MAX ? INT16_MAX : value);
+        evaluated_hitdef.p2_state_no = value;
         value = eval_fighter_integer_expr(
             fight, &fight->fighters[attacker], cns,
             hitdef->p1_facing_expr_ofs,

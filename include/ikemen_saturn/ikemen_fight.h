@@ -102,7 +102,7 @@ typedef struct ik_fight_controls {
     uint8_t start;
     uint8_t recovery;
     uint8_t blocking;
-    int16_t requested_state;
+    int32_t requested_state;
     uint8_t has_state_request;
 } ik_fight_controls_t;
 
@@ -128,8 +128,8 @@ typedef struct ik_fighter {
     int8_t ctrl;
     int8_t spr_priority;
 
-    int16_t state;
-    int16_t prev_state;
+    int32_t state;
+    int32_t prev_state;
     uint16_t state_time;
     uint16_t state_entries;
     uint8_t anim_clock_pending;
@@ -372,7 +372,7 @@ void ik_fight_set_stage(ik_fight_t* fight, const ik_stage_params_t* stage);
 void ik_fight_set_stage_author_hash(ik_fight_t* fight, uint32_t author_hash);
 /* Camera centre in fighter x space (160 = stage centre), Q8.8. */
 int32_t ik_fight_camera_x_q8(const ik_fight_t* fight);
-int ik_action_for_state(const ik_cns_asset_t* cns, int16_t state);
+int ik_action_for_state(const ik_cns_asset_t* cns, int32_t state);
 uint8_t ik_fight_state_type(const ik_fight_t* fight,
                             const ik_fighter_t* fighter);
 void ik_fight_update(ik_fight_t* fight,
