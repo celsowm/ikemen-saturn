@@ -413,7 +413,8 @@ enum {
 enum {
     IK_CNS_ASSERT_NO_WALK = 1u << 0,
     IK_CNS_ASSERT_NO_AUTO_TURN = 1u << 1,
-    IK_CNS_ASSERT_NO_AIR_GUARD = 1u << 2
+    IK_CNS_ASSERT_NO_AIR_GUARD = 1u << 2,
+    IK_CNS_ASSERT_NO_SHADOW = 1u << 3
 };
 
 typedef struct ik_cns_state {
