@@ -1161,20 +1161,38 @@ def compile_runtime_controller(
             xexpr,
             flags=re.I,
         )
-        if not m or ctrl.get("y") is not None:
-            return None
-        base = float(m.group(1))
-        elem = int(m.group(2))
-        tail = float(m.group(3))
+        if m and ctrl.get("y") is None:
+            base = float(m.group(1))
+            elem = int(m.group(2))
+            tail = float(m.group(3))
+            return {
+                "state_number": state_no,
+                "type": "IK_CNS_CTRL_VEL_MUL_X_BY_ANIM_ELEM",
+                "trigger_kind": trig_kind,
+                "trigger_value": elem,
+                "trigger_value2": 0,
+                "value0": q8(base),
+                "value1": q8(base * tail),
+                "flags": flag_expr(),
+            }
+        x, x_expr = number_or_runtime_expr(xtext or None, 1)
+        y, y_expr = number_or_runtime_expr(ytext or None, 1)
+        ctrl.runtime_value0_expr = x_expr
+        ctrl.runtime_value1_expr = y_expr
+        axis = []
+        if xtext:
+            axis.append("IK_CNS_CTRL_AXIS_X")
+        if ytext:
+            axis.append("IK_CNS_CTRL_AXIS_Y")
         return {
             "state_number": state_no,
-            "type": "IK_CNS_CTRL_VEL_MUL_X_BY_ANIM_ELEM",
+            "type": "IK_CNS_CTRL_VEL_MUL",
             "trigger_kind": trig_kind,
-            "trigger_value": elem,
-            "trigger_value2": 0,
-            "value0": q8(base),
-            "value1": q8(base * tail),
-            "flags": flag_expr(),
+            "trigger_value": trig_value,
+            "trigger_value2": trig_value2,
+            "value0": q8(x),
+            "value1": q8(y),
+            "flags": " | ".join(axis + flags) if axis or flags else "0u",
         }
 
     # `value` widens the player box and the screen-edge box, `player` and

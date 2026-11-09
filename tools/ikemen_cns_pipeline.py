@@ -164,6 +164,21 @@ def emit(
         "movement.air.gethit.trip.groundlevel",
         const["air_gethit_trip_groundlevel_q8"] / Q8)
     CONST_VALUES.setdefault(
+        "movement.air.gethit.groundrecover.ground.threshold",
+        const["air_gethit_groundrecover_threshold_q8"] / Q8)
+    CONST_VALUES.setdefault(
+        "movement.air.gethit.groundrecover.groundlevel",
+        const["air_gethit_groundrecover_groundlevel_q8"] / Q8)
+    CONST_VALUES.setdefault(
+        "movement.air.gethit.airrecover.threshold",
+        const["air_gethit_airrecover_threshold_q8"] / Q8)
+    CONST_VALUES.setdefault(
+        "movement.air.gethit.airrecover.yaccel",
+        const["air_gethit_airrecover_yaccel_q8"] / Q8)
+    CONST_VALUES.setdefault(
+        "movement.down.bounce.yaccel",
+        const["down_bounce_yaccel_q8"] / Q8)
+    CONST_VALUES.setdefault(
         "movement.down.bounce.groundlevel",
         const["down_bounce_groundlevel_q8"] / Q8)
     CONST_VALUES.setdefault(
