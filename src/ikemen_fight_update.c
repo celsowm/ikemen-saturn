@@ -37,6 +37,7 @@ static void begin_frame(
     fight->sound_count = 0u;
     fight->events = IK_EVENT_NONE;
     fight->intro_asserted = 0u;
+    fight->global_assert_controller_flags = 0u;
     fight->round_not_over_asserted = 0u;
     fight->pre_intro_anim_hold = 0u;
     ikf_advance_projectile_query_times(fight);

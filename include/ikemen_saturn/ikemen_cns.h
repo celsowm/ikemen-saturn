@@ -439,6 +439,15 @@ enum {
     IK_CNS_ASSERT_UNGUARDABLE = 1u << 12
 };
 
+enum {
+    IK_CNS_GLOBAL_ASSERT_NO_SHADOW = 1u << 0,
+    IK_CNS_GLOBAL_ASSERT_NO_KO_SOUND = 1u << 1,
+    IK_CNS_GLOBAL_ASSERT_NO_MUSIC = 1u << 2,
+    IK_CNS_GLOBAL_ASSERT_INTRO = 1u << 3,
+    IK_CNS_GLOBAL_ASSERT_ROUND_NOT_OVER = 1u << 4,
+    IK_CNS_GLOBAL_ASSERT_NO_KO = 1u << 5
+};
+
 typedef struct ik_cns_state {
     int32_t number;
     int32_t anim;

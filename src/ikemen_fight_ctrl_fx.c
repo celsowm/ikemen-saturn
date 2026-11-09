@@ -116,6 +116,15 @@ int ikf_ctrl_apply_fx(const ik_ctrl_exec_t* x) {
 
         case IK_CNS_CTRL_ASSERT_FLAGS:
             f->assert_controller_flags |= (uint16_t)ctrl->value0;
+            fight->global_assert_controller_flags |=
+                (uint8_t)ctrl->value1;
+            if ((ctrl->value1 & IK_CNS_GLOBAL_ASSERT_INTRO) != 0) {
+                fight->intro_asserted = 1u;
+            }
+            if ((ctrl->value1 &
+                 IK_CNS_GLOBAL_ASSERT_ROUND_NOT_OVER) != 0) {
+                fight->round_not_over_asserted = 1u;
+            }
             break;
 
         case IK_CNS_CTRL_PAL_FX: {

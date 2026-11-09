@@ -176,20 +176,40 @@ def compile_runtime_controller(
             "invisible": "IK_CNS_ASSERT_INVISIBLE",
             "nocrouchguard": "IK_CNS_ASSERT_NO_CROUCH_GUARD",
             "nojugglecheck": "IK_CNS_ASSERT_NO_JUGGLE_CHECK",
-            "noko": "IK_CNS_ASSERT_NO_KO",
             "nostandguard": "IK_CNS_ASSERT_NO_STAND_GUARD",
             "unguardable": "IK_CNS_ASSERT_UNGUARDABLE",
         }
-        if all(flag in flag_bits for flag in flag_values):
-            flag_value = " | ".join(dict.fromkeys(
-                flag_bits[flag] for flag in flag_values))
+        global_flag_bits = {
+            "globalnoshadow": "IK_CNS_GLOBAL_ASSERT_NO_SHADOW",
+            "nokosnd": "IK_CNS_GLOBAL_ASSERT_NO_KO_SOUND",
+            "nomusic": "IK_CNS_GLOBAL_ASSERT_NO_MUSIC",
+            "intro": "IK_CNS_GLOBAL_ASSERT_INTRO",
+            "roundnotover": "IK_CNS_GLOBAL_ASSERT_ROUND_NOT_OVER",
+            # These source characters have no IkemenVersion metadata, so
+            # upstream applies legacy MUGEN NoKO globally to both fighters.
+            "noko": "IK_CNS_GLOBAL_ASSERT_NO_KO",
+        }
+        if all(flag in flag_bits or flag in global_flag_bits
+               for flag in flag_values):
+            actor_flags = list(dict.fromkeys(
+                flag_bits[flag] for flag in flag_values if flag in flag_bits))
+            global_flags = list(dict.fromkeys(
+                global_flag_bits[flag] for flag in flag_values
+                if flag in global_flag_bits))
+            flag_value = " | ".join(actor_flags) if actor_flags else "0u"
+            global_flag_value = (
+                " | ".join(global_flags) if global_flags else "0u")
             controller_type = "IK_CNS_CTRL_ASSERT_FLAGS"
-        elif len(flag_values) == 1 and flag_values[0] == "intro":
-            flag_value = "0"
-            controller_type = "IK_CNS_CTRL_ASSERT_INTRO"
-        elif len(flag_values) == 1 and flag_values[0] == "roundnotover":
-            flag_value = "0"
-            controller_type = "IK_CNS_CTRL_ASSERT_ROUND_NOT_OVER"
+            return {
+                "state_number": state_no,
+                "type": controller_type,
+                "trigger_kind": trig_kind,
+                "trigger_value": trig_value,
+                "trigger_value2": trig_value2,
+                "value0": flag_value,
+                "value1": global_flag_value,
+                "flags": flag_expr(),
+            }
         else:
             return None
         return {

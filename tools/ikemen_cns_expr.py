@@ -118,6 +118,8 @@ class _ExprCompiler(_ExprParser):
             "IK_EXPR_FIELD_FVAR_Q16",
             "IK_EXPR_FIELD_SYSFVAR_Q16",
             "IK_EXPR_FIELD_STAGE_AUTHOR_MATCH",
+            "IK_EXPR_FIELD_CHARACTER_NAME_HASH",
+            "IK_EXPR_FIELD_CHARACTER_AUTHOR_HASH",
         }:
             if not self.q16 and field.endswith("_Q8"):
                 return code + [{"op": "IK_EXPR_TRUNC_Q8"}]
@@ -288,6 +290,79 @@ class _ExprCompiler(_ExprParser):
 
         name = self._take()[1]
         lower = name.lower()
+        name_hash_functions = {
+            "nameis": (
+                "IK_EXPR_FIELD_CHARACTER_NAME_HASH",
+                "IK_EXPR_REDIRECT_SELF"),
+            "p1nameis": (
+                "IK_EXPR_FIELD_CHARACTER_NAME_HASH",
+                "IK_EXPR_REDIRECT_SELF"),
+            "p2nameis": (
+                "IK_EXPR_FIELD_CHARACTER_NAME_HASH",
+                "IK_EXPR_REDIRECT_P2"),
+            "enemynameis": (
+                "IK_EXPR_FIELD_CHARACTER_NAME_HASH",
+                "IK_EXPR_REDIRECT_P2"),
+            "enemynearnameis": (
+                "IK_EXPR_FIELD_CHARACTER_NAME_HASH",
+                "IK_EXPR_REDIRECT_P2"),
+            "targetnameis": (
+                "IK_EXPR_FIELD_CHARACTER_NAME_HASH",
+                "IK_EXPR_REDIRECT_TARGET"),
+            "parentnameis": (
+                "IK_EXPR_FIELD_CHARACTER_NAME_HASH",
+                "IK_EXPR_REDIRECT_PARENT"),
+            "rootnameis": (
+                "IK_EXPR_FIELD_CHARACTER_NAME_HASH",
+                "IK_EXPR_REDIRECT_ROOT"),
+            "authornameis": (
+                "IK_EXPR_FIELD_CHARACTER_AUTHOR_HASH",
+                "IK_EXPR_REDIRECT_SELF"),
+            "p1authornameis": (
+                "IK_EXPR_FIELD_CHARACTER_AUTHOR_HASH",
+                "IK_EXPR_REDIRECT_SELF"),
+            "p2authornameis": (
+                "IK_EXPR_FIELD_CHARACTER_AUTHOR_HASH",
+                "IK_EXPR_REDIRECT_P2"),
+            "enemyauthornameis": (
+                "IK_EXPR_FIELD_CHARACTER_AUTHOR_HASH",
+                "IK_EXPR_REDIRECT_P2"),
+            "enemynearauthornameis": (
+                "IK_EXPR_FIELD_CHARACTER_AUTHOR_HASH",
+                "IK_EXPR_REDIRECT_P2"),
+            "targetauthornameis": (
+                "IK_EXPR_FIELD_CHARACTER_AUTHOR_HASH",
+                "IK_EXPR_REDIRECT_TARGET"),
+            "parentauthornameis": (
+                "IK_EXPR_FIELD_CHARACTER_AUTHOR_HASH",
+                "IK_EXPR_REDIRECT_PARENT"),
+            "rootauthornameis": (
+                "IK_EXPR_FIELD_CHARACTER_AUTHOR_HASH",
+                "IK_EXPR_REDIRECT_ROOT"),
+        }
+        if lower in name_hash_functions:
+            if self._peek() != ("op", "("):
+                raise ValueError(f"{name} requires one hash argument")
+            self._take()
+            args = self._args()
+            if len(args) != 1 or self._peek() != ("op", ")"):
+                raise ValueError(f"{name} requires one hash argument")
+            self._take()
+            expected_hash = self._integer_arg(args[0], name)
+            if not 0 <= expected_hash <= 0x7fffffff:
+                raise ValueError(f"{name} hash is outside the supported range")
+            field, redirect = name_hash_functions[lower]
+            code = self._load_runtime_field(field, redirect=redirect)
+            code += [
+                {"op": "IK_EXPR_PUSH_CONST", "value0": expected_hash},
+                {"op": "IK_EXPR_EQ"},
+            ]
+            if self.q16:
+                code += [
+                    {"op": "IK_EXPR_PUSH_CONST", "value0": 65536},
+                    {"op": "IK_EXPR_MUL"},
+                ]
+            return code
         if lower == "numpartner":
             # This runtime has two fighter slots on opposing teams, so a
             # fighter has no same-side partners. Match NumPartner's value in

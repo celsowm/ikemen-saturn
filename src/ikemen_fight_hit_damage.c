@@ -317,7 +317,9 @@ void ikf_apply_damage(ik_fight_t* fight, int victim,
         damage = hitdef->alt_damage;
     }
     int pending_damage = v->pending_damage + damage;
-    if ((v->assert_controller_flags & IK_CNS_ASSERT_NO_KO) != 0u &&
+    if (((v->assert_controller_flags & IK_CNS_ASSERT_NO_KO) != 0u ||
+         (fight->global_assert_controller_flags &
+          IK_CNS_GLOBAL_ASSERT_NO_KO) != 0u) &&
         v->hp > 0 && pending_damage >= v->hp) {
         pending_damage = v->hp - 1;
     }

@@ -131,7 +131,9 @@ void ikf_apply_guard(ik_fight_t* fight, int victim,
         v->hp = (int16_t)(v->hp - hitdef->guard_damage);
         if (v->hp <= 0) {
             if (hitdef->guard_kill &&
-                (v->assert_controller_flags & IK_CNS_ASSERT_NO_KO) == 0u) {
+                (v->assert_controller_flags & IK_CNS_ASSERT_NO_KO) == 0u &&
+                (fight->global_assert_controller_flags &
+                 IK_CNS_GLOBAL_ASSERT_NO_KO) == 0u) {
                 v->hp = 0;
                 guard_ko = 1;
             } else {

@@ -111,8 +111,18 @@ def normalize_cns_expr(
         flags=re.I,
     )
     def character_name(match: re.Match[str]) -> str:
+        if re.search(
+            r"\b(?:p2|enemy|enemynear|target|parent|root)\s*,\s*$",
+            normalized[:match.start()], flags=re.I,
+        ):
+            return match.group(0)
         field, operator, name = match.groups()
-        return f"{field}hash {operator} {character_name_hash(name)}"
+        function = {
+            "p1name": "p1nameis",
+            "p2name": "p2nameis",
+            "name": "nameis",
+        }[field.casefold()]
+        return f"{function}({character_name_hash(name)}) == {int(operator != '!=')}"
 
     normalized = re.sub(
         r"\b(p3name|p4name)\s*(==|!=|=)\s*\"([^\"]+)\"",
@@ -128,9 +138,16 @@ def normalize_cns_expr(
     )
     def redirected_character_metadata(match: re.Match[str]) -> str:
         prefix, field, operator, value = match.groups()
-        suffix = ("authornamehash" if field.casefold() == "authorname"
-                  else "namehash")
-        return f"{prefix},{suffix} {operator} {character_name_hash(value)}"
+        prefix = prefix.casefold()
+        suffix = "authornameis" if field.casefold() == "authorname" else "nameis"
+        prefix = {
+            "p2": "p2", "enemy": "enemy", "enemynear": "enemynear",
+            "target": "target", "parent": "parent", "root": "root",
+        }[prefix]
+        return (
+            f"{prefix}{suffix}({character_name_hash(value)}) == "
+            f"{int(operator != '!=')}"
+        )
 
     normalized = re.sub(
         r"\b(p2|enemy|enemynear|target|parent|root)\s*,\s*"

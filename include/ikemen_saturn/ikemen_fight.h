@@ -336,6 +336,7 @@ typedef struct ik_fight {
     /* Case-folded FNV-1a hash for StageVar(info.author); zero means unset. */
     uint32_t stage_author_hash;
     uint8_t intro_asserted;
+    uint8_t global_assert_controller_flags;
     /* Round state the next tick starts in. Upstream's stepRoundState runs
      * before the character actions, so the intro-end boundary (RoundState 2)
      * is applied at the start of its tick together with the control grant;
