@@ -3,6 +3,36 @@
 
 #include <limits.h>
 
+static ik_entity_projectile_query_t* projectile_query_for_id(
+    ik_entity_t* root,
+    int32_t projectile_id
+) {
+    ik_entity_projectile_query_t* empty = 0;
+    for (uint8_t i = 0u; i < IK_ENTITY_PROJECTILE_QUERY_CAPACITY; ++i) {
+        ik_entity_projectile_query_t* query = &root->projectile_queries[i];
+        if (query->valid && query->id == projectile_id) return query;
+        if (!query->valid && !empty) empty = query;
+    }
+    if (!empty) {
+        empty = &root->projectile_queries[
+            root->projectile_query_next % IK_ENTITY_PROJECTILE_QUERY_CAPACITY];
+        root->projectile_query_next = (uint8_t)(
+            (root->projectile_query_next + 1u) %
+            IK_ENTITY_PROJECTILE_QUERY_CAPACITY);
+    }
+    empty->id = projectile_id;
+    empty->contact_time = -1;
+    empty->hit_time = -1;
+    empty->guarded_time = -1;
+    empty->flags = 0u;
+    empty->valid = 1u;
+    return empty;
+}
+
+static void advance_query_time(int16_t* value) {
+    if (*value >= 0 && *value < INT16_MAX) ++*value;
+}
+
 void ikf_advance_projectile_query_times(
     ik_fight_t* fight
 ) {
@@ -23,6 +53,15 @@ void ikf_advance_projectile_query_times(
         if (root->proj_query_guarded_time >= 0 &&
             root->proj_query_guarded_time < 32767) {
             ++root->proj_query_guarded_time;
+        }
+        for (uint8_t i = 0u;
+             i < IK_ENTITY_PROJECTILE_QUERY_CAPACITY; ++i) {
+            ik_entity_projectile_query_t* query =
+                &root->projectile_queries[i];
+            if (!query->valid) continue;
+            advance_query_time(&query->contact_time);
+            advance_query_time(&query->hit_time);
+            advance_query_time(&query->guarded_time);
         }
     }
 }
@@ -45,10 +84,18 @@ void ikf_mark_projectile_contact(
     root->proj_query_contact_time = 0;
     root->proj_query_hit = guarded ? 0u : 1u;
     root->proj_query_guarded = guarded ? 1u : 0u;
+    ik_entity_projectile_query_t* query =
+        projectile_query_for_id(root, projectile->id);
+    query->flags |= IK_ENTITY_PROJ_QUERY_CONTACT;
+    query->contact_time = 0;
     if (guarded) {
         root->proj_query_guarded_time = 0;
+        query->flags |= IK_ENTITY_PROJ_QUERY_GUARDED;
+        query->guarded_time = 0;
     } else {
         root->proj_query_hit_time = 0;
+        query->flags |= IK_ENTITY_PROJ_QUERY_HIT;
+        query->hit_time = 0;
     }
 }
 

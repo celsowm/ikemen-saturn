@@ -118,6 +118,14 @@ int ik_entity_spawn(
     entity->proj_query_contact_time = -1;
     entity->proj_query_hit_time = -1;
     entity->proj_query_guarded_time = -1;
+    for (uint8_t query_i = 0u;
+         query_i < IK_ENTITY_PROJECTILE_QUERY_CAPACITY; ++query_i) {
+        ik_entity_projectile_query_t* query =
+            &entity->projectile_queries[query_i];
+        query->contact_time = -1;
+        query->hit_time = -1;
+        query->guarded_time = -1;
+    }
 
     const ik_entity_handle_t self = handle_for(pool, slot);
 
@@ -496,6 +504,56 @@ int ik_entity_expr_read_field(
     const ik_entity_t* query_root =
         ik_entity_get_const(binding->pool, entity->root);
     if (!query_root) query_root = entity;
+
+    if (index >= 0 &&
+        (field == IK_EXPR_FIELD_PROJ_CONTACT ||
+         field == IK_EXPR_FIELD_PROJ_HIT ||
+         field == IK_EXPR_FIELD_PROJ_GUARDED ||
+         field == IK_EXPR_FIELD_PROJ_CONTACT_TIME ||
+         field == IK_EXPR_FIELD_PROJ_HIT_TIME ||
+         field == IK_EXPR_FIELD_PROJ_GUARDED_TIME)) {
+        const ik_entity_projectile_query_t* query = 0;
+        for (uint8_t query_i = 0u;
+             query_i < IK_ENTITY_PROJECTILE_QUERY_CAPACITY; ++query_i) {
+            const ik_entity_projectile_query_t* candidate =
+                &query_root->projectile_queries[query_i];
+            if (candidate->valid && candidate->id == index) {
+                query = candidate;
+                break;
+            }
+        }
+        if (!query) {
+            *out_value = (field == IK_EXPR_FIELD_PROJ_CONTACT_TIME ||
+                          field == IK_EXPR_FIELD_PROJ_HIT_TIME ||
+                          field == IK_EXPR_FIELD_PROJ_GUARDED_TIME) ? -1 : 0;
+            return 1;
+        }
+        switch ((ik_expr_field_t)field) {
+            case IK_EXPR_FIELD_PROJ_CONTACT:
+                *out_value = (query->flags &
+                    IK_ENTITY_PROJ_QUERY_CONTACT) != 0u;
+                return 1;
+            case IK_EXPR_FIELD_PROJ_HIT:
+                *out_value = (query->flags &
+                    IK_ENTITY_PROJ_QUERY_HIT) != 0u;
+                return 1;
+            case IK_EXPR_FIELD_PROJ_GUARDED:
+                *out_value = (query->flags &
+                    IK_ENTITY_PROJ_QUERY_GUARDED) != 0u;
+                return 1;
+            case IK_EXPR_FIELD_PROJ_CONTACT_TIME:
+                *out_value = query->contact_time;
+                return 1;
+            case IK_EXPR_FIELD_PROJ_HIT_TIME:
+                *out_value = query->hit_time;
+                return 1;
+            case IK_EXPR_FIELD_PROJ_GUARDED_TIME:
+                *out_value = query->guarded_time;
+                return 1;
+            default:
+                break;
+        }
+    }
 
     switch ((ik_expr_field_t)field) {
         case IK_EXPR_FIELD_STATE_NO:

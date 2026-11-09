@@ -18,6 +18,13 @@ extern "C" {
 #define IK_ENTITY_INVALID_SLOT 0xFFu
 #define IK_ENTITY_Q8_ONE 256
 #define IK_ENTITY_TARGET_CAPACITY 4u
+#define IK_ENTITY_PROJECTILE_QUERY_CAPACITY 16u
+
+enum {
+    IK_ENTITY_PROJ_QUERY_CONTACT = 1u << 0,
+    IK_ENTITY_PROJ_QUERY_HIT = 1u << 1,
+    IK_ENTITY_PROJ_QUERY_GUARDED = 1u << 2
+};
 
 typedef enum ik_entity_type {
     IK_ENTITY_NONE = 0,
@@ -31,6 +38,15 @@ typedef struct ik_entity_handle {
     uint8_t slot;
     uint8_t generation;
 } ik_entity_handle_t;
+
+typedef struct ik_entity_projectile_query {
+    int32_t id;
+    int16_t contact_time;
+    int16_t hit_time;
+    int16_t guarded_time;
+    uint8_t flags;
+    uint8_t valid;
+} ik_entity_projectile_query_t;
 
 typedef struct ik_entity {
     uint8_t type;
@@ -127,6 +143,9 @@ typedef struct ik_entity {
     int16_t proj_query_contact_time;
     int16_t proj_query_hit_time;
     int16_t proj_query_guarded_time;
+    uint8_t projectile_query_next;
+    ik_entity_projectile_query_t projectile_queries[
+        IK_ENTITY_PROJECTILE_QUERY_CAPACITY];
 
     uint16_t hit_pause;
     uint32_t hitdef_hit_mask;

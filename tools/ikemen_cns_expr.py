@@ -244,6 +244,15 @@ _RUNTIME_EXPR_FIELDS = {
     "loseko": "IK_EXPR_FIELD_LOSE_KO",
 }
 
+_PROJECTILE_QUERY_FIELDS = {
+    "projcontact": "IK_EXPR_FIELD_PROJ_CONTACT",
+    "projhit": "IK_EXPR_FIELD_PROJ_HIT",
+    "projguarded": "IK_EXPR_FIELD_PROJ_GUARDED",
+    "projcontacttime": "IK_EXPR_FIELD_PROJ_CONTACT_TIME",
+    "projhittime": "IK_EXPR_FIELD_PROJ_HIT_TIME",
+    "projguardedtime": "IK_EXPR_FIELD_PROJ_GUARDED_TIME",
+}
+
 
 def character_name_hash(name: str) -> int:
     value = 2166136261
@@ -429,6 +438,16 @@ class _ExprCompiler(_ExprParser):
 
         name = self._take()[1]
         lower = name.lower()
+        projectile_query = re.fullmatch(
+            r"(projcontacttime|projhittime|projguardedtime|"
+            r"projcontact|projhit|projguarded)(\d+)", lower)
+        if projectile_query:
+            field_name, projectile_id = projectile_query.groups()
+            if int(projectile_id) > 2147483647:
+                raise ValueError(
+                    f"{name} ID is outside the signed 32-bit range")
+            return self._load_runtime_field(
+                _PROJECTILE_QUERY_FIELDS[field_name], int(projectile_id))
         if lower == "playerid" and self._peek() == ("op", "("):
             self._take()
             args = self._args()
@@ -695,6 +714,16 @@ class _ExprCompiler(_ExprParser):
                     raise ValueError(
                         f"missing closing parenthesis in {name},{field_name}()")
                 self._take()
+                if field_lower in _PROJECTILE_QUERY_FIELDS and len(args) <= 1:
+                    projectile_id = (
+                        self._integer_arg(args[0], field_name)
+                        if args else -1)
+                    if projectile_id < -1 or projectile_id > 2147483647:
+                        raise ValueError(
+                            f"{field_name}() ID is outside the signed 32-bit range")
+                    return self._load_runtime_field(
+                        _PROJECTILE_QUERY_FIELDS[field_lower],
+                        projectile_id, redirect)
                 if field_lower in ("var", "sysvar", "fvar", "sysfvar") and len(args) == 1:
                     index = self._constant_arg(args[0], field_name)
                     if self.q16:
@@ -760,7 +789,9 @@ class _ExprCompiler(_ExprParser):
                     f"unsupported redirected function {name},{field_name}()")
             if field_lower in _RUNTIME_EXPR_FIELDS:
                 return self._load_runtime_field(
-                    _RUNTIME_EXPR_FIELDS[field_lower], redirect=redirect)
+                    _RUNTIME_EXPR_FIELDS[field_lower],
+                    -1 if field_lower in _PROJECTILE_QUERY_FIELDS else 0,
+                    redirect=redirect)
             if field_lower in ("pos", "vel"):
                 axis = self._take()[1].lower()
                 if axis not in ("x", "y"):
@@ -977,6 +1008,14 @@ class _ExprCompiler(_ExprParser):
             if self._peek() != ("op", ")"):
                 raise ValueError(f"missing closing parenthesis in {name}()")
             self._take()
+            if lower in _PROJECTILE_QUERY_FIELDS and len(args) <= 1:
+                projectile_id = (
+                    self._integer_arg(args[0], name) if args else -1)
+                if projectile_id < -1 or projectile_id > 2147483647:
+                    raise ValueError(
+                        f"{name}() ID is outside the signed 32-bit range")
+                return self._load_runtime_field(
+                    _PROJECTILE_QUERY_FIELDS[lower], projectile_id)
             if lower == "animelemtime" and len(args) == 1:
                 index = self._integer_arg(args[0], name)
                 if index < 1 or index > 65535:
@@ -1154,7 +1193,9 @@ class _ExprCompiler(_ExprParser):
                 redirect="IK_EXPR_REDIRECT_P2",
             )
         if lower in _RUNTIME_EXPR_FIELDS:
-            return self._load_runtime_field(_RUNTIME_EXPR_FIELDS[lower])
+            return self._load_runtime_field(
+                _RUNTIME_EXPR_FIELDS[lower],
+                -1 if lower in _PROJECTILE_QUERY_FIELDS else 0)
         if lower == "p2stateno":
             return self._load_runtime_field(
                 "IK_EXPR_FIELD_STATE_NO",
