@@ -25,6 +25,7 @@ from . import palettes as pal_mod
 from . import sff as sff_mod
 from . import stage as stage_mod
 from .codecs import decode, UnsupportedCodec
+from .runtime_codec import encode_rle8
 
 PALETTE_NODE_MAIN = 0  # sprite palidx 0 -> palette node 0
 AIR_BLANK_SPRITE = (-1, -1)
@@ -201,6 +202,11 @@ def _runtime_sprite_asset(container: sff_mod.SffContainer,
         # Invalid empty links keep the legacy deterministic zero-sprite path.
         payload = raw
         runtime_format = sff_mod.FORMAT_RAW
+
+    compressed = encode_rle8(raw)
+    if len(compressed) < len(payload):
+        payload = compressed
+        runtime_format = 1  # IK_SPRITE_FORMAT_RLE8
 
     padded_w = (source_node.width + 7) & ~7
     left = (padded_w - source_node.width) // 2

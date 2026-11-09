@@ -74,6 +74,34 @@ static int decode_lz5(const uint8_t* source,
     return 1;
 }
 
+static int decode_rle8(const uint8_t* source,
+                       uint32_t source_size,
+                       uint8_t* output,
+                       uint32_t output_size) {
+    if (!source || !output) return 0;
+    uint32_t source_pos = 0u;
+    uint32_t output_pos = 0u;
+    while (output_pos < output_size) {
+        if (source_pos >= source_size) return 0;
+        const uint8_t token = source[source_pos++];
+        const uint32_t count = (uint32_t)(token & 0x7Fu) + 1u;
+        if (count > output_size - output_pos) return 0;
+        if ((token & 0x80u) != 0u) {
+            if (source_pos >= source_size) return 0;
+            const uint8_t value = source[source_pos++];
+            for (uint32_t i = 0u; i < count; ++i) {
+                output[output_pos++] = value;
+            }
+        } else {
+            if (count > source_size - source_pos) return 0;
+            for (uint32_t i = 0u; i < count; ++i) {
+                output[output_pos++] = source[source_pos++];
+            }
+        }
+    }
+    return source_pos == source_size;
+}
+
 static void pad_sprite_in_place(uint8_t* pixels,
                                 uint16_t width,
                                 uint16_t height,
@@ -126,6 +154,8 @@ int ik_sprite_decode(const ik_sprite_source_t* sprite,
     if (sprite->format == IK_SPRITE_FORMAT_RAW) {
         if (sprite->data_size < raw_bytes) return 0;
         for (uint32_t i = 0u; i < raw_bytes; ++i) output[i] = source[i];
+    } else if (sprite->format == IK_SPRITE_FORMAT_RLE8) {
+        if (!decode_rle8(source, sprite->data_size, output, raw_bytes)) return 0;
     } else if (sprite->format == IK_SPRITE_FORMAT_LZ5) {
         if (!decode_lz5(source, sprite->data_size, output, raw_bytes)) return 0;
     } else {

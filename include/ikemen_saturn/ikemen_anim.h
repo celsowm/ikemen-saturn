@@ -58,6 +58,7 @@ typedef struct ik_frame_table {
 #define IK_CLSN_ATTACK 1u
 #define IK_CLSN_HURT 2u
 #define IK_SPRITE_FORMAT_RAW 0u
+#define IK_SPRITE_FORMAT_RLE8 1u
 #define IK_SPRITE_FORMAT_LZ5 4u
 
 #ifdef __cplusplus
