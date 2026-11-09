@@ -59,6 +59,7 @@ def main(argv: list[str] | None = None, *, services: dict) -> int:
 
     globals_dict["LOCALCOORD_X"] = 320.0
     globals_dict["CHARACTER_NAME_HASH"] = 0
+    globals_dict["CHARACTER_AUTHOR"] = None
     if args.character_def is not None:
         def_text = read_mugen_text(args.character_def)
         section = ""
@@ -72,6 +73,8 @@ def main(argv: list[str] | None = None, *, services: dict) -> int:
                 if key == "name":
                     globals_dict["CHARACTER_NAME_HASH"] = services["character_name_hash"](
                         value.strip().strip('"'))
+                elif key == "author":
+                    globals_dict["CHARACTER_AUTHOR"] = value.strip().strip('"')
                 elif key == "localcoord":
                     parts = _split_top_level(value)
                     if not parts or number(parts[0]) <= 0:

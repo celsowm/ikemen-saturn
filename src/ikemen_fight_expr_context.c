@@ -14,6 +14,14 @@ static int ikf_expr_read_field(
 ) {
     if (!user || !out_value) return 0;
     const ikf_expr_binding_t* binding = (const ikf_expr_binding_t*)user;
+    if (redirect == IK_EXPR_REDIRECT_PLAYER_ID) {
+        if (redirect_id < 0 || redirect_id >= 2) return 0;
+        if (field == IK_EXPR_FIELD_TEAM_SIDE) {
+            *out_value = redirect_id + 1;
+            return 1;
+        }
+        return 0;
+    }
     if (redirect == IK_EXPR_REDIRECT_SELF &&
         field == IK_EXPR_FIELD_CAMERA_POS_X_Q8) {
         *out_value = binding->fight->cam_x_q16 / 256;

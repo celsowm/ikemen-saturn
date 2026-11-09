@@ -28,6 +28,7 @@ def compile_cns_expr(text: str, q16: bool = False) -> list[dict]:
         localcoord_x=_SERVICES["LOCALCOORD_X"],
         const_values=_SERVICES["CONST_VALUES"],
         self_anims=_SERVICES["SELF_ANIMS"],
+        character_author=_SERVICES.get("CHARACTER_AUTHOR"),
     )
 
 

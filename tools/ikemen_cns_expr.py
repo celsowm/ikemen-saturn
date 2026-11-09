@@ -159,6 +159,29 @@ class _ExprCompiler(_ExprParser):
         code = self._rel()
         while self._peek() and self._peek()[1] in ("=", "==", "!="):
             op = self._take()[1]
+            if self._peek() == ("op", "["):
+                self._take()
+                lower = self._rel()
+                if self._peek() != ("op", ","):
+                    raise ValueError("range comparison requires two bounds")
+                self._take()
+                upper = self._rel()
+                if self._peek() != ("op", "]"):
+                    raise ValueError("range comparison is missing closing ]")
+                self._take()
+                if op == "!=":
+                    code = (
+                        code + lower + [{"op": "IK_EXPR_LT"}] +
+                        code + upper + [{"op": "IK_EXPR_GT"},
+                                        {"op": "IK_EXPR_OR"}]
+                    )
+                else:
+                    code = (
+                        code + lower + [{"op": "IK_EXPR_GE"}] +
+                        code + upper + [{"op": "IK_EXPR_LE"},
+                                        {"op": "IK_EXPR_AND"}]
+                    )
+                continue
             code += self._rel()
             code.append({"op": "IK_EXPR_NE" if op == "!=" else "IK_EXPR_EQ"})
         return code
@@ -265,6 +288,15 @@ class _ExprCompiler(_ExprParser):
 
         name = self._take()[1]
         lower = name.lower()
+        if lower == "numpartner":
+            # This runtime has two fighter slots on opposing teams, so a
+            # fighter has no same-side partners. Match NumPartner's value in
+            # that supported 1P-versus-2P mode without adding a fictitious
+            # runtime player field.
+            return [{
+                "op": "IK_EXPR_PUSH_CONST",
+                "value0": 0,
+            }]
         projectile_query = re.fullmatch(
             r"(projcontacttime|projhittime|projguardedtime|"
             r"projcontact|projhit|projguarded)(\d+)", lower)
@@ -289,6 +321,24 @@ class _ExprCompiler(_ExprParser):
                 raise ValueError("PlayerID() requires a redirected field")
             field_name = self._take()[1]
             field_lower = field_name.casefold()
+            if field_lower == "ishelper":
+                # PlayerID addresses one of the runtime's two fighter slots;
+                # neither slot can be a helper.
+                return [{"op": "IK_EXPR_PUSH_CONST", "value0": 0}]
+            if field_lower == "teamside":
+                player_code = list(args[0])
+                if self.q16 or any(ins.get("field") in {
+                        "IK_EXPR_FIELD_FVAR_Q16",
+                        "IK_EXPR_FIELD_SYSFVAR_Q16",
+                } for ins in player_code):
+                    player_code.extend([
+                        {"op": "IK_EXPR_FLOOR_Q16"},
+                        {"op": "IK_EXPR_TRUNC_Q16"},
+                    ])
+                field_code = self._load_runtime_field(
+                    "IK_EXPR_FIELD_TEAM_SIDE")
+                field_code[0]["op"] = "IK_EXPR_LOAD_PLAYER_FIELD"
+                return player_code + field_code
             if field_lower == "numexplod" and \
                     self._peek() == ("op", "("):
                 self._take()
@@ -1083,6 +1133,7 @@ def compile_cns_expr(
     localcoord_x: float = 320.0,
     const_values: dict[str, float] | None = None,
     self_anims: set[int] | None = None,
+    character_author: str | None = None,
 ) -> list[dict]:
     normalized = normalize_cns_expr(
         text,
@@ -1091,6 +1142,7 @@ def compile_cns_expr(
         localcoord_x=localcoord_x,
         const_values=const_values,
         self_anims=self_anims,
+        character_author=character_author,
     )
     code = _ExprCompiler(
         normalized, q16=q16, localcoord_x=localcoord_x).parse()

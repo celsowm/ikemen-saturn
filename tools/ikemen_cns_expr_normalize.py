@@ -55,6 +55,7 @@ def normalize_cns_expr(
     localcoord_x: float = 320.0,
     const_values: dict[str, float] | None = None,
     self_anims: set[int] | None = None,
+    character_author: str | None = None,
 ) -> str:
     def expand_state_range(match: re.Match[str]) -> str:
         field, operator, low, high = match.groups()
@@ -64,6 +65,11 @@ def normalize_cns_expr(
         return f"(({field}<{low}) || ({field}>{high}))"
 
     def expand_interval(match: re.Match[str]) -> str:
+        if re.search(
+            r"\bhelper\s*\([^()]*\)\s*,\s*$",
+            normalized[:match.start()], flags=re.I,
+        ):
+            return match.group(0)
         field, operator, opening, low, high, closing = match.groups()
         low_op = ">=" if opening == "[" else ">"
         high_op = "<=" if closing == "]" else "<"
@@ -120,6 +126,16 @@ def normalize_cns_expr(
         normalized,
         flags=re.I,
     )
+    if character_author is not None:
+        normalized = re.sub(
+            r"\bauthorname\s*(==|!=|=)\s*\"([^\"]*)\"",
+            lambda match: str(
+                (character_author.casefold() == match.group(2).casefold()) ^
+                (match.group(1) == "!=")
+            ),
+            normalized,
+            flags=re.I,
+        )
     if self_anims is not None:
         normalized = expand_dynamic_self_anim_exist(normalized, self_anims)
 

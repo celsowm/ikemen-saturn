@@ -101,6 +101,7 @@ COMMAND_IDS: dict[str, int] = {}
 LOCALCOORD_X = 320.0
 CONST_VALUES: dict[str, float] = {}
 CHARACTER_NAME_HASH = 0
+CHARACTER_AUTHOR: str | None = None
 SELF_ANIMS: set[int] | None = None
 FIGHTFX_ANIMS: set[int] | None = None
 _SELF_ANIM_TERM = re.compile(
