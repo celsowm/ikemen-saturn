@@ -1436,7 +1436,8 @@ def compile_explod_controller(
     pair = services['pair']
     q8 = services['q8']
     supported_keys = {
-        "type", "anim", "id", "supermove", "postype", "pos", "velocity", "accel",
+        "type", "anim", "id", "supermove", "postype", "pos", "vel",
+        "velocity", "accel",
         "removetime", "sprpriority", "persistent", "ignorehitpause",
         "ownpal", "pausemovetime", "supermovetime", "bindtime",
         "removeongethit", "removeonchangestate", "facing", "vfacing",
@@ -1460,7 +1461,7 @@ def compile_explod_controller(
 
     trig_kind, trig_value, trig_value2 = controller_trigger(ctrl, "explod")
     px, py = pair(ctrl.get("pos"), 0, 0)
-    vx, vy = pair(ctrl.get("velocity"), 0, 0)
+    vx, vy = pair(ctrl.get("vel", ctrl.get("velocity")), 0, 0)
     ax, ay = pair(ctrl.get("accel"), 0, 0)
     sx, sy = pair(ctrl.get("scale"), 1, 1)
 
