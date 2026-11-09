@@ -21,6 +21,10 @@ def compile_explod_controller(
     pair = services['pair']
     pair_runtime_expr = services['pair_runtime_expr']
     q8 = services['q8']
+    def reject(reason: str) -> None:
+        ctrl.unsupported_reason = reason
+        return None
+
     supported_keys = {
         "type", "anim", "id", "supermove", "postype", "pos", "random", "vel",
         "velocity", "velset", "accel", "space",
@@ -36,7 +40,7 @@ def compile_explod_controller(
         if lowered.startswith("trigger"):
             continue
         if lowered not in supported_keys:
-            return None
+            return reject(f"unsupported parameter {lowered}")
 
     postype_name = (ctrl.get("postype", "p1") or "p1").strip().lower()
     postypes = {
@@ -50,13 +54,13 @@ def compile_explod_controller(
     }
     postype = postypes.get(postype_name)
     if postype is None:
-        return None
+        return reject(f"unsupported postype {postype_name}")
     space_name = ctrl.get("space")
     if space_name is not None and space_name.strip().lower() != "screen":
-        return None
+        return reject(f"unsupported space {space_name.strip()}")
     unhittable = ctrl.get("unhittable")
     if unhittable is not None and integer(unhittable, 0) != 1:
-        return None
+        return reject(f"unsupported unhittable value {unhittable.strip()}")
 
     trig_kind, trig_value, trig_value2 = controller_trigger(ctrl, "explod")
     px, py, px_expr, py_expr = pair_runtime_expr(
@@ -69,18 +73,18 @@ def compile_explod_controller(
     if ctrl.get("shadow") is not None:
         raw_shadow = [part.strip() for part in ctrl.get("shadow").split(",")]
         if len(raw_shadow) > 3:
-            return None
+            return reject("shadow has more than three components")
         try:
             values = [integer(value) for value in raw_shadow]
-        except ValueError:
-            return None
+        except ValueError as exc:
+            return reject(f"invalid shadow value: {exc}")
         if values == [-1]:
             has_shadow = 1
             values = []
         elif any(value < 0 for value in values):
-            return None
+            return reject("negative shadow component")
         if any(value < 0 or value > 255 for value in values):
-            return None
+            return reject("shadow component outside 0..255")
         shadow_values[:len(values)] = values
         has_shadow |= int(any(shadow_values))
     vx, vy = pair(
@@ -98,7 +102,7 @@ def compile_explod_controller(
         "sub": "IK_CNS_TRANS_SUB",
     }
     if trans_text not in trans_map:
-        return None
+        return reject(f"unsupported trans mode {trans_text}")
 
     alpha_src, _alpha_dst = pair(ctrl.get("alpha"), 256, 256)
     alpha_value = max(0, min(255, int(round(float(alpha_src) * 255.0 / 256.0))))
@@ -111,15 +115,30 @@ def compile_explod_controller(
     super_move_time = min(super_move_time, 0xFFFFFFFF)
 
     anim_text = (ctrl.get("anim") or "0").strip()
-    fightfx_match = re.fullmatch(r"[fF]\s*(-?\d+)", anim_text)
-    use_fightfx = fightfx_match is not None
-    anim_no = (
-        int(fightfx_match.group(1))
-        if fightfx_match else integer(anim_text, 0)
-    )
+    fightfx_prefix = re.match(r"^[fF](?=\s|\(|[A-Za-z_]|[+-]?\d)", anim_text)
+    use_fightfx = fightfx_prefix is not None
+    anim_expr_text = anim_text
+    if fightfx_prefix:
+        anim_expr_text = anim_text[1:].strip()
+        if anim_expr_text.startswith("(") and anim_expr_text.endswith(")"):
+            anim_expr_text = anim_expr_text[1:-1].strip()
+    try:
+        anim_no = integer(anim_expr_text, 0)
+        anim_expr = None
+    except ValueError:
+        anim_no = 0
+        anim_expr = services["compile_cns_expr"](anim_expr_text, q16=True)
     fightfx_anims = services.get("FIGHTFX_ANIMS")
-    if use_fightfx and fightfx_anims is not None and anim_no not in fightfx_anims:
-        return None
+    if (anim_expr is None and use_fightfx and fightfx_anims is not None and
+            anim_no not in fightfx_anims):
+        return reject(f"fightfx animation {anim_no} does not exist")
+    facing_text = ctrl.get("facing", ctrl.get("face"))
+    try:
+        facing = 1 if integer(facing_text, 1) >= 0 else -1
+        facing_expr = None
+    except ValueError:
+        facing = 1
+        facing_expr = services["compile_cns_expr"](facing_text, q16=True)
     explod = {
         "anim_no": anim_no,
         "id": max(0, integer(ctrl.get("id"), 0)),
@@ -140,8 +159,7 @@ def compile_explod_controller(
         "remove_on_gethit": integer(ctrl.get("removeongethit"), 0),
         "remove_on_state_change": integer(
             ctrl.get("removeonchangestate"), 0),
-        "facing": 1 if integer(
-            ctrl.get("facing", ctrl.get("face")), 1) >= 0 else -1,
+        "facing": facing,
         "vfacing": 1 if integer(ctrl.get("vfacing"), 1) >= 0 else -1,
         "scale_x_q8": q8(sx),
         "scale_y_q8": q8(sy),
@@ -153,6 +171,8 @@ def compile_explod_controller(
         "random_y_q8": q8(random_y, wide=True),
         "has_shadow": has_shadow,
         "use_fightfx": int(use_fightfx),
+        "_anim_expr": anim_expr,
+        "_facing_expr": facing_expr,
     }
     # Explod entities are not inserted into the fighter/projectile contact
     # queue, so `unhittable = 1` already matches this runtime's behavior.

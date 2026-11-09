@@ -39,7 +39,7 @@ static const ik_frame_t* fighter_frame(const ik_frame_table_t* frames,
 }
 
 void ikf_anim_position_at(const ik_frame_table_t* frames,
-                          int16_t action,
+                          int32_t action,
                           uint16_t anim_time,
                           uint16_t* out_element,
                           uint16_t* out_element_time,
@@ -97,7 +97,7 @@ void ikf_anim_position(const ik_frame_table_t* frames,
 }
 
 uint16_t ikf_anim_element_start_tick(const ik_frame_table_t* frames,
-                                        int16_t action,
+                                        int32_t action,
                                         uint16_t element) {
     uint32_t first = 0u;
     uint32_t count = 0u;
@@ -121,7 +121,7 @@ uint16_t ikf_anim_element_start_tick(const ik_frame_table_t* frames,
 
 int ikf_hitdef_trigger_now(
     const ik_frame_table_t* frames,
-    int16_t action,
+    int32_t action,
     uint16_t state_time,
     uint16_t anim_time,
     uint16_t anim_element,

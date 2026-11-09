@@ -86,7 +86,8 @@ void ik_frame_sync_players(ik_frame_ctx_t* ctx, const ik_fight_t* fight) {
         entity->state_time = fighter->state_time;
         entity->state_owner = fighter->state_owner;
         entity->anim_owner = fighter->anim_owner;
-        entity->anim_no = fighter->anim;
+        entity->anim_no = fighter->anim >= INT16_MIN &&
+            fighter->anim <= INT16_MAX ? (int16_t)fighter->anim : -1;
         entity->anim_time = fighter->anim_time;
         entity->life = fighter->hp;
         entity->power = fighter->power;

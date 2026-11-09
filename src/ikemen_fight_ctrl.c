@@ -299,7 +299,7 @@ int ikf_process_cns_controllers(
             fight, f, &evaluated_ctrl, &context, state_cns, native_cns, frames,
             i, elem, (uint8_t)(anim_ended != 0)
         };
-        const int16_t anim_before = f->anim;
+        const int32_t anim_before = f->anim;
         const uint32_t anim_time_before = f->anim_time;
         const int result = dispatch_controller(&exec);
         if (result == IKF_CTRL_END_TICK) return 1;

@@ -102,7 +102,9 @@ typedef enum ik_expr_field {
     IK_EXPR_FIELD_SELF_ANIM_EXISTS,
     IK_EXPR_FIELD_MATCH_OVER,
     IK_EXPR_FIELD_WIN,
-    IK_EXPR_FIELD_LOSE
+    IK_EXPR_FIELD_LOSE,
+    IK_EXPR_FIELD_CAMERA_POS_X_Q8,
+    IK_EXPR_FIELD_STAGE_AUTHOR_MATCH
 } ik_expr_field_t;
 
 typedef enum ik_expr_op {

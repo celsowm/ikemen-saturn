@@ -99,6 +99,7 @@ def compile_state(
     hitoverrides: list[dict] = []
     open_reversal: dict | None = None
     unsupported: list[str] = []
+    unsupported_details: list[dict[str, str]] = []
     assert_special_flags = 0
 
     def attach_target_query_selector(
@@ -133,6 +134,7 @@ def compile_state(
         except ValueError:
             if STRICT_CONVERSION:
                 raise
+            section.unsupported_reason = "unsupported trigger expression"
             return False
         controller["trigger_expr"] = expression
         controller["trigger_kind"] = "IK_CNS_TRIGGER_ALWAYS"
@@ -692,8 +694,9 @@ def compile_state(
                 compiled_explod = compile_explod_controller(
                     state.number, ctrl, explod_ofs + len(explods)
                 )
-            except ValueError:
+            except ValueError as exc:
                 compiled_explod = None
+                ctrl.unsupported_reason = str(exc)
             if compiled_explod is not None:
                 controller, explod = compiled_explod
                 if attach_runtime_trigger_expression(controller, ctrl):
@@ -703,8 +706,21 @@ def compile_state(
                     explods.append(explod)
                 else:
                     unsupported.append(ctype)
+                    unsupported_details.append({
+                        "type": ctype,
+                        "reason": getattr(
+                            ctrl, "unsupported_reason",
+                            "unsupported runtime trigger expression",
+                        ),
+                    })
             else:
                 unsupported.append(ctype)
+                unsupported_details.append({
+                    "type": ctype,
+                    "reason": getattr(
+                        ctrl, "unsupported_reason", "unsupported parameters",
+                    ),
+                })
 
         elif ctype == "projectile":
             try:
@@ -911,6 +927,7 @@ def compile_state(
         ),
         "unsupported_controllers": sorted(
             set(unsupported + unsupported_state_fields)),
+        "unsupported_details": unsupported_details,
     }
 
     return (

@@ -86,14 +86,13 @@ void ikf_init_statedef(ik_fight_t* fight, ik_fighter_t* f) {
         int32_t dynamic_anim = -1;
         if (ikf_eval_cns_expr(
                 fight, f, state_cns, spec->anim_expr_ofs,
-                spec->anim_expr_count, &dynamic_anim) &&
-            dynamic_anim >= INT16_MIN && dynamic_anim <= INT16_MAX) {
-            f->anim = (int16_t)dynamic_anim;
+                spec->anim_expr_count, &dynamic_anim)) {
+            f->anim = dynamic_anim;
         }
         f->anim_owner = f->owner_player;
         f->anim_time = 0u;
     } else if (!(spec && spec->anim < 0)) {
-        f->anim = (int16_t)ik_action_for_state(state_cns, f->state);
+        f->anim = ik_action_for_state(state_cns, f->state);
         f->anim_owner = f->owner_player;
         f->anim_time = 0u;
     }

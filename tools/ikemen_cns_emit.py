@@ -112,6 +112,11 @@ def emit_cns_source_files(
             intern_expression(sound.pop("_item_expr", None))
         (sound["trigger_expr_ofs"], sound["trigger_expr_count"]) = \
             intern_expression(sound.pop("_trigger_expr", None))
+    for explod in explods:
+        (explod["anim_expr_ofs"], explod["anim_expr_count"]) = \
+            intern_expression(explod.pop("_anim_expr", None))
+        (explod["facing_expr_ofs"], explod["facing_expr_count"]) = \
+            intern_expression(explod.pop("_facing_expr", None))
     for controller in controllers:
         (controller["trigger_expr_ofs"],
          controller["trigger_expr_count"]) = intern_expression(
@@ -401,7 +406,11 @@ def emit_cns_source_files(
         f"{e.get('alpha', 255)}u, {e.get('id', -1)}, "
         f"{e.get('under', 0)}u, {e.get('ontop', 0)}u, "
         f"{e.get('random_x_q8', 0)}, {e.get('random_y_q8', 0)}, "
-        f"{e.get('has_shadow', 0)}u, {e.get('use_fightfx', 0)}u"
+        f"{e.get('has_shadow', 0)}u, {e.get('use_fightfx', 0)}u, "
+        f"{e.get('anim_expr_ofs', 0)}u, "
+        f"{e.get('anim_expr_count', 0)}u, "
+        f"{e.get('facing_expr_ofs', 0)}u, "
+        f"{e.get('facing_expr_count', 0)}u"
         "},"
         for e in explods
     ]

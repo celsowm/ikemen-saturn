@@ -138,7 +138,7 @@ typedef struct ik_fighter {
     uint8_t cur_state_type;
     uint8_t cur_move_type;
     int8_t physics_override; /* -1 uses the current StateDef physics */
-    int16_t anim;
+    int32_t anim;
     uint16_t anim_time;
     int8_t state_axis;
     uint8_t air_jumps_used;

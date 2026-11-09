@@ -10,7 +10,7 @@ int ikf_ctrl_apply_anim(const ik_ctrl_exec_t* x) {
     switch ((ik_cns_controller_type_t)ctrl->type) {
         case IK_CNS_CTRL_CHANGE_ANIM:
             f->anim_owner = f->owner_player;
-            f->anim = (int16_t)(ctrl->value0_expr_count
+            f->anim = (ctrl->value0_expr_count
                 ? ctrl->value4 / 65536 : ctrl->value0);
             f->anim_time = ikf_anim_element_start_tick(
                 frames_for_fighter(fight, f), f->anim,
@@ -37,7 +37,7 @@ int ikf_ctrl_apply_anim(const ik_ctrl_exec_t* x) {
         /* Air get-hit anims (5030 / 5035): keep a 5000-5199 anim the shake
          * state picked (5051 for Up hits), otherwise use the flight pose. */
         case IK_CNS_CTRL_AIR_HIT_ANIM: {
-            const int16_t pose = ctrl->value0;
+            const int32_t pose = ctrl->value0;
             uint32_t first = 0u;
             uint32_t count = 0u;
             const int keep = ctrl->value1 == 0
@@ -84,9 +84,9 @@ int ikf_ctrl_apply_anim(const ik_ctrl_exec_t* x) {
                 f->vy_q8 >= (f->anim == 5050 ? IK_CNS_Q8_ONE
                                                : -2 * IK_CNS_Q8_ONE) &&
                 frames &&
-                ik_frames_bounds(frames, (int16_t)(f->anim + 10),
+                ik_frames_bounds(frames, f->anim + 10,
                                  &first, &count) && count > 0u) {
-                f->anim = (int16_t)(f->anim + 10);
+                f->anim = f->anim + 10;
                 f->anim_time = 0u;
             }
             break;
@@ -102,9 +102,9 @@ int ikf_ctrl_apply_anim(const ik_ctrl_exec_t* x) {
                 ? ((f->anim >= 5051 && f->anim <= 5059) ||
                    (f->anim >= 5061 && f->anim <= 5069))
                 : (f->anim >= 5101 && f->anim <= 5109);
-            int16_t action = ctrl->value0;
+            int32_t action = ctrl->value0;
             if (variant) {
-                const int16_t alt = (int16_t)(ctrl->value0 + f->anim % 10);
+                const int32_t alt = ctrl->value0 + f->anim % 10;
                 if (frames && ik_frames_bounds(frames, alt, &first, &count) &&
                     count > 0u) {
                     action = alt;
@@ -118,9 +118,9 @@ int ikf_ctrl_apply_anim(const ik_ctrl_exec_t* x) {
 
         case IK_CNS_CTRL_CHANGE_ANIM_BY_VX: {
             const int32_t local_vx = f->vx_q8 * f->facing;
-            int16_t action = ctrl->value0;
+            int32_t action = ctrl->value0;
             if (local_vx > 0) action = ctrl->value1;
-            else if (local_vx < 0) action = (int16_t)(ctrl->value1 + 1);
+            else if (local_vx < 0) action = ctrl->value1 + 1;
             if (action >= 0 && action != f->anim) {
                 f->anim = action;
                 f->anim_time = 0u;
@@ -138,7 +138,7 @@ int ikf_ctrl_apply_anim(const ik_ctrl_exec_t* x) {
         case IK_CNS_CTRL_CHANGE_ANIM_IF_EXISTS: {
             uint32_t first = 0u;
             uint32_t count = 0u;
-            int16_t action = ctrl->value1;
+            int32_t action = ctrl->value1;
             const ik_frame_table_t* native_frames =
                 frames_for_owner(fight, f->owner_player);
             if (native_frames && ik_frames_bounds(
@@ -156,20 +156,20 @@ int ikf_ctrl_apply_anim(const ik_ctrl_exec_t* x) {
         }
 
         case IK_CNS_CTRL_CHANGE_ANIM_DESCENT_IF_EXISTS: {
-            const int16_t first_action = ctrl->value1;
+            const int32_t first_action = ctrl->value1;
             if (f->vy_q8 > ctrl->value0 &&
                 f->anim >= first_action &&
-                f->anim <= (int16_t)(first_action + 2) &&
+                f->anim <= first_action + 2 &&
                 (ctrl->value3 == 0 ||
                  f->anim == first_action ||
-                 f->anim == (int16_t)(first_action + 2))) {
+                 f->anim == first_action + 2)) {
                 uint32_t first = 0u;
                 uint32_t count = 0u;
                 /* Legacy common-state controller uses +3. ZSS 1028 uses
                  * +10 for descending 5050/5052 -> 5060/5062. */
-                const int16_t offset =
+                const int32_t offset =
                     ctrl->value2 != 0 ? ctrl->value2 : 3;
-                const int16_t action = (int16_t)(f->anim + offset);
+                const int32_t action = f->anim + offset;
                 const ik_frame_table_t* native_frames =
                     frames_for_owner(fight, f->owner_player);
                 if (native_frames && ik_frames_bounds(
@@ -184,7 +184,7 @@ int ikf_ctrl_apply_anim(const ik_ctrl_exec_t* x) {
         }
 
         case IK_CNS_CTRL_GUARD_ANIM_BY_TYPE: {
-            int16_t action = ctrl->value0;
+            int32_t action = ctrl->value0;
             if (f->guard_type == IK_CNS_STATE_CROUCH) action++;
             else if (f->guard_type == IK_CNS_STATE_AIR) action += 2;
             if (f->anim != action) {
@@ -195,7 +195,7 @@ int ikf_ctrl_apply_anim(const ik_ctrl_exec_t* x) {
         }
 
         case IK_CNS_CTRL_GET_HIT_ANIM: {
-            int16_t base;
+            int32_t base;
             if (ctrl->value0 == 3) {
                 /* Knocked back (stand): 5005 for high hits, 5015 for low. */
                 base = f->gethit_ground_type == IK_CNS_GROUND_LOW
@@ -210,15 +210,14 @@ int ikf_ctrl_apply_anim(const ik_ctrl_exec_t* x) {
                     ? 5000
                     : 5010;
             }
-            int16_t action =
-                (int16_t)(base + (int16_t)f->gethit_anim_type);
+            int32_t action = base + f->gethit_anim_type;
             uint32_t first = 0u;
             uint32_t count = 0u;
             if (ctrl->value0 <= 2) {
                 /* Shaking: Up/DiagUp prefer 5051/5052, Back/Up/DiagUp fall
                  * back to the 5030 flight pose. */
                 const uint8_t type = f->gethit_anim_type;
-                const int16_t alt = (int16_t)(5051 + type - 4);
+                const int32_t alt = 5051 + type - 4;
                 if (type >= 4u && frames &&
                     ik_frames_bounds(frames, alt, &first, &count) &&
                     count > 0u) {

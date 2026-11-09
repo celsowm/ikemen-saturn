@@ -397,7 +397,7 @@ enum {
 
 typedef struct ik_cns_state {
     int32_t number;
-    int16_t anim;
+    int32_t anim;
     int16_t power_add;
     int16_t velset_x_q8;
     int16_t velset_y_q8;
@@ -790,7 +790,7 @@ typedef struct ik_cns_controller_context {
     uint16_t anim_ticks_remaining;
     /* Ticks left in the current animation element, this one included. */
     uint16_t anim_elem_ticks_left;
-    int16_t anim;
+    int32_t anim;
     int32_t vx_q8;
     int32_t vy_q8;
     int32_t y_q8;
@@ -954,6 +954,10 @@ typedef struct ik_cns_explod {
     int32_t random_y_q8;
     uint8_t has_shadow;
     uint8_t use_fightfx;
+    uint16_t anim_expr_ofs;
+    uint8_t anim_expr_count;
+    uint16_t facing_expr_ofs;
+    uint8_t facing_expr_count;
 } ik_cns_explod_t;
 
 typedef struct ik_cns_helper {

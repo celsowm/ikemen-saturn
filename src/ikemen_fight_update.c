@@ -15,7 +15,7 @@ static void select_match_over_defeat_anim(
         return;
     }
 
-    const int16_t match_anim = (int16_t)(fighter->anim + 10);
+    const int32_t match_anim = fighter->anim + 10;
     uint32_t first = 0u;
     uint32_t count = 0u;
     if (!ik_frames_bounds(frames, match_anim, &first, &count) ||

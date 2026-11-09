@@ -268,7 +268,10 @@ class _ExprCompiler(_ExprParser):
                     if redirect == "IK_EXPR_REDIRECT_HELPER":
                         instruction["value1"] = redirect_id
                         instruction["redirect_index"] = redirect_index
-        if not self.q16 or field == "IK_EXPR_FIELD_FVAR_Q16":
+        if not self.q16 or field in {
+            "IK_EXPR_FIELD_FVAR_Q16",
+            "IK_EXPR_FIELD_STAGE_AUTHOR_MATCH",
+        }:
             if not self.q16 and field.endswith("_Q8"):
                 return code + [{"op": "IK_EXPR_TRUNC_Q8"}]
             return code
@@ -848,15 +851,38 @@ class _ExprCompiler(_ExprParser):
                 condition, when_true, when_false = args
                 return (condition + when_true + when_false +
                         [{"op": "IK_EXPR_IFELSE"}])
+            if lower == "stageauthoris" and len(args) == 1:
+                author_hash = self._integer_arg(args[0], name)
+                if author_hash < 0 or author_hash > 0x7fffffff:
+                    raise ValueError("StageVar author hash is out of range")
+                return self._load_runtime_field(
+                    "IK_EXPR_FIELD_STAGE_AUTHOR_MATCH", author_hash)
             raise ValueError(f"unsupported function in runtime expression: {name}")
 
         if lower in ("true", "false"):
             return [{"op": "IK_EXPR_PUSH_CONST", "value0": int(lower == "true")}]
+        if lower in ("camerapos", "campos"):
+            axis = self._take()[1].lower()
+            if axis != "x":
+                raise ValueError(
+                    f"CameraPos {axis.upper()} is unsupported without vertical camera tracking")
+            return self._load_runtime_field(
+                "IK_EXPR_FIELD_CAMERA_POS_X_Q8")
         if lower == "screenpos":
             axis = self._take()[1].lower()
+            if axis == "x":
+                scale = 65536 if self.q16 else 1
+                return (
+                    self._load_runtime_field("IK_EXPR_FIELD_POS_X_Q8") +
+                    self._load_runtime_field(
+                        "IK_EXPR_FIELD_CAMERA_POS_X_Q8") +
+                    [{"op": "IK_EXPR_SUB"},
+                     {"op": "IK_EXPR_PUSH_CONST",
+                      "value0": 160 * scale},
+                     {"op": "IK_EXPR_SUB"}]
+                )
             if axis != "y":
-                raise ValueError(
-                    "ScreenPos X is unsupported without horizontal camera projection")
+                raise ValueError(f"unsupported ScreenPos axis {axis!r}")
             # The fight runtime has a fixed vertical camera, so screen-space Y
             # is the entity's world-space Y in this engine.
             return self._load_runtime_field("IK_EXPR_FIELD_POS_Y_Q8")
@@ -985,13 +1011,15 @@ def compile_cns_expr(
         )
 
     normalized = _normalize_logical_operators(text)
+    def stage_author(match: re.Match[str]) -> str:
+        operator, author = match.groups()
+        expression = f"stageauthoris({character_name_hash(author)})"
+        return expression if operator != "!=" else f"!{expression}"
+
     normalized = re.sub(
         r"\bstagevar\s*\(\s*info\.author\s*\)\s*(==|!=|=)\s*"
         r"\"([^\"]*)\"",
-        lambda match: (
-            f"stageauthorhash {match.group(1)} "
-            f"{character_name_hash(match.group(2))}"
-        ),
+        stage_author,
         normalized,
         flags=re.I,
     )

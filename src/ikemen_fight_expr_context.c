@@ -15,6 +15,11 @@ static int ikf_expr_read_field(
     if (!user || !out_value) return 0;
     const ikf_expr_binding_t* binding = (const ikf_expr_binding_t*)user;
     if (redirect == IK_EXPR_REDIRECT_SELF &&
+        field == IK_EXPR_FIELD_CAMERA_POS_X_Q8) {
+        *out_value = binding->fight->cam_x_q16 / 256;
+        return 1;
+    }
+    if (redirect == IK_EXPR_REDIRECT_SELF &&
         field == IK_EXPR_FIELD_MATCH_OVER) {
         *out_value = binding->fight->round_over != 0u;
         return 1;
@@ -251,6 +256,11 @@ static int ikf_expr_read_field(
         return 1;
     }
     if (redirect == IK_EXPR_REDIRECT_SELF &&
+        field == IK_EXPR_FIELD_STAGE_AUTHOR_MATCH) {
+        *out_value = binding->fight->stage_author_hash == (uint32_t)index;
+        return 1;
+    }
+    if (redirect == IK_EXPR_REDIRECT_SELF &&
         field == IK_EXPR_FIELD_GAME_TIME) {
         *out_value = (int32_t)binding->fight->frame;
         return 1;
@@ -478,6 +488,9 @@ static int ikf_expr_read_field(
             f = &binding->fight->fighters[owner ^ 1u];
         }
         switch ((ik_expr_field_t)field) {
+            case IK_EXPR_FIELD_ANIM_NO:
+                *out_value = f->anim;
+                return 1;
             case IK_EXPR_FIELD_ANIM_ELEM:
                 {
                     const uint8_t owner = ikf_fighter_player_index(

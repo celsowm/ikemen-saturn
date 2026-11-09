@@ -229,7 +229,7 @@ int ikf_dispatch_controlled_input(
 /* ---- Body/Clsn geometry, animation position and HitDef distance checks ---- */
 void ikf_anim_position_at(
     const ik_frame_table_t* frames,
-    int16_t action,
+    int32_t action,
     uint16_t anim_time,
     uint16_t* out_element,
     uint16_t* out_element_time,
@@ -242,11 +242,11 @@ void ikf_anim_position(
     int* out_ended);
 uint16_t ikf_anim_element_start_tick(
     const ik_frame_table_t* frames,
-    int16_t action,
+    int32_t action,
     uint16_t element);
 int ikf_hitdef_trigger_now(
     const ik_frame_table_t* frames,
-    int16_t action,
+    int32_t action,
     uint16_t state_time,
     uint16_t anim_time,
     uint16_t anim_element,
