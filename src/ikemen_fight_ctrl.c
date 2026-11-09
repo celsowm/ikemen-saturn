@@ -66,8 +66,9 @@ static void queue_state_playsnds(
                     sound->item_expr_count, &item))) {
                 continue;
             }
-            ikf_queue_sound_event(
-                fight, (int16_t)group, (int16_t)item);
+            ikf_queue_character_sound_event(
+                fight, ikf_fighter_player_index(fight, f), sound->channel,
+                (int16_t)group, (int16_t)item);
         }
     }
 }
@@ -90,6 +91,24 @@ static const ik_entity_t* projectile_query_root(
     }
     return ik_entity_get_const(
         fight->entities, fight->player_entities[player_index]);
+}
+
+static uint8_t projectile_count_by_id(
+    const ik_fight_t* fight,
+    uint8_t player_index,
+    int32_t projectile_id
+) {
+    uint8_t count = 0u;
+    if (!fight || !fight->entities || player_index >= 2u) return 0u;
+    for (uint8_t slot = 0u; slot < IK_ENTITY_CAPACITY; ++slot) {
+        const ik_entity_t* entity = &fight->entities->entities[slot];
+        if (entity->type == IK_ENTITY_PROJECTILE &&
+            entity->owner_player == player_index &&
+            entity->id == projectile_id && count < UINT8_MAX) {
+            ++count;
+        }
+    }
+    return count;
 }
 
 static ik_cns_controller_context_t make_controller_context(
@@ -230,6 +249,12 @@ int ikf_process_cns_controllers(
             continue;
         }
         ik_cns_controller_context_t query_context = context;
+        if (ctrl->trigger_kind ==
+            IK_CNS_TRIGGER_NUM_PROJECTILE_ID_QUERY) {
+            query_context.num_projectiles = projectile_count_by_id(
+                fight, ikf_fighter_player_index(fight, f),
+                ctrl->trigger_aux);
+        }
         if (ctrl->trigger_kind == IK_CNS_TRIGGER_NUM_TARGET_QUERY) {
             const int id_matches =
                 f->target_index >= 0 && f->target_index < 2 &&

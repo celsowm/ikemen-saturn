@@ -374,6 +374,7 @@ def emit_cns_source_files(
     sound_lines = [
         f"    {{{p['state_number']}, {p['trigger_kind']}, "
         f"{p['trigger_value']}, {p['group']}, {p['item']}, "
+        f"{p.get('channel', -1)}, "
         f"{p.get('group_expr_ofs', 0)}u, "
         f"{p.get('group_expr_count', 0)}u, "
         f"{p.get('item_expr_ofs', 0)}u, "

@@ -12,8 +12,49 @@ void ikf_queue_sound_event(
     }
     ik_sound_event_t* event =
         &fight->sound_events[fight->sound_count++];
+    event->type = IK_SOUND_EVENT_PLAY;
+    event->player_index = -1;
+    event->channel = -1;
     event->group = group;
     event->item = item;
+}
+
+void ikf_queue_character_sound_event(
+    ik_fight_t* fight,
+    uint8_t player_index,
+    int16_t channel,
+    int16_t group,
+    int16_t item
+) {
+    if (!fight || group < 0 || item < 0 || player_index >= 2u ||
+        fight->sound_count >= IK_MAX_SOUND_EVENTS) {
+        return;
+    }
+    ik_sound_event_t* event =
+        &fight->sound_events[fight->sound_count++];
+    event->type = IK_SOUND_EVENT_PLAY;
+    event->player_index = (int8_t)player_index;
+    event->channel = channel;
+    event->group = group;
+    event->item = item;
+}
+
+void ikf_queue_sound_stop_event(
+    ik_fight_t* fight,
+    uint8_t player_index,
+    int16_t channel
+) {
+    if (!fight || player_index >= 2u ||
+        fight->sound_count >= IK_MAX_SOUND_EVENTS) {
+        return;
+    }
+    ik_sound_event_t* event =
+        &fight->sound_events[fight->sound_count++];
+    event->type = IK_SOUND_EVENT_STOP_CHANNEL;
+    event->player_index = channel < 0 ? -1 : (int8_t)player_index;
+    event->channel = channel;
+    event->group = -1;
+    event->item = -1;
 }
 
 void ikf_queue_reversal_effect(

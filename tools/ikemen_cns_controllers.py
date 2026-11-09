@@ -72,6 +72,7 @@ def compile_runtime_controller(
         "hitfallvel",
         "hitfallset",
         "varrangeset",
+        "stopsnd",
         "fallenvshake",
         "sysfvarset",
         "sysfvaradd",
@@ -1228,6 +1229,32 @@ def compile_runtime_controller(
             "trigger_value2": trig_value2,
             "value0": integer(ctrl.get("id"), -1),
             "value1": 1 if integer(ctrl.get("persistent"), 1) == 0 else 0,
+            "flags": flag_expr(),
+        }
+
+    if ctype == "stopsnd":
+        # Some legacy MUGEN files leave a `value` pair here. Ikemen-GO ignores
+        # it; StopSnd is keyed only by its channel and redirected owner.
+        supported_keys = {
+            "type", "channel", "value", "ignorehitpause", "persistent",
+        }
+        if any(
+            not key.strip().casefold().startswith("trigger") and
+            key.strip().casefold() not in supported_keys
+            for key, _ in ctrl.values
+        ):
+            # Redirected/helper sound ownership is not represented by the
+            # two-fighter Saturn audio event model.
+            return None
+        return {
+            "state_number": state_no,
+            "type": "IK_CNS_CTRL_STOP_SND",
+            "trigger_kind": trig_kind,
+            "trigger_value": trig_value,
+            "trigger_value2": trig_value2,
+            "trigger_aux": getattr(ctrl, "trigger_aux", -1),
+            "value0": integer(ctrl.get("channel"), -1),
+            "value1": 0,
             "flags": flag_expr(),
         }
 

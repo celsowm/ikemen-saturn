@@ -95,7 +95,8 @@ typedef enum ik_cns_trigger_kind {
     /* AnimElemTime(a) >= min && AnimElemTime(b) < limit; value = (a << 8) |
      * min, value2 = (b << 8) | limit. Resolved per controller by the caller
      * into context.elem_window_ok because it needs the frame table. */
-    IK_CNS_TRIGGER_ANIM_ELEM_TIME_WINDOW
+    IK_CNS_TRIGGER_ANIM_ELEM_TIME_WINDOW,
+    IK_CNS_TRIGGER_NUM_PROJECTILE_ID_QUERY
 } ik_cns_trigger_kind_t;
 
 enum {
@@ -217,7 +218,8 @@ typedef enum ik_cns_controller_type {
     IK_CNS_CTRL_ATTACK_MUL_SET,
     IK_CNS_CTRL_DEFENCE_MUL_SET,
     IK_CNS_CTRL_HIT_FALL_VEL,
-    IK_CNS_CTRL_VAR_RANGE_SET
+    IK_CNS_CTRL_VAR_RANGE_SET,
+    IK_CNS_CTRL_STOP_SND
 } ik_cns_controller_type_t;
 
 enum {
@@ -764,6 +766,7 @@ typedef struct ik_cns_playsnd {
     int16_t trigger_value;
     int16_t group;
     int16_t item;
+    int16_t channel;
     uint16_t group_expr_ofs;
     uint8_t group_expr_count;
     uint16_t item_expr_ofs;

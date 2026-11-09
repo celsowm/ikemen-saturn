@@ -24,6 +24,27 @@ def compile_controller_trigger(
     trigger2 = ctrl.all("trigger2")
     trigger3 = ctrl.all("trigger3")
 
+    if ctype == "stopsnd" and not ctrl.all("triggerall"):
+        all_triggers = [
+            expr.strip() for index in range(1, 9)
+            for expr in ctrl.all(f"trigger{index}")
+        ]
+        if len(all_triggers) == 1:
+            m = re.fullmatch(
+                r"NumProjID\s*\(\s*(\d+)\s*\)\s*"
+                r"(=|!=|<=|>=|<|>)\s*(-?\d+)",
+                _strip_outer_parens(all_triggers[0]), flags=re.I)
+            if m:
+                op = {
+                    "=": "IK_CNS_QUERY_EQ", "!=": "IK_CNS_QUERY_NE",
+                    "<": "IK_CNS_QUERY_LT", "<=": "IK_CNS_QUERY_LE",
+                    ">": "IK_CNS_QUERY_GT", ">=": "IK_CNS_QUERY_GE",
+                }[m.group(2)]
+                ctrl.trigger_aux = int(m.group(1))
+                return (
+                    "IK_CNS_TRIGGER_NUM_PROJECTILE_ID_QUERY",
+                    int(m.group(3)), op)
+
     anim_or: list[str] = []
     for trigger_index in range(1, 9):
         group = ctrl.all(f"trigger{trigger_index}")

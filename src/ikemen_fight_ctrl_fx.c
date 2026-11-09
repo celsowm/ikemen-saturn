@@ -35,6 +35,12 @@ int ikf_ctrl_apply_fx(const ik_ctrl_exec_t* x) {
             ikf_queue_sound_event(fight, ctrl->value0, ctrl->value1);
             break;
 
+        case IK_CNS_CTRL_STOP_SND:
+            ikf_queue_sound_stop_event(
+                fight, ikf_fighter_player_index(fight, f),
+                (int16_t)ctrl->value0);
+            break;
+
         case IK_CNS_CTRL_POWER_ADD: {
             const int32_t add = ctrl->value0_expr_count
                 ? ctrl->value4 / 65536 : ctrl->value0;

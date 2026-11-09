@@ -41,7 +41,7 @@ extern "C" {
 #define IK_ROUND_OVER_WIN_TIME 45u
 #define IK_ROUND_SLOW_SPEED_Q16 16384u /* 0.25 */
 #define IK_MAX_EFFECT_EVENTS 2
-#define IK_MAX_SOUND_EVENTS 4
+#define IK_MAX_SOUND_EVENTS 16
 
 typedef enum ik_state {
     IK_STATE_IDLE = 0,
@@ -85,9 +85,17 @@ typedef struct ik_effect_event {
 } ik_effect_event_t;
 
 typedef struct ik_sound_event {
+    uint8_t type;
+    int8_t player_index;
+    int16_t channel;
     int16_t group;
     int16_t item;
 } ik_sound_event_t;
+
+enum {
+    IK_SOUND_EVENT_PLAY = 0,
+    IK_SOUND_EVENT_STOP_CHANNEL = 1
+};
 
 typedef struct ik_fight_controls {
     uint8_t forward;

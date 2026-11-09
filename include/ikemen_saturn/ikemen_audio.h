@@ -16,6 +16,14 @@
 extern "C" {
 #endif
 
+#define IK_AUDIO_TRACKED_VOICES 32u
+
+typedef struct ik_audio_channel_voice {
+    sat_voice_t voice;
+    int8_t player_index;
+    int16_t channel;
+} ik_audio_channel_voice_t;
+
 typedef struct ik_audio {
     sat_sound_t punch_whiff;
     sat_sound_t kick_whiff;
@@ -34,6 +42,8 @@ typedef struct ik_audio {
     sat_sound_t heavy_hit;
     sat_sound_t reversal_hit;
     sat_sound_t wall_impact;
+    ik_audio_channel_voice_t channel_voices[IK_AUDIO_TRACKED_VOICES];
+    uint8_t next_channel_voice;
 } ik_audio_t;
 
 sat_result_t ik_audio_init(ik_audio_t* audio);
