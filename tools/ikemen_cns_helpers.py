@@ -22,8 +22,8 @@ def compile_helper_controller(
     supported_keys = {
         "type", "helpertype", "postype", "ownpal", "stateno", "name",
         "keyctrl", "id", "pos", "facing", "ignorehitpause",
-        "pausemovetime", "pausemove", "supermovetime", "persistent",
-        "sprpriority",
+        "pausemovetime", "pausemove", "supermove", "supermovetime",
+        "persistent", "sprpriority",
     }
     for key, _ in ctrl.values:
         lowered = key.strip().lower()
@@ -55,12 +55,21 @@ def compile_helper_controller(
     if facing == 0:
         facing = 1
     facing = 1 if facing > 0 else -1
+    if ctrl.get("supermovetime") is not None:
+        super_move_time = integer(ctrl.get("supermovetime"), 0)
+    else:
+        super_move_time = (
+            0xFFFFFFFF if integer(ctrl.get("supermove"), 0) else 0
+        )
 
     helper = {
         "id": integer(ctrl.get("id"), 0),
         "state_no": integer(ctrl.get("stateno"), 0),
-        "pos_x_q8": q8(px),
-        "pos_y_q8": q8(py),
+        # Helper positions are stored as int32 Q8 in the runtime. Use the
+        # matching range here; the 16-bit default rejects valid offsets such
+        # as Kyo's screen-edge helper at (160, 120).
+        "pos_x_q8": q8(px, wide=True),
+        "pos_y_q8": q8(py, wide=True),
         "name_hash": character_name_hash(
             (ctrl.get("name") or "").strip().strip('"'))
             if ctrl.get("name") else 0,
@@ -75,8 +84,7 @@ def compile_helper_controller(
         "ownpal": int(integer(ctrl.get("ownpal"), 0) != 0),
         "pause_move_time": min(0xFFFFFFFF, max(0, integer(
             ctrl.get("pausemovetime", ctrl.get("pausemove")), 0))),
-        "super_move_time": min(0xFFFFFFFF, max(0, integer(
-            ctrl.get("supermovetime"), 0))),
+        "super_move_time": min(0xFFFFFFFF, max(0, super_move_time)),
     }
     controller = {
         "state_number": state_no,
