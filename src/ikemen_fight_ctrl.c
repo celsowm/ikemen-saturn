@@ -271,7 +271,8 @@ int ikf_process_cns_controllers(
             }
             if (ctrl->type == IK_CNS_CTRL_EXPLOD) {
                 evaluated_ctrl.value6 = value;
-            } else if (ctrl->type == IK_CNS_CTRL_CHANGE_ANIM) {
+            } else if (ctrl->type == IK_CNS_CTRL_CHANGE_ANIM ||
+                       ctrl->type == IK_CNS_CTRL_LIFE_ADD) {
                 evaluated_ctrl.value4 = value;
                 evaluated_ctrl.value0 = value;
             } else {

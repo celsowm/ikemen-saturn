@@ -981,7 +981,8 @@ static int process_controllers(
             }
             if (ctrl->type == IK_CNS_CTRL_EXPLOD) {
                 evaluated_ctrl.value6 = value;
-            } else if (ctrl->type == IK_CNS_CTRL_CHANGE_ANIM) {
+            } else if (ctrl->type == IK_CNS_CTRL_CHANGE_ANIM ||
+                       ctrl->type == IK_CNS_CTRL_LIFE_ADD) {
                 evaluated_ctrl.value0 = value;
                 evaluated_ctrl.value4 = value;
             } else {
@@ -1049,6 +1050,22 @@ static int process_controllers(
             case IK_CNS_CTRL_CTRL_SET:
                 entity->ctrl = (uint8_t)(ctrl->value0 != 0);
                 break;
+
+            case IK_CNS_CTRL_LIFE_ADD: {
+                const int32_t add = ctrl->value0_expr_count
+                    ? ctrl->value4 : ctrl->value0;
+                if (add == 0) break;
+                int64_t life = (int64_t)entity->life + add;
+                int32_t max_life = runtime->cns->constants.life;
+                if (max_life <= 0) max_life = INT16_MAX;
+                if (life > max_life) life = max_life;
+                if (life <= 0) {
+                    life = (ctrl->value2 == 0 && entity->life > 0)
+                        ? 1 : 0;
+                }
+                entity->life = (int16_t)life;
+                break;
+            }
 
             case IK_CNS_CTRL_VAR_SET:
                 if (ctrl->value0 >= 0 &&

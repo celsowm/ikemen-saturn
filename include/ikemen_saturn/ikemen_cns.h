@@ -207,7 +207,8 @@ typedef enum ik_cns_controller_type {
     IK_CNS_CTRL_SYSVAR_ADD,
     IK_CNS_CTRL_FVAR_SET,
     IK_CNS_CTRL_FVAR_ADD,
-    IK_CNS_CTRL_ASSERT_WALK_FLAGS
+    IK_CNS_CTRL_ASSERT_WALK_FLAGS,
+    IK_CNS_CTRL_LIFE_ADD
 } ik_cns_controller_type_t;
 
 typedef enum ik_cns_helper_postype {

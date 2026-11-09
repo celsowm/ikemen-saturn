@@ -24,6 +24,33 @@ int ikf_ctrl_apply_state(const ik_ctrl_exec_t* x) {
             f->ctrl = (int8_t)(ctrl->value0 != 0);
             break;
 
+        case IK_CNS_CTRL_LIFE_ADD: {
+            const int32_t add = ctrl->value0_expr_count
+                ? ctrl->value4 : ctrl->value0;
+            if (add == 0) break;
+            const int64_t adjusted = (int64_t)f->hp + add;
+            const int max_hp = ik_fight_max_hp_player(
+                fight, f->owner_player);
+            int64_t hp = adjusted;
+            if (hp > max_hp) hp = max_hp;
+            if (hp <= 0) {
+                if (ctrl->value2 == 0 && f->hp > 0) {
+                    hp = 1;
+                } else {
+                    hp = 0;
+                    const uint8_t player =
+                        ikf_fighter_player_index(fight, f);
+                    if (player < 2u) {
+                        fight->winner = (uint8_t)((player ^ 1u) + 1u);
+                        fight->events |= IK_EVENT_KO;
+                        fight->win_by_ko = 1u;
+                    }
+                }
+            }
+            f->hp = (int16_t)hp;
+            break;
+        }
+
         case IK_CNS_CTRL_VAR_SET:
 
         case IK_CNS_CTRL_VAR_ADD: {

@@ -63,6 +63,7 @@ def compile_runtime_controller(
         "varset",
         "varadd",
         "varrandom",
+        "lifeadd",
         "sysfvarset",
         "sysfvaradd",
         "targetbind",
@@ -214,6 +215,33 @@ def compile_runtime_controller(
             "trigger_value2": trig_value2,
             "value0": value,
             "value1": 0,
+            "flags": flag_expr(),
+        }
+
+    if ctype == "lifeadd":
+        supported_keys = {
+            "type", "value", "kill", "absolute", "ignorehitpause",
+        }
+        if any(
+            not key.strip().casefold().startswith("trigger") and
+            key.strip().casefold() not in supported_keys
+            for key, _ in ctrl.values
+        ):
+            return None
+        value, value_expr = services["integer_or_runtime_expr"](
+            ctrl.get("value"), 0)
+        ctrl.runtime_value0_expr = value_expr
+        return {
+            "state_number": state_no,
+            "type": "IK_CNS_CTRL_LIFE_ADD",
+            "trigger_kind": trig_kind,
+            "trigger_value": trig_value,
+            "trigger_value2": trig_value2,
+            "value0": value,
+            # The current fight model has a fixed 1.0 defense multiplier, so
+            # LifeAdd's absolute switch has no numeric effect yet.
+            "value1": int(integer(ctrl.get("absolute"), 0) != 0),
+            "value2": int(integer(ctrl.get("kill"), 1) != 0),
             "flags": flag_expr(),
         }
 
