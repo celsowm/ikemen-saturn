@@ -32,6 +32,28 @@ try:
 except ImportError:  # direct `python tools/ikemen_cns.py` invocation
     from ikemen_cns_emit import emit_cns_source_files
 try:
+    from .ikemen_cns_attributes import (
+        attack_attr_mask, attack_state_mask, guard_mask, hit_mask,
+        no_hit_by_attr_mask, no_hit_by_state_mask, priority_type_code,
+        reversal_state_mask,
+    )
+except ImportError:  # direct `python tools/ikemen_cns.py` invocation
+    from ikemen_cns_attributes import (
+        attack_attr_mask, attack_state_mask, guard_mask, hit_mask,
+        no_hit_by_attr_mask, no_hit_by_state_mask, priority_type_code,
+        reversal_state_mask,
+    )
+try:
+    from .ikemen_cns_values import (
+        Q8, anim_type_code, fall_anim_type_code, integer, number, pair,
+        q8, q16, split_top_level as _split_top_level,
+    )
+except ImportError:  # direct `python tools/ikemen_cns.py` invocation
+    from ikemen_cns_values import (
+        Q8, anim_type_code, fall_anim_type_code, integer, number, pair,
+        q8, q16, split_top_level as _split_top_level,
+    )
+try:
     from .ikemen_cns_common import compile_common_states
 except ImportError:  # direct `python tools/ikemen_cns.py` invocation
     from ikemen_cns_common import compile_common_states
@@ -172,6 +194,10 @@ def pair_runtime_expr(
     parts = _split_top_level(text)
     if not parts or len(parts) > 3:
         raise ValueError(f"expected value pair, got {text!r}")
+    if not parts[0].strip():
+        parts[0] = str(default_x)
+    if len(parts) > 1 and not parts[1].strip():
+        parts[1] = str(default_y)
     if len(parts) == 3:
         # The Saturn fight simulation is a 2D plane. MUGEN permits a third
         # depth velocity component for 3D-style effects; it has no spatial
@@ -253,67 +279,6 @@ def dynamic_power_add_expr(
             {"op": "IK_EXPR_DIV"},
         ]
     return code
-
-
-def number(text: str | None, default: float = 0.0) -> float:
-    if text is None:
-        return default
-    value = text.strip()
-    # MUGEN allows string references like s4000 for sparkno/guard.sparkno.
-    if value[:1].casefold() == "s":
-        value = value[1:]
-    if not re.fullmatch(r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)", value):
-        raise ValueError(f"expected numeric literal, got {text!r}")
-    return float(value)
-
-
-def integer(text: str | None, default: int = 0) -> int:
-    value = number(text, float(default))
-    if int(value) != value:
-        raise ValueError(f"expected integer literal, got {text!r}")
-    return int(value)
-
-
-def _split_top_level(text: str) -> list[str]:
-    parts: list[str] = []
-    start = 0
-    depth = 0
-    for i, ch in enumerate(text):
-        if ch == "(":
-            depth += 1
-        elif ch == ")":
-            depth -= 1
-        elif ch == "," and depth == 0:
-            redirect_prefix = re.search(
-                r"\b(?:parent|root|p2|enemy)\s*$",
-                text[start:i], re.I,
-            )
-            redirected_field = re.match(
-                r"\s*(?:var|sysvar|fvar|pos|vel|stateno|statetype|movetype)\b",
-                text[i + 1:], re.I,
-            )
-            if redirect_prefix and redirected_field:
-                continue
-            parts.append(text[start:i].strip())
-            start = i + 1
-    parts.append(text[start:].strip())
-    return parts
-
-
-def pair(
-    text: str | None,
-    default_x: float = 0.0,
-    default_y: float = 0.0,
-) -> tuple[float, float]:
-    if text is None:
-        return default_x, default_y
-
-    parts = _split_top_level(text)
-    if len(parts) == 1:
-        return number(parts[0]), default_y
-    if len(parts) == 2 or len(parts) == 3:
-        return number(parts[0]), number(parts[1])
-    raise ValueError(f"expected scalar or pair, got {text!r}")
 
 
 def dist_fields(ctrl: Section) -> dict:
@@ -408,202 +373,6 @@ def spark_pair_runtime(text: str | None):
     except ValueError:
         y, y_expr = integer_or_runtime_expr(parts[1], 0)
         return x, y, y, x_expr, y_expr, y_expr
-
-
-def q8(value: float, wide: bool = False) -> int:
-    """Q8.8 fixed point; `wide` is for fields stored as int32 in the asset."""
-    result = int(round(value * Q8))
-    low, high = (-(1 << 31), (1 << 31) - 1) if wide else (-32768, 32767)
-    if not low <= result <= high:
-        raise ValueError(f"Q8.8 overflow for {value}")
-    return result
-
-
-def q16(value: float) -> int:
-    """Q16.16 for the few constants whose Q8.8 rounding drifts a fighter
-    (gravity and friction accumulate every tick)."""
-    result = int(round(value * 65536))
-    if not -(1 << 31) <= result < (1 << 31):
-        raise ValueError(f"Q16.16 overflow for {value}")
-    return result
-
-
-def anim_type_code(text: str | None) -> int:
-    value = (text or "light").strip().lower()
-    mapping = {
-        "light": 0,
-        "medium": 1,
-        "med": 1,
-        "hard": 2,
-        "heavy": 2,
-        "back": 3,
-        "up": 4,
-        "diagup": 5,
-        "diag-up": 5,
-    }
-    return mapping.get(value, 0)
-
-
-def fall_anim_type_code(ctrl: dict) -> int:
-    """Upstream: explicit fall.animtype, else air.animtype if it is Up or
-    DiagUp, else Back."""
-    if ctrl.get("fall.animtype") is not None:
-        return anim_type_code(ctrl.get("fall.animtype"))
-    air = anim_type_code(
-        ctrl.get("air.animtype") or ctrl.get("animtype") or "light")
-    return air if air >= 4 else 3
-
-
-def attack_attr_mask(text: str | None) -> str:
-    value = (text or "").strip().upper()
-    mapping = {
-        "NA": "IK_CNS_ATTR_NORMAL_ATTACK",
-        "SA": "IK_CNS_ATTR_SPECIAL_ATTACK",
-        "HA": "IK_CNS_ATTR_HYPER_ATTACK",
-        "NP": "IK_CNS_ATTR_NORMAL_PROJECTILE",
-        "SP": "IK_CNS_ATTR_SPECIAL_PROJECTILE",
-        "HP": "IK_CNS_ATTR_HYPER_PROJECTILE",
-        "NT": "IK_CNS_ATTR_NORMAL_THROW",
-        "ST": "IK_CNS_ATTR_SPECIAL_THROW",
-        "HT": "IK_CNS_ATTR_HYPER_THROW",
-    }
-    if value == "AP":
-        return (
-            "IK_CNS_ATTR_NORMAL_PROJECTILE | "
-            "IK_CNS_ATTR_SPECIAL_PROJECTILE | "
-            "IK_CNS_ATTR_HYPER_PROJECTILE"
-        )
-    if value == "AA":
-        return (
-            "IK_CNS_ATTR_NORMAL_ATTACK | "
-            "IK_CNS_ATTR_SPECIAL_ATTACK | "
-            "IK_CNS_ATTR_HYPER_ATTACK"
-        )
-    if value == "AT":
-        return (
-            "IK_CNS_ATTR_NORMAL_THROW | "
-            "IK_CNS_ATTR_SPECIAL_THROW | "
-            "IK_CNS_ATTR_HYPER_THROW"
-        )
-    bits = [
-        mapping[token]
-        for token in re.split(r"\s+", value)
-        if token in mapping
-    ]
-    return " | ".join(dict.fromkeys(bits)) if bits else "0u"
-
-
-def attack_state_mask(text: str | None) -> int:
-    value = (text or "SCA").strip().upper()
-    mask = 0
-    if "S" in value:
-        mask |= 1
-    if "C" in value:
-        mask |= 2
-    if "A" in value:
-        mask |= 4
-    return mask or 7
-
-
-def priority_type_code(text: str | None) -> str:
-    value = (text or "4, Hit").split(",", 1)
-    kind = value[1].strip().lower() if len(value) > 1 else "hit"
-    if kind in ("miss", "m"):
-        return "IK_CNS_PRIORITY_MISS"
-    if kind in ("dodge", "d"):
-        return "IK_CNS_PRIORITY_DODGE"
-    return "IK_CNS_PRIORITY_HIT"
-
-
-def guard_mask(text: str | None) -> str:
-    value = (text or "").strip().upper()
-    bits: list[str] = []
-    if "H" in value:
-        bits.append("IK_CNS_GUARD_STAND")
-    if "L" in value:
-        bits.append("IK_CNS_GUARD_CROUCH")
-    if "M" in value:
-        bits += ["IK_CNS_GUARD_STAND", "IK_CNS_GUARD_CROUCH"]
-    if "A" in value:
-        bits.append("IK_CNS_GUARD_AIR")
-    return " | ".join(dict.fromkeys(bits)) if bits else "0u"
-
-
-def no_hit_by_state_mask(text: str | None) -> str:
-    value = (text or "").split(",", 1)[0].strip().upper()
-    if value == "":
-        return (
-            "IK_CNS_REVERSAL_STATE_STAND | "
-            "IK_CNS_REVERSAL_STATE_CROUCH | "
-            "IK_CNS_REVERSAL_STATE_AIR"
-        )
-    bits: list[str] = []
-    if "S" in value:
-        bits.append("IK_CNS_REVERSAL_STATE_STAND")
-    if "C" in value:
-        bits.append("IK_CNS_REVERSAL_STATE_CROUCH")
-    if "A" in value:
-        bits.append("IK_CNS_REVERSAL_STATE_AIR")
-    return " | ".join(dict.fromkeys(bits)) if bits else "0u"
-
-
-def no_hit_by_attr_mask(text: str | None) -> str:
-    parts = [p.strip().upper() for p in (text or "").split(",")]
-    if len(parts) <= 1:
-        return "0u"
-    bits: list[str] = []
-    for token in parts[1:]:
-        if token == "AT":
-            bits.extend([
-                "IK_CNS_ATTR_NORMAL_THROW",
-                "IK_CNS_ATTR_SPECIAL_THROW",
-                "IK_CNS_ATTR_HYPER_THROW",
-            ])
-            continue
-        mask = attack_attr_mask(token)
-        if mask != "0u":
-            bits.extend(part.strip() for part in mask.split("|"))
-    return " | ".join(dict.fromkeys(bits)) if bits else "0u"
-
-
-def reversal_state_mask(text: str | None) -> str:
-    """Compile the state-type half of ReversalDef.attr.
-
-    ReversalDef uses the first attr field to select the attacker's state
-    type. KFM's Blocking family uses SA, C and A with AA (any attack) as the
-    second field, so keep the runtime representation deliberately compact.
-    """
-    value = (text or "").strip().upper()
-    bits: list[str] = []
-    if "S" in value:
-        bits.append("IK_CNS_REVERSAL_STATE_STAND")
-    if "C" in value:
-        bits.append("IK_CNS_REVERSAL_STATE_CROUCH")
-    if "A" in value:
-        bits.append("IK_CNS_REVERSAL_STATE_AIR")
-    return " | ".join(dict.fromkeys(bits)) if bits else "0u"
-
-
-def hit_mask(text: str | None) -> str:
-    value = (text or "MAF").strip().upper()
-    bits: list[str] = []
-    if "H" in value:
-        bits.append("IK_CNS_HIT_STAND")
-    if "L" in value:
-        bits.append("IK_CNS_HIT_CROUCH")
-    if "M" in value:
-        bits += ["IK_CNS_HIT_STAND", "IK_CNS_HIT_CROUCH"]
-    if "A" in value:
-        bits.append("IK_CNS_HIT_AIR")
-    if "F" in value:
-        bits.append("IK_CNS_HIT_FALL")
-    if "D" in value:
-        bits.append("IK_CNS_HIT_DOWN")
-    if "+" in value:
-        bits.append("IK_CNS_HIT_ONLY_GETHIT")
-    if "-" in value:
-        bits.append("IK_CNS_HIT_NOT_GETHIT")
-    return " | ".join(dict.fromkeys(bits)) if bits else "0u"
 
 
 def sound_pair(
@@ -954,6 +723,10 @@ def constants(globals_: dict[str, Section]) -> dict[str, int]:
         "air_front": integer(size.get("air.front"), 12),
         "height": integer(size.get("height"), 60),
         "attack_dist": integer(size.get("attack.dist"), 160),
+        "head_pos_x": int(pair(size.get("head.pos"), 0, 0)[0]),
+        "head_pos_y": int(pair(size.get("head.pos"), 0, 0)[1]),
+        "mid_pos_x": int(pair(size.get("mid.pos"), 0, 0)[0]),
+        "mid_pos_y": int(pair(size.get("mid.pos"), 0, 0)[1]),
         "walk_fwd_q8": q8(number(vel.get("walk.fwd"), 2.4)),
         "walk_back_q8": q8(number(vel.get("walk.back"), -2.2)),
         "run_fwd_x_q8": q8(run_fwd[0]),

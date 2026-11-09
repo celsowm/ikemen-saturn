@@ -14,7 +14,7 @@ extern "C" {
 #define IK_CMD_INVALID_ID 0xFFFFu
 #define IK_CMD_MAX_PATTERNS 256u
 #define IK_CMD_MAX_NAMES 128u
-#define IK_CMD_MAX_STEPS_PER_PATTERN 16u
+#define IK_CMD_MAX_STEPS_PER_PATTERN 64u
 
 typedef enum ik_cmd_key {
     IK_CMD_KEY_U = 0,
@@ -149,7 +149,7 @@ typedef struct ik_state_rule_context {
 } ik_state_rule_context_t;
 
 typedef struct ik_command_pattern_state {
-    uint16_t completed_mask;
+    uint64_t completed_mask;
     uint8_t step_timer[IK_CMD_MAX_STEPS_PER_PATTERN];
     uint8_t cur_time;
     uint8_t buffer_time;

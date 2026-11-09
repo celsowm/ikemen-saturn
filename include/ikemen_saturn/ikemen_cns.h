@@ -302,6 +302,10 @@ typedef struct ik_cns_constants {
     int16_t air_front;
     int16_t height;
     int16_t attack_dist;
+    int16_t head_pos_x;
+    int16_t head_pos_y;
+    int16_t mid_pos_x;
+    int16_t mid_pos_y;
 
     int16_t walk_fwd_q8;
     int16_t walk_back_q8;
@@ -426,6 +430,10 @@ typedef struct ik_cns_state {
     uint16_t velset_y_expr_ofs;
     uint8_t velset_y_expr_count;
     uint8_t hitcount_persist;
+    uint16_t hitcount_persist_expr_ofs;
+    uint8_t hitcount_persist_expr_count;
+    uint16_t spr_priority_expr_ofs;
+    uint8_t spr_priority_expr_count;
 } ik_cns_state_t;
 
 typedef struct ik_cns_hitdef {
@@ -629,6 +637,14 @@ typedef struct ik_cns_hitdef {
     uint16_t yaccel_expr_ofs;
     uint8_t yaccel_expr_count;
     uint8_t attack_state_mask;
+    uint16_t chain_id_expr_ofs;
+    uint8_t chain_id_expr_count;
+    uint16_t no_chain_id_expr_ofs;
+    uint8_t no_chain_id_expr_count;
+    uint16_t no_chain_id2_expr_ofs;
+    uint8_t no_chain_id2_expr_count;
+    uint16_t p1_spr_priority_expr_ofs;
+    uint8_t p1_spr_priority_expr_count;
 } ik_cns_hitdef_t;
 
 typedef struct ik_cns_reversaldef {

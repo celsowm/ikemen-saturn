@@ -193,8 +193,11 @@ _RUNTIME_EXPR_FIELDS = {
     "time": "IK_EXPR_FIELD_STATE_TIME",
     "gametime": "IK_EXPR_FIELD_GAME_TIME",
     "roundstate": "IK_EXPR_FIELD_ROUND_STATE",
+    "roundno": "IK_EXPR_FIELD_ROUND_NUMBER",
+    "stageauthorhash": "IK_EXPR_FIELD_STAGE_AUTHOR_HASH",
     "power": "IK_EXPR_FIELD_POWER",
     "life": "IK_EXPR_FIELD_LIFE",
+    "lifemax": "IK_EXPR_FIELD_LIFE_MAX",
     "ctrl": "IK_EXPR_FIELD_CTRL",
     "movecontact": "IK_EXPR_FIELD_MOVE_CONTACT",
     "movehit": "IK_EXPR_FIELD_MOVE_HIT",
@@ -207,6 +210,8 @@ _RUNTIME_EXPR_FIELDS = {
     "frontedgedist": "IK_EXPR_FIELD_FRONT_EDGE_DIST",
     "backedgedist": "IK_EXPR_FIELD_BACK_EDGE_DIST",
     "anim": "IK_EXPR_FIELD_ANIM_NO",
+    "facing": "IK_EXPR_FIELD_FACING",
+    "backedgebodydist": "IK_EXPR_FIELD_BACK_EDGE_BODY_DIST",
     "animelem": "IK_EXPR_FIELD_ANIM_ELEM",
     "animtime": "IK_EXPR_FIELD_ANIM_TIME",
     "hitpausetime": "IK_EXPR_FIELD_HIT_PAUSE_TIME",
@@ -221,6 +226,8 @@ _RUNTIME_EXPR_FIELDS = {
     "numprojectiles": "IK_EXPR_FIELD_NUM_PROJECTILES",
     "teamside": "IK_EXPR_FIELD_TEAM_SIDE",
     "winko": "IK_EXPR_FIELD_WIN_KO",
+    "winperfect": "IK_EXPR_FIELD_WIN_PERFECT",
+    "loseko": "IK_EXPR_FIELD_LOSE_KO",
 }
 
 
@@ -405,6 +412,7 @@ class _ExprCompiler(_ExprParser):
             "p2": "IK_EXPR_REDIRECT_P2",
             "enemy": "IK_EXPR_REDIRECT_P2",
             "enemynear": "IK_EXPR_REDIRECT_P2",
+            "target": "IK_EXPR_REDIRECT_TARGET",
             "parent": "IK_EXPR_REDIRECT_PARENT",
             "root": "IK_EXPR_REDIRECT_ROOT",
         }
@@ -415,6 +423,63 @@ class _ExprCompiler(_ExprParser):
             field_name = self._take()[1]
             field_lower = field_name.lower()
             redirect = redirects[lower]
+            if field_lower == "const":
+                if self._peek() != ("op", "("):
+                    raise ValueError(f"{name},Const requires a constant name")
+                self._take()
+                const_name = self._peek()
+                if const_name is None or const_name[0] != "ident":
+                    raise ValueError(f"{name},Const requires a constant name")
+                const_name = self._take()[1].casefold()
+                if self._peek() != ("op", ")"):
+                    raise ValueError(f"{name},Const takes one constant name")
+                self._take()
+                const_indexes = {
+                    "size.head.pos.x": 1,
+                    "size.head.pos.y": 2,
+                    "size.mid.pos.x": 3,
+                    "size.mid.pos.y": 4,
+                }
+                if const_name not in const_indexes:
+                    raise ValueError(
+                        f"unsupported redirected Const() value {const_name!r}")
+                return self._load_runtime_field(
+                    "IK_EXPR_FIELD_CHAR_CONSTANT",
+                    const_indexes[const_name], redirect)
+            if field_lower == "gethitvar":
+                if self._peek() != ("op", "("):
+                    raise ValueError(
+                        f"{name},GetHitVar requires a field argument")
+                self._take()
+                argument = self._peek()
+                if argument is None or argument[0] != "ident":
+                    raise ValueError(
+                        f"{name},GetHitVar requires a supported field name")
+                hit_field = self._take()[1].casefold()
+                if self._peek() != ("op", ")"):
+                    raise ValueError(
+                        f"{name},GetHitVar takes exactly one field name")
+                self._take()
+                fields = {
+                    "animtype": "IK_EXPR_FIELD_GET_HIT_ANIM_TYPE",
+                    "hitcount": "IK_EXPR_FIELD_GET_HIT_HIT_COUNT",
+                    "groundtype": "IK_EXPR_FIELD_GET_HIT_GROUND_TYPE",
+                    "slidetime": "IK_EXPR_FIELD_GET_HIT_SLIDE_TIME",
+                    "ctrltime": "IK_EXPR_FIELD_GET_HIT_CTRL_TIME",
+                    "xvel": "IK_EXPR_FIELD_GET_HIT_XVEL_Q8",
+                    "yvel": "IK_EXPR_FIELD_GET_HIT_YVEL_Q8",
+                    "yaccel": "IK_EXPR_FIELD_GET_HIT_YACCEL_Q16",
+                    "fall": "IK_EXPR_FIELD_GET_HIT_FALL",
+                    "fall.xvel": "IK_EXPR_FIELD_GET_HIT_FALL_XVEL_Q8",
+                    "fall.yvel": "IK_EXPR_FIELD_GET_HIT_FALL_YVEL_Q8",
+                    "fall.recover": "IK_EXPR_FIELD_GET_HIT_FALL_RECOVER",
+                    "isbound": "IK_EXPR_FIELD_GET_HIT_IS_BOUND",
+                    "chainid": "IK_EXPR_FIELD_GET_HIT_CHAIN_ID",
+                }
+                if hit_field not in fields:
+                    raise ValueError(
+                        f"unsupported GetHitVar field {hit_field!r}")
+                return self._load_runtime_field(fields[hit_field], redirect=redirect)
             if self._peek() == ("op", "("):
                 self._take()
                 args = self._args()
@@ -575,6 +640,7 @@ class _ExprCompiler(_ExprParser):
                 "fall.yvel": "IK_EXPR_FIELD_GET_HIT_FALL_YVEL_Q8",
                 "fall.recover": "IK_EXPR_FIELD_GET_HIT_FALL_RECOVER",
                 "isbound": "IK_EXPR_FIELD_GET_HIT_IS_BOUND",
+                "chainid": "IK_EXPR_FIELD_GET_HIT_CHAIN_ID",
             }
             if field_name not in fields:
                 raise ValueError(
@@ -774,8 +840,8 @@ class _ExprCompiler(_ExprParser):
         raise ValueError(f"unsupported symbol in runtime expression: {name}")
 
 
-def _normalize_or_operators(text: str) -> str:
-    """MUGEN accepts a single pipe as a logical OR operator."""
+def _normalize_logical_operators(text: str) -> str:
+    """Normalize MUGEN's single-character logical operators."""
     output: list[str] = []
     quote: str | None = None
     escaped = False
@@ -801,6 +867,10 @@ def _normalize_or_operators(text: str) -> str:
             output.append("||")
             index += 2 if text[index:index + 2] == "||" else 1
             continue
+        if char == "&":
+            output.append("&&")
+            index += 2 if text[index:index + 2] == "&&" else 1
+            continue
         output.append(char)
         index += 1
     return "".join(output)
@@ -822,7 +892,45 @@ def compile_cns_expr(
             return f"(({field}>={low}) && ({field}<={high}))"
         return f"(({field}<{low}) || ({field}>{high}))"
 
-    normalized = _normalize_or_operators(text)
+    def expand_interval(match: re.Match[str]) -> str:
+        field, operator, opening, low, high, closing = match.groups()
+        low_op = ">=" if opening == "[" else ">"
+        high_op = "<=" if closing == "]" else "<"
+        if operator in ("=", "=="):
+            return (
+                f"(({field}{low_op}{low}) && "
+                f"({field}{high_op}{high}))"
+            )
+        outside_low_op = "<" if opening == "[" else "<="
+        outside_high_op = ">" if closing == "]" else ">="
+        return (
+            f"(({field}{outside_low_op}{low}) || "
+            f"({field}{outside_high_op}{high}))"
+        )
+
+    normalized = _normalize_logical_operators(text)
+    normalized = re.sub(
+        r"\bstagevar\s*\(\s*info\.author\s*\)\s*(==|!=|=)\s*"
+        r"\"([^\"]*)\"",
+        lambda match: (
+            f"stageauthorhash {match.group(1)} "
+            f"{character_name_hash(match.group(2))}"
+        ),
+        normalized,
+        flags=re.I,
+    )
+    def expand_time_mod(match: re.Match[str]) -> str:
+        divisor = int(match.group(2))
+        if divisor <= 0:
+            raise ValueError("TimeMod divisor must be a positive integer")
+        return f"((time % {divisor}) {match.group(1)} {match.group(3)})"
+
+    normalized = re.sub(
+        r"\btimemod\s*(==|!=|=)\s*(\d+)\s*,\s*(-?\d+)",
+        expand_time_mod,
+        normalized,
+        flags=re.I,
+    )
     def character_name(match: re.Match[str]) -> str:
         field, operator, name = match.groups()
         return f"{field}hash {operator} {character_name_hash(name)}"
@@ -925,9 +1033,16 @@ def compile_cns_expr(
     )
     normalized = re.sub(
         r"\b((?:(?:p2|enemy|enemynear|parent|root)\s*,\s*)?"
-        r"(?:stateno|p2stateno|prevstateno|anim))\s*(!=|=)\s*"
-        r"\[\s*(-?\d+)\s*,\s*(-?\d+)\s*\]",
-        expand_state_range,
+        r"(?:stateno|p2stateno|prevstateno|anim))\s*(==|!=|=)\s*"
+        r"([\[(])\s*(-?\d+)\s*,\s*(-?\d+)\s*([\])])",
+        expand_interval,
+        normalized,
+        flags=re.I,
+    )
+    normalized = re.sub(
+        r"\b(time|gametime)\s*(==|!=|=)\s*([\[(])\s*"
+        r"(-?\d+)\s*,\s*(-?\d+)\s*([\])])",
+        expand_interval,
         normalized,
         flags=re.I,
     )
@@ -959,7 +1074,20 @@ def compile_cns_expr(
         flags=re.I,
     )
     normalized = re.sub(
-        r"\b(random)\s*(!=|=)\s*"
+        r"\b(random(?:\s*%\s*\d+)?)\s*(!=|=)\s*"
+        r"\[\s*(-?\d+)\s*,\s*(-?\d+)\s*\]",
+        lambda match: (
+            f"(({match.group(1)} >= {match.group(3)}) && "
+            f"({match.group(1)} <= {match.group(4)}))"
+            if match.group(2) == "=" else
+            f"(({match.group(1)} < {match.group(3)}) || "
+            f"({match.group(1)} > {match.group(4)}))"
+        ),
+        normalized,
+        flags=re.I,
+    )
+    normalized = re.sub(
+        r"\b([a-z][a-z0-9_]*)\s*(!=|=)\s*"
         r"\[\s*(-?\d+)\s*,\s*(-?\d+)\s*\]",
         lambda match: (
             f"(({match.group(1)} >= {match.group(3)}) && "

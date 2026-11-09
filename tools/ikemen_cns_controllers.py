@@ -988,6 +988,7 @@ def guard_times_runtime(
     services: dict) -> tuple[tuple[int, int, int], tuple[list[dict] | None, ...]]:
     """Compile guarded hit clocks, preserving MUGEN's inherited defaults."""
     integer_or_runtime_expr = services['integer_or_runtime_expr']
+    _split_top_level = services['_split_top_level']
     if ctrl.get("guard.hittime") is not None:
         hit, hit_expr = integer_or_runtime_expr(ctrl.get("guard.hittime"), 0)
     else:
@@ -1021,6 +1022,7 @@ def _projectile_hitdef_row(
     hit_mask = services['hit_mask']
     integer = services['integer']
     integer_or_runtime_expr = services['integer_or_runtime_expr']
+    _split_top_level = services['_split_top_level']
     number = services['number']
     pair = services['pair']
     power_fields = services['power_fields']
@@ -1052,6 +1054,10 @@ def _projectile_hitdef_row(
     attack_states = attack_state_mask(
         attr_parts[0] if attr_parts else "S"
     )
+    p1_spr_priority, p1_spr_priority_expr = integer_or_runtime_expr(
+        ctrl.get("p1sprpriority"), -128)
+    no_chain_parts = _split_top_level(ctrl.get("nochainid") or "-1,-1")
+    no_chain_parts = (no_chain_parts + ["-1", "-1"])[:2]
     flags: list[str] = []
     if integer(ctrl.get("fall"), 0):
         flags.append("IK_CNS_HITDEF_FALL")
@@ -1123,7 +1129,8 @@ def _projectile_hitdef_row(
         "guard_dist": integer(ctrl.get("guard.dist"), -1),
         "p1_facing": integer(ctrl.get("p1facing"), 0),
         "p2_facing": integer(ctrl.get("p2facing"), 0),
-        "p1_spr_priority": integer(ctrl.get("p1sprpriority"), -128),
+        "p1_spr_priority": p1_spr_priority,
+        "_p1_spr_priority_expr": p1_spr_priority_expr,
         "p2_body_dist_op": "IK_CNS_P2_DIST_NONE",
         "p2_body_dist_x": 0,
         "alt_damage": -1,
@@ -1151,13 +1158,17 @@ def _projectile_hitdef_row(
         "fall_envshake_ampl": integer(ctrl.get("fall.envshake.ampl"), 0),
         "fall_envshake_freq": integer(ctrl.get("fall.envshake.freq"), 60),
         "id": integer(ctrl.get("id"), 0),
-        "chain_id": integer(ctrl.get("chainid"), -1),
-        "no_chain_id": integer(
-            (ctrl.get("nochainid") or "-1").split(",", 1)[0], -1),
-        "no_chain_id2": integer(
-            (ctrl.get("nochainid") or "-1,-1").split(",", 1)[1]
-            if "," in (ctrl.get("nochainid") or "") else "-1",
-            -1),
+        "chain_id": integer_or_runtime_expr(ctrl.get("chainid"), -1)[0],
+        "_chain_id_expr": integer_or_runtime_expr(
+            ctrl.get("chainid"), -1)[1],
+        "no_chain_id": integer_or_runtime_expr(
+            no_chain_parts[0], -1)[0],
+        "_no_chain_id_expr": integer_or_runtime_expr(
+            no_chain_parts[0], -1)[1],
+        "no_chain_id2": integer_or_runtime_expr(
+            no_chain_parts[1], -1)[0],
+        "_no_chain_id2_expr": integer_or_runtime_expr(
+            no_chain_parts[1], -1)[1],
     }
 
 def compile_projectile_controller(

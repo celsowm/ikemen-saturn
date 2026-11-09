@@ -380,8 +380,13 @@ void ikf_apply_throw(ik_fight_t* fight, int attacker,
     }
     if (hitdef->p1_state_no >= 0) {
         ikf_enter_state_deferred(fight, a, hitdef->p1_state_no);
-        if (hitdef->p1_spr_priority != -128) {
-            a->spr_priority = hitdef->p1_spr_priority;
+        int32_t priority = eval_fighter_integer_expr(
+            fight, a, cns_for_fighter(fight, a),
+            hitdef->p1_spr_priority_expr_ofs,
+            hitdef->p1_spr_priority_expr_count,
+            hitdef->p1_spr_priority);
+        if (priority >= INT8_MIN && priority <= INT8_MAX && priority != -128) {
+            a->spr_priority = (int8_t)priority;
         }
         /* KFM state 810 snapshots command="holdfwd" at Time=0. The throw
          * changes state during collision resolution, so preserve that entry

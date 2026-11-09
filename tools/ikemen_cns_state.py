@@ -266,6 +266,11 @@ def compile_state(
                 ctrl.get("p1facing"), 0)
             p2_facing, p2_facing_expr = integer_or_runtime_expr(
                 ctrl.get("p2facing"), 0)
+            p1_spr_priority, p1_spr_priority_expr = integer_or_runtime_expr(
+                ctrl.get("p1sprpriority"), -128)
+            no_chain_parts = _split_top_level(
+                ctrl.get("nochainid") or "-1,-1")
+            no_chain_parts = (no_chain_parts + ["-1", "-1"])[:2]
             yaccel, yaccel_expr = number_or_runtime_expr(
                 ctrl.get("yaccel"), .35)
 
@@ -384,7 +389,8 @@ def compile_state(
                     "guard_dist": integer(ctrl.get("guard.dist"), -1),
                     "p1_facing": p1_facing,
                     "p2_facing": p2_facing,
-                    "p1_spr_priority": integer(ctrl.get("p1sprpriority"), -128),
+                    "p1_spr_priority": p1_spr_priority,
+                    "_p1_spr_priority_expr": p1_spr_priority_expr,
                     "p2_body_dist_op": p2_dist_op,
                     "p2_body_dist_x": p2_dist_x,
                     "alt_damage": alt_damage,
@@ -409,17 +415,18 @@ def compile_state(
                     "fall_envshake_ampl": fall_envshake_ampl,
                     "fall_envshake_freq": fall_envshake_freq,
                     "id": integer(ctrl.get("id"), 0),
-                    "chain_id": integer(ctrl.get("chainid"), -1),
-                    "no_chain_id": integer(
-                        (ctrl.get("nochainid") or "-1").split(",", 1)[0],
-                        -1,
-                    ),
-                    "no_chain_id2": integer(
-                        (ctrl.get("nochainid") or "-1,-1").split(",", 1)[1]
-                        if "," in (ctrl.get("nochainid") or "")
-                        else "-1",
-                        -1,
-                    ),
+                    "chain_id": integer_or_runtime_expr(
+                        ctrl.get("chainid"), -1)[0],
+                    "_chain_id_expr": integer_or_runtime_expr(
+                        ctrl.get("chainid"), -1)[1],
+                    "no_chain_id": integer_or_runtime_expr(
+                        no_chain_parts[0], -1)[0],
+                    "_no_chain_id_expr": integer_or_runtime_expr(
+                        no_chain_parts[0], -1)[1],
+                    "no_chain_id2": integer_or_runtime_expr(
+                        no_chain_parts[1], -1)[0],
+                    "_no_chain_id2_expr": integer_or_runtime_expr(
+                        no_chain_parts[1], -1)[1],
                 }
             )
             direct_hitdef_count += 1
@@ -552,14 +559,15 @@ def compile_state(
 
         elif ctype == "playsnd":
             sound_parts = _split_top_level(ctrl.get("value") or "")
-            if len(sound_parts) != 2:
+            if len(sound_parts) not in (1, 2):
                 raise ValueError(
                     f"expected sound group,item, got {ctrl.get('value')!r}")
             group_text = sound_parts[0].strip()
             if group_text[:1].casefold() in {"s", "f"}:
                 group_text = group_text[1:]
             sound_group, group_expr = integer_or_runtime_expr(group_text, 0)
-            item, item_expr = integer_or_runtime_expr(sound_parts[1], 0)
+            item_text = sound_parts[1] if len(sound_parts) == 2 else "0"
+            item, item_expr = integer_or_runtime_expr(item_text, 0)
             triggerall = [f"({expr})" for expr in ctrl.all("triggerall")]
             has_trigger_group = False
             for trigger_index in range(1, 9):
@@ -779,6 +787,11 @@ def compile_state(
             anim_no = -1
             unsupported_state_fields.append("statedef.anim")
 
+    hitcount_persist, hitcount_persist_expr = integer_or_runtime_expr(
+        sd.get("hitcountpersist"), 0)
+    spr_priority, spr_priority_expr = integer_or_runtime_expr(
+        sd.get("sprpriority"), 0)
+
     state_row = {
         "number": state.number,
         "anim": anim_no,
@@ -793,7 +806,8 @@ def compile_state(
         "move_type": move_type,
         "physics": physics,
         "ctrl": eval_int(sd.get("ctrl"), 0),
-        "spr_priority": eval_int(sd.get("sprpriority"), 0),
+        "spr_priority": spr_priority,
+        "spr_priority_expr": spr_priority_expr,
         "has_velset": int(has_velset),
         "hitdef_ofs": hitdef_ofs,
         "hitdef_count": direct_hitdef_count,
@@ -810,7 +824,8 @@ def compile_state(
             for c in controllers
         )),
         "hitdef_persist": eval_int(sd.get("hitdefpersist"), 0),
-        "hitcount_persist": eval_int(sd.get("hitcountpersist"), 0),
+        "hitcount_persist": hitcount_persist,
+        "hitcount_persist_expr": hitcount_persist_expr,
         "reversal_ofs": 0,
         "reversal_count": len(reversals),
         "hitoverride_ofs": 0,

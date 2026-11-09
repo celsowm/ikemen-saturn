@@ -120,7 +120,11 @@ static uint8_t gather_root_contacts(
                   fight, attacker_frames, a, v, &local_hitdef);
         if (!hitdef || local_hitdef >= 32u) continue;
         if (!ikf_hitdef_allows_target(fight, v, hitdef)) continue;
-        if (!ikf_hitdef_chain_allows_target(v, (uint8_t)atk, hitdef)) continue;
+        const ik_entity_t* attacker_entity = ik_entity_get_const(
+            fight->entities, fight->player_entities[atk]);
+        if (!ikf_hitdef_chain_allows_target(
+                fight, attacker_entity, cns_for_fighter(fight, a),
+                (uint8_t)atk, v, hitdef)) continue;
         if (ikf_fighter_not_hit_by_blocks(
                 fight, v, ikf_reversal_state_bit(fight, a), hitdef)) {
             continue;

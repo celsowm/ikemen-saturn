@@ -316,6 +316,10 @@ typedef struct ik_fight {
     uint16_t env_shake_phase;
     uint16_t super_darken_time;
     uint8_t round_state;
+    /* The current app/runtime has one configured round per fight session. */
+    uint8_t round_number;
+    /* Case-folded FNV-1a hash for StageVar(info.author); zero means unset. */
+    uint32_t stage_author_hash;
     uint8_t intro_asserted;
     /* Round state the next tick starts in. Upstream's stepRoundState runs
      * before the character actions, so the intro-end boundary (RoundState 2)
@@ -355,6 +359,7 @@ void ik_fight_bind_entities(
     ik_entity_handle_t p2);
 void ik_fight_reset(ik_fight_t* fight);
 void ik_fight_set_stage(ik_fight_t* fight, const ik_stage_params_t* stage);
+void ik_fight_set_stage_author_hash(ik_fight_t* fight, uint32_t author_hash);
 /* Camera centre in fighter x space (160 = stage centre), Q8.8. */
 int32_t ik_fight_camera_x_q8(const ik_fight_t* fight);
 int ik_action_for_state(const ik_cns_asset_t* cns, int16_t state);

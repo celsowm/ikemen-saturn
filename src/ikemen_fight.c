@@ -207,6 +207,7 @@ void ik_fight_init_players(
     const int p2_intro =
         p2_cns && ik_cns_find_state(p2_cns, 191);
     fight->round_state = (p1_intro || p2_intro) ? 0u : 2u;
+    fight->round_number = 1u;
     fight->intro_asserted = 0u;
     fight->round_not_over_asserted = 0u;
     fight->round_wait = 0u;
@@ -230,6 +231,11 @@ void ik_fight_set_stage(
     if (!fight || !stage) return;
     fight->stage = *stage;
     ikf_camera_reset(fight);
+}
+
+void ik_fight_set_stage_author_hash(ik_fight_t* fight, uint32_t author_hash) {
+    if (!fight) return;
+    fight->stage_author_hash = author_hash & 0x7fffffffu;
 }
 
 void ik_fight_init(ik_fight_t* fight, const ik_cns_asset_t* cns) {

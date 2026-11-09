@@ -331,7 +331,17 @@ int ik_entity_runtime_enter_state(
             entity->anim_owner = entity->owner_player;
         }
         entity->ctrl = (uint8_t)(spec->ctrl != 0);
-        entity->spr_priority = spec->spr_priority;
+        int32_t dynamic_priority = spec->spr_priority;
+        if (spec->spr_priority_expr_count &&
+            runtime_eval_expr(runtime, state_cns, handle,
+                              spec->spr_priority_expr_ofs,
+                              spec->spr_priority_expr_count,
+                              &dynamic_priority) &&
+            dynamic_priority >= INT8_MIN && dynamic_priority <= INT8_MAX) {
+            entity->spr_priority = (int8_t)dynamic_priority;
+        } else {
+            entity->spr_priority = spec->spr_priority;
+        }
         if (spec->state_type != IK_CNS_STATE_UNCHANGED) {
             entity->state_type = (uint8_t)spec->state_type;
         }

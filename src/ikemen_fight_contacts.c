@@ -232,7 +232,9 @@ void ikf_resolve_entity_contacts(
         }
         if (!ikf_hitdef_allows_target(fight, v, hitdef)) continue;
         if (!ikf_hitdef_chain_allows_target(
-                v, attacker->owner_player, hitdef)) continue;
+                fight, attacker,
+                cns_for_owner(fight, attacker->state_owner),
+                attacker->owner_player, v, hitdef)) continue;
         if (ikf_fighter_not_hit_by_blocks(
                 fight, v, ikf_reversal_entity_state_bit(attacker), hitdef)) {
             continue;

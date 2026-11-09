@@ -145,11 +145,32 @@ int ikf_hitdef_allows_target(const ik_fight_t* fight,
 }
 
 int ikf_hitdef_chain_allows_target(
-    const ik_fighter_t* victim,
+    const ik_fight_t* fight,
+    const ik_entity_t* attacker,
+    const ik_cns_asset_t* attacker_cns,
     uint8_t attacker_owner,
+    const ik_fighter_t* victim,
     const ik_cns_hitdef_t* hitdef
 ) {
-    if (!victim || !hitdef) return 0;
+    if (!fight || !victim || !hitdef || attacker_owner >= 2u) return 0;
+    int32_t chain_id = hitdef->chain_id;
+    int32_t no_chain_id = hitdef->no_chain_id;
+    int32_t no_chain_id2 = hitdef->no_chain_id2;
+    if (hitdef->chain_id_expr_count && (!attacker || !attacker_cns)) return 0;
+    if (hitdef->no_chain_id_expr_count && (!attacker || !attacker_cns)) return 0;
+    if (hitdef->no_chain_id2_expr_count && (!attacker || !attacker_cns)) return 0;
+    if (attacker && attacker_cns && hitdef->chain_id_expr_count &&
+        !ikf_eval_cns_entity_expr(
+            fight, attacker, attacker_cns, hitdef->chain_id_expr_ofs,
+            hitdef->chain_id_expr_count, &chain_id)) return 0;
+    if (attacker && attacker_cns && hitdef->no_chain_id_expr_count &&
+        !ikf_eval_cns_entity_expr(
+            fight, attacker, attacker_cns, hitdef->no_chain_id_expr_ofs,
+            hitdef->no_chain_id_expr_count, &no_chain_id)) return 0;
+    if (attacker && attacker_cns && hitdef->no_chain_id2_expr_count &&
+        !ikf_eval_cns_entity_expr(
+            fight, attacker, attacker_cns, hitdef->no_chain_id2_expr_ofs,
+            hitdef->no_chain_id2_expr_count, &no_chain_id2)) return 0;
     const int same_attacker =
         victim->last_hit_owner == (int8_t)attacker_owner;
 
@@ -157,16 +178,14 @@ int ikf_hitdef_chain_allows_target(
      * IDs may legitimately be zero, but ChainID/NoChainID authored selectors
      * are positive in the compatibility surface. Treat zero like "unset" so
      * older aggregate initializers do not accidentally require chain 0. */
-    if (hitdef->chain_id > 0) {
-        if (!same_attacker || victim->last_hit_id != hitdef->chain_id) {
+    if (chain_id > 0) {
+        if (!same_attacker || victim->last_hit_id != chain_id) {
             return 0;
         }
     }
     if (same_attacker &&
-        ((hitdef->no_chain_id > 0 &&
-          victim->last_hit_id == hitdef->no_chain_id) ||
-         (hitdef->no_chain_id2 > 0 &&
-          victim->last_hit_id == hitdef->no_chain_id2))) {
+        ((no_chain_id > 0 && victim->last_hit_id == no_chain_id) ||
+         (no_chain_id2 > 0 && victim->last_hit_id == no_chain_id2))) {
         return 0;
     }
     return 1;

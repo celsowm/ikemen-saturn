@@ -355,8 +355,11 @@ int ikf_hitdef_allows_target(
     const ik_fighter_t* victim,
     const ik_cns_hitdef_t* hitdef);
 int ikf_hitdef_chain_allows_target(
-    const ik_fighter_t* victim,
+    const ik_fight_t* fight,
+    const ik_entity_t* attacker,
+    const ik_cns_asset_t* attacker_cns,
     uint8_t attacker_owner,
+    const ik_fighter_t* victim,
     const ik_cns_hitdef_t* hitdef);
 int ikf_juggle_cost(
     const ik_fight_t* fight,

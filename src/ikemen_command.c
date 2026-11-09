@@ -401,12 +401,12 @@ static int step_pattern(ik_command_state_t* state,
 
     int any_done = 0;
     for (uint8_t i = 0u; i < pattern->step_count; ++i) {
-        const uint16_t bit = (uint16_t)(1u << i);
+        const uint64_t bit = UINT64_C(1) << i;
         if ((ps->completed_mask & bit) == 0u) continue;
         if (ps->step_timer[i] < 255u) ++ps->step_timer[i];
         if (pattern->max_step_time > 0u &&
             ps->step_timer[i] > pattern->max_step_time) {
-            ps->completed_mask = (uint16_t)(ps->completed_mask & ~bit);
+            ps->completed_mask &= ~bit;
             ps->step_timer[i] = 0u;
         } else {
             any_done = 1;
@@ -422,7 +422,8 @@ static int step_pattern(ik_command_state_t* state,
     for (uint8_t oi = 0u; oi < pattern->step_count; ++oi) {
         const uint8_t i = asset->loop_order[pattern->loop_ofs + oi];
         if (i >= pattern->step_count) continue;
-        if (i > 0u && (ps->completed_mask & (uint16_t)(1u << (i - 1u))) == 0u) {
+        if (i > 0u &&
+            (ps->completed_mask & (UINT64_C(1) << (i - 1u))) == 0u) {
             continue;
         }
 
@@ -430,31 +431,29 @@ static int step_pattern(ik_command_state_t* state,
         int matched = step_matches(&state->input, asset, step);
 
         if ((step->flags & IK_CMD_STEP_GREATER) != 0u && i > 0u &&
-            (ps->completed_mask & (uint16_t)(1u << (i - 1u))) != 0u &&
-            (ps->completed_mask & (uint16_t)(1u << i)) == 0u) {
+            (ps->completed_mask & (UINT64_C(1) << (i - 1u))) != 0u &&
+            (ps->completed_mask & (UINT64_C(1) << i)) == 0u) {
             if (greater_check_fail(&state->input, asset, step)) {
                 matched = 0;
-                ps->completed_mask = (uint16_t)(
-                    ps->completed_mask & ~(uint16_t)(1u << (i - 1u)));
+                ps->completed_mask &= ~(UINT64_C(1) << (i - 1u));
                 ps->step_timer[i - 1u] = 0u;
             }
         }
 
         if (matched) {
-            ps->completed_mask = (uint16_t)(ps->completed_mask | (uint16_t)(1u << i));
+            ps->completed_mask |= UINT64_C(1) << i;
             ps->step_timer[i] = 0u;
             if (i > 0u) {
-                ps->completed_mask = (uint16_t)(
-                    ps->completed_mask & ~(uint16_t)(1u << (i - 1u)));
+                ps->completed_mask &= ~(UINT64_C(1) << (i - 1u));
                 ps->step_timer[i - 1u] = 0u;
             }
             if (i == 0u) ps->cur_time = 0u;
         }
     }
 
-    const uint16_t last_bit =
+    const uint64_t last_bit =
         pattern->step_count == 0u ? 0u :
-        (uint16_t)(1u << (pattern->step_count - 1u));
+        UINT64_C(1) << (pattern->step_count - 1u);
     const int complete = last_bit != 0u && (ps->completed_mask & last_bit) != 0u;
 
     if (!complete && ps->cur_time < pattern->max_time) return 0;

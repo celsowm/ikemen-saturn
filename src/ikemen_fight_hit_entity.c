@@ -746,8 +746,17 @@ void ikf_apply_throw_from_entity(
             p1_frames, p2_frames);
         attacker = ik_entity_get(
             fight->entities, attacker_handle);
-        if (attacker && hitdef->p1_spr_priority != -128) {
-            attacker->spr_priority = hitdef->p1_spr_priority;
+        if (attacker) {
+            int32_t priority = eval_entity_integer_expr(
+                fight, attacker,
+                cns_for_owner(fight, attacker->state_owner),
+                hitdef->p1_spr_priority_expr_ofs,
+                hitdef->p1_spr_priority_expr_count,
+                hitdef->p1_spr_priority);
+            if (priority >= INT8_MIN && priority <= INT8_MAX &&
+                priority != -128) {
+                attacker->spr_priority = (int8_t)priority;
+            }
         }
     }
 

@@ -51,6 +51,11 @@ def emit_cns_source_files(
             key = f"velset_{axis}"
             (row[f"{key}_expr_ofs"], row[f"{key}_expr_count"]) = \
                 intern_expression(row.get(f"{key}_expr"))
+        (row["hitcount_persist_expr_ofs"],
+         row["hitcount_persist_expr_count"]) = intern_expression(
+             row.get("hitcount_persist_expr"))
+        (row["spr_priority_expr_ofs"], row["spr_priority_expr_count"]) = \
+            intern_expression(row.get("spr_priority_expr"))
     hit_power_expr_keys = (
         ("get", "hit"), ("get", "guard"),
         ("give", "hit"), ("give", "guard"),
@@ -62,6 +67,12 @@ def emit_cns_source_files(
             intern_expression(hit.pop("_trigger2_expr", None))
         (hit["air_juggle_expr_ofs"], hit["air_juggle_expr_count"]) = \
             intern_expression(hit.pop("_air_juggle_expr", None))
+        for field in (
+            "chain_id", "no_chain_id", "no_chain_id2",
+            "p1_spr_priority",
+        ):
+            (hit[f"{field}_expr_ofs"], hit[f"{field}_expr_count"]) = \
+                intern_expression(hit.pop(f"_{field}_expr", None))
         for prefix in ("ground_velocity", "air_velocity"):
             for axis in ("x", "y"):
                 key = f"{prefix}_{axis}"
@@ -155,7 +166,11 @@ def emit_cns_source_files(
         f"{r.get('velset_x_expr_count', 0)}u, "
         f"{r.get('velset_y_expr_ofs', 0)}u, "
         f"{r.get('velset_y_expr_count', 0)}u"
-        f", {r.get('hitcount_persist', 0)}u"
+        f", {r.get('hitcount_persist', 0)}u, "
+        f"{r.get('hitcount_persist_expr_ofs', 0)}u, "
+        f"{r.get('hitcount_persist_expr_count', 0)}u, "
+        f"{r.get('spr_priority_expr_ofs', 0)}u, "
+        f"{r.get('spr_priority_expr_count', 0)}u"
         "},"
         for r in state_rows
     ]
@@ -317,7 +332,15 @@ def emit_cns_source_files(
         f"{h.get('p2_facing_expr_count', 0)}u, "
         f"{h.get('yaccel_expr_ofs', 0)}u, "
         f"{h.get('yaccel_expr_count', 0)}u, "
-        f"{h.get('attack_state_mask', 0)}u"
+        f"{h.get('attack_state_mask', 0)}u, "
+        f"{h.get('chain_id_expr_ofs', 0)}u, "
+        f"{h.get('chain_id_expr_count', 0)}u, "
+        f"{h.get('no_chain_id_expr_ofs', 0)}u, "
+        f"{h.get('no_chain_id_expr_count', 0)}u, "
+        f"{h.get('no_chain_id2_expr_ofs', 0)}u, "
+        f"{h.get('no_chain_id2_expr_count', 0)}u, "
+        f"{h.get('p1_spr_priority_expr_ofs', 0)}u, "
+        f"{h.get('p1_spr_priority_expr_count', 0)}u"
         "},"
         for h in hitdefs
     ]
@@ -502,6 +525,8 @@ const ik_cns_asset_t {ident}_cns = {{
         {const['ground_back']}, {const['ground_front']},
         {const['air_back']}, {const['air_front']}, {const['height']},
         {const['attack_dist']},
+        {const['head_pos_x']}, {const['head_pos_y']},
+        {const['mid_pos_x']}, {const['mid_pos_y']},
         {const['walk_fwd_q8']}, {const['walk_back_q8']},
         {const['run_fwd_x_q8']}, {const['run_fwd_y_q8']},
         {const['run_back_x_q8']}, {const['run_back_y_q8']},

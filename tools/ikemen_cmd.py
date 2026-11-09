@@ -273,8 +273,8 @@ def parse_cmd(path: Path) -> CmdFile:
             steps.append(Step(keys, greater, or_logic))
 
         steps = _auto_greater(steps, bool(defaults["autogreater"]))
-        if len(steps) > 16:
-            raise ValueError(f"{name}: {len(steps)} steps exceed Saturn runtime limit 16")
+        if len(steps) > 64:
+            raise ValueError(f"{name}: {len(steps)} steps exceed Saturn runtime limit 64")
         loop = _loop_order(steps)
 
         time = max(1, int(values.get("time", defaults["time"])))
