@@ -932,6 +932,7 @@ typedef struct ik_cns_explod {
     uint8_t trans_mode;
     uint8_t alpha;
     int32_t id;
+    uint8_t under;
 } ik_cns_explod_t;
 
 typedef struct ik_cns_helper {

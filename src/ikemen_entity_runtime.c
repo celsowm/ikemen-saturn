@@ -605,6 +605,7 @@ int ik_entity_runtime_spawn_explod(
         explod->scale_y_q8 > 0 ? explod->scale_y_q8 : IK_ENTITY_Q8_ONE;
     entity->explod_trans_mode = explod->trans_mode;
     entity->explod_alpha = explod->alpha;
+    entity->explod_under = explod->under;
     entity->life = 1;
 
     *out_handle = spawned;

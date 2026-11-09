@@ -111,6 +111,7 @@ typedef struct ik_entity {
     int16_t explod_scale_y_q8;
     uint8_t explod_trans_mode;
     uint8_t explod_alpha;
+    uint8_t explod_under;
 
     uint8_t proj_query_contact;
     uint8_t proj_query_hit;

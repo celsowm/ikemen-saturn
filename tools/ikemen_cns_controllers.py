@@ -1441,7 +1441,7 @@ def compile_explod_controller(
         "removetime", "sprpriority", "persistent", "ignorehitpause",
         "ownpal", "pausemovetime", "supermovetime", "bindtime",
         "removeongethit", "removeonchangestate", "facing", "vfacing",
-        "scale", "trans", "alpha",
+        "scale", "trans", "alpha", "under",
     }
     for key, _ in ctrl.values:
         lowered = key.strip().lower()
@@ -1512,6 +1512,7 @@ def compile_explod_controller(
         "scale_y_q8": q8(sy),
         "trans_mode": trans_map[trans_text],
         "alpha": alpha_value,
+        "under": 1 if integer(ctrl.get("under"), 0) else 0,
     }
     controller = {
         "state_number": state_no,

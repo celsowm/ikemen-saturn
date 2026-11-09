@@ -397,7 +397,8 @@ def emit_cns_source_files(
         f"{e.get('facing', 1)}, {e.get('vfacing', 1)}, "
         f"{e.get('scale_x_q8', 256)}, {e.get('scale_y_q8', 256)}, "
         f"{e.get('trans_mode', 'IK_CNS_TRANS_NONE')}, "
-        f"{e.get('alpha', 255)}u, {e.get('id', -1)}"
+        f"{e.get('alpha', 255)}u, {e.get('id', -1)}, "
+        f"{e.get('under', 0)}u"
         "},"
         for e in explods
     ]
