@@ -255,7 +255,12 @@ def compile_projectile_controller(
         "guard.velocity", "airguard.velocity", "guard.slidetime",
         "guard.hittime", "guard.ctrltime", "guard.kill",
         "fall.xvelocity", "fall.yvelocity", "fall.recover",
-        "fall.recovertime", "air.recover", "down.hittime", "down.velocity",
+        # Ikemen GO's permissive CNS compiler warns and ignores unknown
+        # controller parameters. These misspellings appear in the Terry source
+        # and have no HitDef effect there either.
+        "fall.recovertime", "fall.recover.time", "down.velocities",
+        "down.fall", "air.recover",
+        "down.hittime", "down.velocity",
         "down.bounce", "air.juggle", "p1stateno", "p2stateno",
         "guard.dist", "p1facing", "p2facing", "p1sprpriority",
         "yaccel", "ground.cornerpush.veloff", "fall.damage",
@@ -299,8 +304,8 @@ def compile_projectile_controller(
         "remove_anim_no": integer(ctrl.get("projremanim"), -1),
         "cancel_anim_no": integer(ctrl.get("projcancelanim"), -1),
         "hitdef_global": hitdef_global,
-        "pos_x_q8": q8(ox),
-        "pos_y_q8": q8(oy),
+        "pos_x_q8": q8(ox, wide=True),
+        "pos_y_q8": q8(oy, wide=True),
         "vel_x_q8": q8(vx),
         "vel_y_q8": q8(vy),
         "velmul_x_q8": q8(vmx),

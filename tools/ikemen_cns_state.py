@@ -235,7 +235,9 @@ def compile_state(
             fall_recover, fall_recover_expr = integer_or_runtime_expr(
                 recover_text, 1)
             fall_recover_time, fall_recover_time_expr = \
-                integer_or_runtime_expr(ctrl.get("fall.recovertime"), 4)
+                integer_or_runtime_expr(
+                    ctrl.get("fall.recovertime"), 4,
+                )
             fall_damage, fall_damage_expr = integer_or_runtime_expr(
                 ctrl.get("fall.damage"), 0)
             envshake_time, envshake_time_expr = integer_or_runtime_expr(
