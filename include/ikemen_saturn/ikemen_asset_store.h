@@ -21,7 +21,9 @@ extern "C" {
 #define IK_ASSET_SLOT_P1 0u
 #define IK_ASSET_SLOT_P2 1u
 #define IK_ASSET_SLOT_FIGHTFX 2u
-#define IK_ASSET_SLOT_COUNT 3u
+#define IK_ASSET_SLOT_P1_CNS 3u
+#define IK_ASSET_SLOT_P2_CNS 4u
+#define IK_ASSET_SLOT_COUNT 5u
 
 typedef struct ik_asset_blob {
     sat_ram_cart_buffer_t buffer;
@@ -68,6 +70,14 @@ sat_result_t ik_asset_store_read(
     uint32_t offset,
     void* destination,
     uint32_t bytes);
+
+/* Returns direct mapped memory for a single-bank resident blob. Character
+ * bundles use this so their target-native tables can be bound without copies. */
+sat_result_t ik_asset_store_map(
+    const ik_asset_store_t* store,
+    uint8_t slot,
+    const uint8_t** out_data,
+    uint32_t* out_bytes);
 
 sat_result_t ik_asset_store_read_sprite(
     const ik_asset_store_t* store,

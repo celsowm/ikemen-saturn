@@ -45,7 +45,7 @@ sat_result_t ik_asset_store_load_blob(
     uint32_t staging_bytes
 ) {
     if (store == 0 || slot >= IK_ASSET_SLOT_COUNT || disc_path == 0 ||
-        expected_bytes == 0u || staging == 0 ||
+        staging == 0 ||
         staging_bytes < SAT_CD_SECTOR_BYTES) {
         return SAT_ERR_INVALID_ARG;
     }
@@ -55,7 +55,8 @@ sat_result_t ik_asset_store_load_blob(
     sat_cdfs_file_t file = {0u, 0u, 0u, {0u, 0u, 0u}};
     g_ikemen_asset_last_step = 1u;
     SAT_TRY(sat_cdfs_lookup(&store->volume, disc_path, &file));
-    if (file.directory != 0u || file.size != expected_bytes) {
+    if (file.directory != 0u || file.size == 0u ||
+        (expected_bytes != 0u && file.size != expected_bytes)) {
         return SAT_ERR_VERSION;
     }
 
@@ -101,6 +102,25 @@ sat_result_t ik_asset_store_read(
     }
     return sat_ram_cart_buffer_read_at(
         &blob->buffer, offset, destination, bytes);
+}
+
+sat_result_t ik_asset_store_map(
+    const ik_asset_store_t* store,
+    uint8_t slot,
+    const uint8_t** out_data,
+    uint32_t* out_bytes
+) {
+    if (!store || slot >= IK_ASSET_SLOT_COUNT || !out_data || !out_bytes) {
+        return SAT_ERR_INVALID_ARG;
+    }
+    const ik_asset_blob_t* blob = &store->blobs[slot];
+    if (!blob->loaded) return SAT_ERR_NOT_INITIALIZED;
+    if (!blob->buffer.bank[0] || blob->buffer.bank[1]) {
+        return SAT_ERR_UNSUPPORTED;
+    }
+    *out_data = blob->buffer.bank[0];
+    *out_bytes = blob->bytes;
+    return SAT_OK;
 }
 
 sat_result_t ik_asset_store_read_sprite(

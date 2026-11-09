@@ -23,6 +23,8 @@ set(IKEMEN_CORE_SOURCES
     "${IKEMEN_SRC_DIR}/ikemen_expr.c"
     "${IKEMEN_SRC_DIR}/ikemen_entity.c"
     "${IKEMEN_SRC_DIR}/ikemen_entity_runtime.c")
+list(APPEND IKEMEN_CORE_SOURCES
+    "${IKEMEN_SRC_DIR}/ikemen_character_bundle.c")
 
 # Saturn platform: CD/ramcart asset loading, SCSP audio glue
 set(IKEMEN_SATURN_SOURCES
