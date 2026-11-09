@@ -211,6 +211,10 @@ typedef struct ik_fighter {
     uint8_t move_hit;
     uint16_t move_contact_time;
     uint8_t move_contact_type;   /* 0 hit, 1 guarded; survives state changes */
+    uint16_t hit_count;
+    uint16_t uniq_hit_count;
+    uint16_t gethit_hit_count;
+    uint8_t uniq_hit_mask;
     uint16_t afterimage_time;
     uint8_t afterimage_length;
     uint8_t afterimage_timegap;

@@ -198,6 +198,7 @@ _RUNTIME_EXPR_FIELDS = {
     "ctrl": "IK_EXPR_FIELD_CTRL",
     "movecontact": "IK_EXPR_FIELD_MOVE_CONTACT",
     "movehit": "IK_EXPR_FIELD_MOVE_HIT",
+    "moveguarded": "IK_EXPR_FIELD_MOVE_GUARDED",
     "movereversed": "IK_EXPR_FIELD_MOVE_REVERSED",
     "statetype": "IK_EXPR_FIELD_STATE_TYPE",
     "movetype": "IK_EXPR_FIELD_MOVE_TYPE",
@@ -209,11 +210,23 @@ _RUNTIME_EXPR_FIELDS = {
     "animtime": "IK_EXPR_FIELD_ANIM_TIME",
     "hitpausetime": "IK_EXPR_FIELD_HIT_PAUSE_TIME",
     "hitover": "IK_EXPR_FIELD_HIT_OVER",
+    "hitcount": "IK_EXPR_FIELD_HIT_COUNT",
+    "uniqhitcount": "IK_EXPR_FIELD_UNIQ_HIT_COUNT",
     "inguarddist": "IK_EXPR_FIELD_IN_GUARD_DIST",
     "random": "IK_EXPR_FIELD_RANDOM",
     "numenemy": "IK_EXPR_FIELD_NUM_ENEMIES",
+    "numproj": "IK_EXPR_FIELD_NUM_PROJECTILES",
+    "numprojectile": "IK_EXPR_FIELD_NUM_PROJECTILES",
+    "numprojectiles": "IK_EXPR_FIELD_NUM_PROJECTILES",
     "teamside": "IK_EXPR_FIELD_TEAM_SIDE",
 }
+
+
+def character_name_hash(name: str) -> int:
+    value = 2166136261
+    for byte in name.casefold().encode("utf-8"):
+        value = ((value ^ byte) * 16777619) & 0xffffffff
+    return value & 0x7fffffff
 
 
 class _ExprCompiler(_ExprParser):
@@ -235,6 +248,8 @@ class _ExprCompiler(_ExprParser):
                 if instruction.get("op") == "IK_EXPR_LOAD_FIELD":
                     instruction["redirect"] = redirect
         if not self.q16 or field == "IK_EXPR_FIELD_FVAR_Q16":
+            if not self.q16 and field.endswith("_Q8"):
+                return code + [{"op": "IK_EXPR_TRUNC_Q8"}]
             return code
         factor = (256 if field.endswith("_Q8") else 65536)
         return code + [
@@ -447,6 +462,16 @@ class _ExprCompiler(_ExprParser):
                     ("vel", "y"): "IK_EXPR_FIELD_VEL_Y_Q8",
                 }[(field_lower, axis)]
                 return self._load_runtime_field(field, redirect=redirect)
+            if field_lower == "p2dist":
+                axis = self._take()[1].lower()
+                if axis not in ("x", "y"):
+                    raise ValueError(
+                        f"unsupported {name},P2Dist axis {axis!r}")
+                field = (
+                    "IK_EXPR_FIELD_P2_DIST_X_Q8" if axis == "x" else
+                    "IK_EXPR_FIELD_P2_DIST_Y_Q8"
+                )
+                return self._load_runtime_field(field, redirect=redirect)
             raise ValueError(
                 f"unsupported redirected symbol in runtime expression: "
                 f"{name},{field_name}")
@@ -461,6 +486,7 @@ class _ExprCompiler(_ExprParser):
             self._take()
             fields = {
                 "animtype": "IK_EXPR_FIELD_GET_HIT_ANIM_TYPE",
+                "hitcount": "IK_EXPR_FIELD_GET_HIT_HIT_COUNT",
                 "groundtype": "IK_EXPR_FIELD_GET_HIT_GROUND_TYPE",
                 "slidetime": "IK_EXPR_FIELD_GET_HIT_SLIDE_TIME",
                 "ctrltime": "IK_EXPR_FIELD_GET_HIT_CTRL_TIME",
@@ -549,9 +575,8 @@ class _ExprCompiler(_ExprParser):
                 return self._load_runtime_field(field, index)
             if lower == "ifelse" and len(args) == 3:
                 condition, when_true, when_false = args
-                return (when_false + condition + when_true + when_false +
-                        [{"op": "IK_EXPR_SUB"}, {"op": "IK_EXPR_MUL"},
-                         {"op": "IK_EXPR_ADD"}])
+                return (condition + when_true + when_false +
+                        [{"op": "IK_EXPR_IFELSE"}])
             raise ValueError(f"unsupported function in runtime expression: {name}")
 
         if lower in ("true", "false"):
@@ -570,6 +595,14 @@ class _ExprCompiler(_ExprParser):
                 "IK_EXPR_FIELD_STATE_NO",
                 redirect="IK_EXPR_REDIRECT_P2",
             )
+        if lower == "p2namehash":
+            return self._load_runtime_field(
+                "IK_EXPR_FIELD_CHARACTER_NAME_HASH",
+                redirect="IK_EXPR_REDIRECT_P2",
+            )
+        if lower == "namehash":
+            return self._load_runtime_field(
+                "IK_EXPR_FIELD_CHARACTER_NAME_HASH")
         if lower in ("pos", "vel"):
             axis = self._take()[1].lower()
             if axis not in ("x", "y"):
@@ -581,6 +614,25 @@ class _ExprCompiler(_ExprParser):
                 ("vel", "y"): "IK_EXPR_FIELD_VEL_Y_Q8",
             }[(lower, axis)]
             return self._load_runtime_field(field)
+        if lower == "p2dist":
+            axis = self._take()[1].lower()
+            if axis not in ("x", "y"):
+                raise ValueError(f"unsupported P2Dist axis {axis!r}")
+            return self._load_runtime_field(
+                "IK_EXPR_FIELD_P2_DIST_X_Q8" if axis == "x" else
+                "IK_EXPR_FIELD_P2_DIST_Y_Q8"
+            )
+        if lower == "p2bodydist":
+            axis = self._take()[1].lower()
+            if axis != "y":
+                raise ValueError(
+                    f"unsupported P2BodyDist axis {axis!r}; "
+                    "horizontal body-box distance is unavailable"
+                )
+            # Vertical body distance is the opponent's Y relative to self;
+            # horizontal body-box distance needs collision-box data that the
+            # Saturn runtime does not retain.
+            return self._load_runtime_field("IK_EXPR_FIELD_P2_DIST_Y_Q8")
         raise ValueError(f"unsupported symbol in runtime expression: {name}")
 
 
@@ -601,6 +653,16 @@ def compile_cns_expr(
         return f"(({field}<{low}) || ({field}>{high}))"
 
     normalized = text
+    def character_name(match: re.Match[str]) -> str:
+        field, operator, name = match.groups()
+        return f"{field}hash {operator} {character_name_hash(name)}"
+
+    normalized = re.sub(
+        r"\b(p2name|name)\s*(==|!=|=)\s*\"([^\"]+)\"",
+        character_name,
+        normalized,
+        flags=re.I,
+    )
     if self_anims is not None:
         normalized = expand_dynamic_self_anim_exist(normalized, self_anims)
     normalized = re.sub(
@@ -674,7 +736,18 @@ def compile_cns_expr(
         flags=re.I,
     )
     normalized = re.sub(
-        r"\b(p2?stateno|prevstateno|anim)\s*(!=|=)\s*"
+        r"\banimelem\s*=\s*(\d+)\s*,\s*=\s*"
+        r"\[\s*(-?\d+)\s*,\s*(-?\d+)\s*\]",
+        lambda match: (
+            f"((animelemtime({match.group(1)}) >= {match.group(2)}) && "
+            f"(animelemtime({match.group(1)}) <= {match.group(3)}))"
+        ),
+        normalized,
+        flags=re.I,
+    )
+    normalized = re.sub(
+        r"\b((?:(?:p2|enemy|enemynear|parent|root)\s*,\s*)?"
+        r"(?:stateno|p2stateno|prevstateno|anim))\s*(!=|=)\s*"
         r"\[\s*(-?\d+)\s*,\s*(-?\d+)\s*\]",
         expand_state_range,
         normalized,

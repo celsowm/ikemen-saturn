@@ -14,6 +14,25 @@ static int ikf_expr_read_field(
 ) {
     if (!user || !out_value) return 0;
     const ikf_expr_binding_t* binding = (const ikf_expr_binding_t*)user;
+    if (field == IK_EXPR_FIELD_CHARACTER_NAME_HASH) {
+        uint8_t owner = 2u;
+        if (binding->fighter) {
+            owner = ikf_fighter_player_index(
+                binding->fight, binding->fighter);
+        } else {
+            const ik_entity_t* entity = ik_entity_get_const(
+                binding->entity.pool, binding->entity.self);
+            if (entity) owner = entity->owner_player;
+        }
+        if (redirect == IK_EXPR_REDIRECT_P2) owner ^= 1u;
+        else if (redirect != IK_EXPR_REDIRECT_SELF) return 0;
+        if (owner >= 2u) return 0;
+        const ik_cns_asset_t* asset = cns_for_fighter(
+            binding->fight, &binding->fight->fighters[owner]);
+        if (!asset) return 0;
+        *out_value = (int32_t)asset->constants.character_name_hash;
+        return 1;
+    }
     if (redirect == IK_EXPR_REDIRECT_SELF &&
         field == IK_EXPR_FIELD_GAME_TIME) {
         *out_value = (int32_t)binding->fight->frame;
@@ -74,6 +93,29 @@ static int ikf_expr_read_field(
             binding->fight->fighters[owner ^ 1u].hp > 0;
         return 1;
     }
+    if ((redirect == IK_EXPR_REDIRECT_SELF ||
+         redirect == IK_EXPR_REDIRECT_ROOT) &&
+        (field == IK_EXPR_FIELD_P2_DIST_X_Q8 ||
+         field == IK_EXPR_FIELD_P2_DIST_Y_Q8)) {
+        uint8_t owner = 2u;
+        const ik_fighter_t* self = binding->fighter;
+        if (self) {
+            owner = ikf_fighter_player_index(binding->fight, self);
+        } else {
+            const ik_entity_t* entity = ik_entity_get_const(
+                binding->entity.pool, binding->entity.self);
+            if (entity) owner = entity->owner_player;
+        }
+        if (owner >= 2u) return 0;
+        if (!self) self = &binding->fight->fighters[owner];
+        const ik_fighter_t* foe = &binding->fight->fighters[owner ^ 1u];
+        if (field == IK_EXPR_FIELD_P2_DIST_X_Q8) {
+            *out_value = (foe->x_q8 - self->x_q8) * self->facing;
+        } else {
+            *out_value = foe->y_q8 - self->y_q8;
+        }
+        return 1;
+    }
     if (redirect == IK_EXPR_REDIRECT_SELF &&
         field == IK_EXPR_FIELD_HIT_PAUSE_TIME && binding->fighter) {
         *out_value = binding->fighter->hit_pause;
@@ -129,6 +171,21 @@ static int ikf_expr_read_field(
         *out_value = binding->fighter->move_hit != 0u;
         return 1;
     }
+    if (redirect == IK_EXPR_REDIRECT_SELF &&
+        field == IK_EXPR_FIELD_MOVE_GUARDED && binding->fighter) {
+        *out_value = binding->fighter->move_contact_type == 1u;
+        return 1;
+    }
+    if (redirect == IK_EXPR_REDIRECT_SELF && binding->fighter &&
+        field == IK_EXPR_FIELD_HIT_COUNT) {
+        *out_value = binding->fighter->hit_count;
+        return 1;
+    }
+    if (redirect == IK_EXPR_REDIRECT_SELF && binding->fighter &&
+        field == IK_EXPR_FIELD_UNIQ_HIT_COUNT) {
+        *out_value = binding->fighter->uniq_hit_count;
+        return 1;
+    }
     if (redirect == IK_EXPR_REDIRECT_SELF && binding->fighter) {
         const ik_fighter_t* f = binding->fighter;
         switch ((ik_expr_field_t)field) {
@@ -143,6 +200,9 @@ static int ikf_expr_read_field(
                 return 1;
             case IK_EXPR_FIELD_GET_HIT_CTRL_TIME:
                 *out_value = f->hit_ctrl_time;
+                return 1;
+            case IK_EXPR_FIELD_GET_HIT_HIT_COUNT:
+                *out_value = f->gethit_hit_count;
                 return 1;
             case IK_EXPR_FIELD_GET_HIT_XVEL_Q8:
                 *out_value = f->gethit_vx_q8;
@@ -327,6 +387,11 @@ void ikf_init_statedef(ik_fight_t* fight, ik_fighter_t* f) {
 
     f->statedef_pending = 0u;
     f->physics_override = -1;
+    if (!spec || !spec->hitcount_persist) {
+        f->hit_count = 0u;
+        f->uniq_hit_count = 0u;
+        f->uniq_hit_mask = 0u;
+    }
     if (spec && spec->anim_expr_count) {
         int32_t dynamic_anim = -1;
         if (ikf_eval_cns_expr(

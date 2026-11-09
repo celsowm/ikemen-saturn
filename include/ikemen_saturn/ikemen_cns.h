@@ -370,6 +370,7 @@ typedef struct ik_cns_constants {
     int16_t ground_gethit_ko_add_y_q8;
     int16_t ground_gethit_ko_ymin_q8;
     uint8_t ko_velocity_defined;
+    uint32_t character_name_hash;
 } ik_cns_constants_t;
 
 enum {
@@ -424,6 +425,7 @@ typedef struct ik_cns_state {
     uint8_t velset_x_expr_count;
     uint16_t velset_y_expr_ofs;
     uint8_t velset_y_expr_count;
+    uint8_t hitcount_persist;
 } ik_cns_state_t;
 
 typedef struct ik_cns_hitdef {
@@ -594,6 +596,28 @@ typedef struct ik_cns_hitdef {
     uint8_t fall_x_velocity_expr_count;
     uint16_t fall_y_velocity_expr_ofs;
     uint8_t fall_y_velocity_expr_count;
+    uint16_t fall_expr_ofs;
+    uint8_t fall_expr_count;
+    uint16_t air_fall_expr_ofs;
+    uint8_t air_fall_expr_count;
+    uint16_t ground_cornerpush_veloff_expr_ofs;
+    uint8_t ground_cornerpush_veloff_expr_count;
+    uint16_t fall_damage_expr_ofs;
+    uint8_t fall_damage_expr_count;
+    uint16_t envshake_time_expr_ofs;
+    uint8_t envshake_time_expr_count;
+    uint16_t envshake_ampl_expr_ofs;
+    uint8_t envshake_ampl_expr_count;
+    uint16_t envshake_freq_expr_ofs;
+    uint8_t envshake_freq_expr_count;
+    uint16_t fall_envshake_time_expr_ofs;
+    uint8_t fall_envshake_time_expr_count;
+    uint16_t fall_envshake_ampl_expr_ofs;
+    uint8_t fall_envshake_ampl_expr_count;
+    uint16_t fall_envshake_freq_expr_ofs;
+    uint8_t fall_envshake_freq_expr_count;
+    uint16_t guard_velocity_x_expr_ofs;
+    uint8_t guard_velocity_x_expr_count;
 } ik_cns_hitdef_t;
 
 typedef struct ik_cns_reversaldef {

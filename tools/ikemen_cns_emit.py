@@ -77,6 +77,11 @@ def emit_cns_source_files(
             "fall_recover", "fall_recover_time",
             "spark_no", "guard_spark_no",
             "fall_x_velocity", "fall_y_velocity",
+            "fall", "air_fall", "ground_cornerpush_veloff",
+            "fall_damage", "envshake_time", "envshake_ampl",
+            "envshake_freq", "fall_envshake_time",
+            "fall_envshake_ampl", "fall_envshake_freq",
+            "guard_velocity_x",
         ):
             key = f"{field}_expr"
             hit[f"{key}_ofs"], hit[f"{key}_count"] = intern_expression(
@@ -148,6 +153,7 @@ def emit_cns_source_files(
         f"{r.get('velset_x_expr_count', 0)}u, "
         f"{r.get('velset_y_expr_ofs', 0)}u, "
         f"{r.get('velset_y_expr_count', 0)}u"
+        f", {r.get('hitcount_persist', 0)}u"
         "},"
         for r in state_rows
     ]
@@ -276,7 +282,29 @@ def emit_cns_source_files(
         f"{h.get('fall_x_velocity_expr_ofs', 0)}u, "
         f"{h.get('fall_x_velocity_expr_count', 0)}u, "
         f"{h.get('fall_y_velocity_expr_ofs', 0)}u, "
-        f"{h.get('fall_y_velocity_expr_count', 0)}u"
+        f"{h.get('fall_y_velocity_expr_count', 0)}u, "
+        f"{h.get('fall_expr_ofs', 0)}u, "
+        f"{h.get('fall_expr_count', 0)}u, "
+        f"{h.get('air_fall_expr_ofs', 0)}u, "
+        f"{h.get('air_fall_expr_count', 0)}u, "
+        f"{h.get('ground_cornerpush_veloff_expr_ofs', 0)}u, "
+        f"{h.get('ground_cornerpush_veloff_expr_count', 0)}u, "
+        f"{h.get('fall_damage_expr_ofs', 0)}u, "
+        f"{h.get('fall_damage_expr_count', 0)}u, "
+        f"{h.get('envshake_time_expr_ofs', 0)}u, "
+        f"{h.get('envshake_time_expr_count', 0)}u, "
+        f"{h.get('envshake_ampl_expr_ofs', 0)}u, "
+        f"{h.get('envshake_ampl_expr_count', 0)}u, "
+        f"{h.get('envshake_freq_expr_ofs', 0)}u, "
+        f"{h.get('envshake_freq_expr_count', 0)}u, "
+        f"{h.get('fall_envshake_time_expr_ofs', 0)}u, "
+        f"{h.get('fall_envshake_time_expr_count', 0)}u, "
+        f"{h.get('fall_envshake_ampl_expr_ofs', 0)}u, "
+        f"{h.get('fall_envshake_ampl_expr_count', 0)}u, "
+        f"{h.get('fall_envshake_freq_expr_ofs', 0)}u, "
+        f"{h.get('fall_envshake_freq_expr_count', 0)}u, "
+        f"{h.get('guard_velocity_x_expr_ofs', 0)}u, "
+        f"{h.get('guard_velocity_x_expr_count', 0)}u"
         "},"
         for h in hitdefs
     ]
@@ -506,7 +534,7 @@ const ik_cns_asset_t {ident}_cns = {{
         {const['ground_gethit_ko_add_x_q8']},
         {const['ground_gethit_ko_add_y_q8']},
         {const['ground_gethit_ko_ymin_q8']},
-        1u
+        1u, {const['character_name_hash']}u
     }},
     {ident}_states, {len(state_rows)}u,
     {ident}_hitdefs, {len(hitdefs)}u,

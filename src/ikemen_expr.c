@@ -24,6 +24,12 @@ static int unary(int32_t* stack, uint8_t sp, uint8_t op) {
                 : value / 65536;
             return 1;
         }
+        case IK_EXPR_TRUNC_Q16:
+            stack[sp - 1u] /= 65536;
+            return 1;
+        case IK_EXPR_TRUNC_Q8:
+            stack[sp - 1u] /= 256;
+            return 1;
         case IK_EXPR_ABS:
             if (stack[sp - 1u] == INT32_MIN) stack[sp - 1u] = INT32_MAX;
             else if (stack[sp - 1u] < 0) stack[sp - 1u] = -stack[sp - 1u];
@@ -104,6 +110,17 @@ static int binary(int32_t* stack, uint8_t* sp, uint8_t op) {
     return 1;
 }
 
+static int ternary(int32_t* stack, uint8_t* sp, uint8_t op) {
+    if (!stack || !sp || *sp < 3u ||
+        (ik_expr_op_t)op != IK_EXPR_IFELSE) return 0;
+    const int32_t condition = stack[*sp - 3u];
+    const int32_t when_true = stack[*sp - 2u];
+    const int32_t when_false = stack[*sp - 1u];
+    stack[*sp - 3u] = condition != 0 ? when_true : when_false;
+    *sp -= 2u;
+    return 1;
+}
+
 int ik_expr_eval(
     const ik_expr_instr_t* code,
     uint16_t count,
@@ -168,7 +185,13 @@ int ik_expr_eval(
                 if (!binary(stack, &sp, ins->op)) return 0;
                 break;
 
+            case IK_EXPR_IFELSE:
+                if (!ternary(stack, &sp, ins->op)) return 0;
+                break;
+
             case IK_EXPR_CEIL_Q16:
+            case IK_EXPR_TRUNC_Q16:
+            case IK_EXPR_TRUNC_Q8:
             case IK_EXPR_ABS:
                 if (!unary(stack, sp, ins->op)) return 0;
                 break;

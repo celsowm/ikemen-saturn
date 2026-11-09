@@ -19,9 +19,15 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 try:
-    from .ikemen_cns_expr import _ExprParser, compile_cns_expr as compile_expression
+    from .ikemen_cns_expr import (
+        _ExprParser, character_name_hash,
+        compile_cns_expr as compile_expression,
+    )
 except ImportError:  # direct `python tools/ikemen_cns.py` invocation
-    from ikemen_cns_expr import _ExprParser, compile_cns_expr as compile_expression
+    from ikemen_cns_expr import (
+        _ExprParser, character_name_hash,
+        compile_cns_expr as compile_expression,
+    )
 try:
     from .ikemen_cns_emit import emit_cns_source_files
 except ImportError:  # direct `python tools/ikemen_cns.py` invocation
@@ -42,6 +48,7 @@ STRICT_CONVERSION = False
 COMMAND_IDS: dict[str, int] = {}
 LOCALCOORD_X = 320.0
 CONST_VALUES: dict[str, float] = {}
+CHARACTER_NAME_HASH = 0
 
 STATE_TYPE = {
     "S": "IK_CNS_STATE_STAND",
@@ -100,7 +107,20 @@ def integer_or_runtime_expr(
             raise ValueError(f"expected integer expression, got {text!r}")
         return int(value), None
     except ValueError:
-        return 0, compile_cns_expr(text)
+        try:
+            code = compile_cns_expr(text)
+        except ValueError:
+            # MUGEN expressions can use real constants in integer-valued
+            # fields such as PlaySnd group/item. Evaluate with Q16 precision,
+            # then apply C/MUGEN-style truncation to the final value.
+            try:
+                code = compile_cns_expr(text, q16=True)
+                code.append({"op": "IK_EXPR_TRUNC_Q16"})
+            except ValueError as error:
+                raise ValueError(
+                    f"cannot compile integer expression {text!r}: {error}"
+                ) from error
+        return 0, code
 
 
 def number_or_runtime_expr(
@@ -1369,8 +1389,12 @@ def constants(globals_: dict[str, Section]) -> dict[str, int]:
     run_fwd = pair(vel.get("run.fwd"))
     run_back = pair(vel.get("run.back"))
     jump_neu = pair(vel.get("jump.neu"))
+    jump_back = pair(vel.get("jump.back"), -2.55)[0]
+    jump_fwd = pair(vel.get("jump.fwd"), 2.5)[0]
     run_jump_fwd = pair(vel.get("runjump.fwd"), 4.0, -8.1)
     air_jump_neu = pair(vel.get("airjump.neu"), 0.0, -8.1)
+    air_jump_back = pair(vel.get("airjump.back"), -2.55)[0]
+    air_jump_fwd = pair(vel.get("airjump.fwd"), 2.5)[0]
     ground_recover = pair(vel.get("air.gethit.groundrecover"), -.15, -3.5)
     air_recover_mul = pair(vel.get("air.gethit.airrecover.mul"), .5, .2)
     air_recover_add = pair(vel.get("air.gethit.airrecover.add"), 0, -4.5)
@@ -1398,14 +1422,14 @@ def constants(globals_: dict[str, Section]) -> dict[str, int]:
         "run_back_y_q8": q8(run_back[1]),
         "jump_neu_x_q8": q8(jump_neu[0]),
         "jump_neu_y_q8": q8(jump_neu[1]),
-        "jump_back_q8": q8(number(vel.get("jump.back"), -2.55)),
-        "jump_fwd_q8": q8(number(vel.get("jump.fwd"), 2.5)),
+        "jump_back_q8": q8(jump_back),
+        "jump_fwd_q8": q8(jump_fwd),
         "run_jump_fwd_x_q8": q8(run_jump_fwd[0]),
         "run_jump_fwd_y_q8": q8(run_jump_fwd[1]),
         "air_jump_neu_x_q8": q8(air_jump_neu[0]),
         "air_jump_neu_y_q8": q8(air_jump_neu[1]),
-        "air_jump_back_q8": q8(number(vel.get("airjump.back"), -2.55)),
-        "air_jump_fwd_q8": q8(number(vel.get("airjump.fwd"), 2.5)),
+        "air_jump_back_q8": q8(air_jump_back),
+        "air_jump_fwd_q8": q8(air_jump_fwd),
         "air_jump_num": integer(movement.get("airjump.num"), 0),
         "air_jump_height": integer(movement.get("airjump.height"), 35),
         "yaccel_q8": q8(
@@ -3058,7 +3082,8 @@ def parse_state(
                     ground_hit_time, ground_hit_time_expr)
             guard_times_values, guard_times_exprs = guard_times_runtime(
                 ctrl, ground_slide_time, ground_slide_time_expr)
-            guardx = number(ctrl.get("guard.velocity"), gx)
+            guardx, guardx_expr = number_or_runtime_expr(
+                ctrl.get("guard.velocity"), gx)
             agx, agy = pair(
                 ctrl.get("airguard.velocity"),
                 ax * 1.5,
@@ -3083,6 +3108,23 @@ def parse_state(
                 recover_text, 1)
             fall_recover_time, fall_recover_time_expr = \
                 integer_or_runtime_expr(ctrl.get("fall.recovertime"), 4)
+            fall_damage, fall_damage_expr = integer_or_runtime_expr(
+                ctrl.get("fall.damage"), 0)
+            envshake_time, envshake_time_expr = integer_or_runtime_expr(
+                ctrl.get("envshake.time"), 0)
+            envshake_ampl, envshake_ampl_expr = integer_or_runtime_expr(
+                ctrl.get("envshake.ampl"), 0)
+            envshake_freq, envshake_freq_expr = integer_or_runtime_expr(
+                ctrl.get("envshake.freq"), 60)
+            fall_envshake_time, fall_envshake_time_expr = \
+                integer_or_runtime_expr(ctrl.get("fall.envshake.time"), 0)
+            fall_envshake_ampl, fall_envshake_ampl_expr = \
+                integer_or_runtime_expr(ctrl.get("fall.envshake.ampl"), 0)
+            fall_envshake_freq, fall_envshake_freq_expr = \
+                integer_or_runtime_expr(ctrl.get("fall.envshake.freq"), 60)
+            cornerpush_veloff, cornerpush_veloff_expr = \
+                number_or_runtime_expr(
+                    ctrl.get("ground.cornerpush.veloff"), 0)
             spark_no_text = ctrl.get("sparkno")
             guard_spark_no_text = ctrl.get("guard.sparkno")
             if spark_no_text and spark_no_text[:1].casefold() in {"s", "f"}:
@@ -3095,9 +3137,13 @@ def parse_state(
                 guard_spark_no_text, default_guard_spark_no)
 
             flags: list[str] = []
-            if integer(ctrl.get("fall"), 0):
+            fall_flag, fall_flag_expr = integer_or_runtime_expr(
+                ctrl.get("fall"), 0)
+            air_fall_flag, air_fall_flag_expr = integer_or_runtime_expr(
+                ctrl.get("air.fall"), 0)
+            if fall_flag:
                 flags.append("IK_CNS_HITDEF_FALL")
-            if integer(ctrl.get("air.fall"), 0):
+            if air_fall_flag:
                 flags.append("IK_CNS_HITDEF_AIR_FALL")
             if integer(ctrl.get("forcestand"), 0):
                 flags.append("IK_CNS_HITDEF_FORCE_STAND")
@@ -3119,6 +3165,17 @@ def parse_state(
                     "_trigger_expr": trigger_expr,
                     "_trigger2_expr": trigger2_expr,
                     "_air_juggle_expr": air_juggle_expr,
+                    "_fall_expr": fall_flag_expr,
+                    "_air_fall_expr": air_fall_flag_expr,
+                    "_ground_cornerpush_veloff_expr": cornerpush_veloff_expr,
+                    "_guard_velocity_x_expr": guardx_expr,
+                    "_fall_damage_expr": fall_damage_expr,
+                    "_envshake_time_expr": envshake_time_expr,
+                    "_envshake_ampl_expr": envshake_ampl_expr,
+                    "_envshake_freq_expr": envshake_freq_expr,
+                    "_fall_envshake_time_expr": fall_envshake_time_expr,
+                    "_fall_envshake_ampl_expr": fall_envshake_ampl_expr,
+                    "_fall_envshake_freq_expr": fall_envshake_freq_expr,
                     "_damage_expr": damage_runtime_expr,
                     "_guard_damage_expr": guard_damage_runtime_expr,
                     "_pause_p1_expr": pause_p1_expr,
@@ -3218,25 +3275,17 @@ def parse_state(
                     **power_fields(ctrl),
                     **dist_fields(ctrl),
                     "has_alt_damage": int(damage_expr is not None),
-                    "ground_cornerpush_veloff_q8": q8(
-                        number(ctrl.get("ground.cornerpush.veloff"), 0)
-                    ),
+                    "ground_cornerpush_veloff_q8": q8(cornerpush_veloff),
                     "attack_attr_mask": attack_attr_mask(
                         attr_parts[1] if len(attr_parts) > 1 else ""
                     ),
-                    "fall_damage": integer(ctrl.get("fall.damage"), 0),
-                    "envshake_time": integer(ctrl.get("envshake.time"), 0),
-                    "envshake_ampl": integer(ctrl.get("envshake.ampl"), 0),
-                    "envshake_freq": integer(ctrl.get("envshake.freq"), 60),
-                    "fall_envshake_time": integer(
-                        ctrl.get("fall.envshake.time"), 0
-                    ),
-                    "fall_envshake_ampl": integer(
-                        ctrl.get("fall.envshake.ampl"), 0
-                    ),
-                    "fall_envshake_freq": integer(
-                        ctrl.get("fall.envshake.freq"), 60
-                    ),
+                    "fall_damage": fall_damage,
+                    "envshake_time": envshake_time,
+                    "envshake_ampl": envshake_ampl,
+                    "envshake_freq": envshake_freq,
+                    "fall_envshake_time": fall_envshake_time,
+                    "fall_envshake_ampl": fall_envshake_ampl,
+                    "fall_envshake_freq": fall_envshake_freq,
                     "id": integer(ctrl.get("id"), 0),
                     "chain_id": integer(ctrl.get("chainid"), -1),
                     "no_chain_id": integer(
@@ -3639,6 +3688,7 @@ def parse_state(
             for c in controllers
         )),
         "hitdef_persist": eval_int(sd.get("hitdefpersist"), 0),
+        "hitcount_persist": eval_int(sd.get("hitcountpersist"), 0),
         "reversal_ofs": 0,
         "reversal_count": len(reversals),
         "hitoverride_ofs": 0,
@@ -4863,6 +4913,7 @@ def emit(
             raise ValueError(
                 f"{constants_source}: missing constants sections: {sorted(missing)}")
     const = constants(const_globals)
+    const["character_name_hash"] = CHARACTER_NAME_HASH
     global CONST_VALUES
     CONST_VALUES = {}
     for section_name in ("data", "size", "velocity", "movement"):
@@ -5084,8 +5135,9 @@ def main(argv: list[str] | None = None) -> int:
     if len(COMMAND_IDS) > 128:
         raise ValueError("CNS command table exceeds the 128-name expression limit")
 
-    global LOCALCOORD_X
+    global LOCALCOORD_X, CHARACTER_NAME_HASH
     LOCALCOORD_X = 320.0
+    CHARACTER_NAME_HASH = 0
     if args.character_def is not None:
         def_text = read_mugen_text(args.character_def)
         section = ""
@@ -5095,13 +5147,16 @@ def main(argv: list[str] | None = None) -> int:
                 section = line[1:-1].strip().casefold()
             elif section == "info" and "=" in line:
                 key, value = line.split("=", 1)
-                if key.strip().casefold() == "localcoord":
+                key = key.strip().casefold()
+                if key == "name":
+                    CHARACTER_NAME_HASH = character_name_hash(
+                        value.strip().strip('"'))
+                elif key == "localcoord":
                     parts = _split_top_level(value)
                     if not parts or number(parts[0]) <= 0:
                         raise ValueError(
                             f"{args.character_def}: invalid localcoord {value!r}")
                     LOCALCOORD_X = number(parts[0])
-                    break
 
     global SELF_ANIMS
     if args.air is not None:
