@@ -29,6 +29,7 @@ try:
         dist_fields, dynamic_power_add_expr, eval_expr, eval_int,
         integer_or_runtime_expr, number_or_runtime_expr,
         pair_integer_runtime_expr, pair_runtime_expr, power_fields,
+        pair_static_expr,
         sound_pair, sound_pair_runtime, spark_pair, spark_pair_runtime,
         configure as configure_runtime_values,
     )
@@ -38,6 +39,7 @@ except ImportError:  # direct `python tools/ikemen_cns.py` invocation
         dist_fields, dynamic_power_add_expr, eval_expr, eval_int,
         integer_or_runtime_expr, number_or_runtime_expr,
         pair_integer_runtime_expr, pair_runtime_expr, power_fields,
+        pair_static_expr,
         sound_pair, sound_pair_runtime, spark_pair, spark_pair_runtime,
         configure as configure_runtime_values,
     )

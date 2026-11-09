@@ -129,6 +129,25 @@ def pair_runtime_expr(
     return values[0], values[1], expressions[0], expressions[1]
 
 
+def pair_static_expr(
+    text: str | None,
+    default_x: float = 0.0,
+    default_y: float = 0.0,
+) -> tuple[float, float]:
+    """Evaluate a numeric pair containing only compile-time expressions."""
+    if text is None:
+        return default_x, default_y
+    parts = _split_top_level(text)
+    if len(parts) == 1:
+        parts.append(str(default_y))
+    if len(parts) not in (2, 3):
+        raise ValueError(f"expected numeric value pair, got {text!r}")
+    try:
+        return _ExprParser(parts[0]).parse(), _ExprParser(parts[1]).parse()
+    except ValueError as exc:
+        raise ValueError(f"expected static numeric pair, got {text!r}: {exc}") from exc
+
+
 def compile_controller_trigger_expr(ctrl: Section) -> list[dict]:
     """Compile triggerall and triggerN lines with MUGEN's AND/OR grouping."""
     common = [f"({expr})" for expr in ctrl.all("triggerall")]

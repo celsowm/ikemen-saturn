@@ -104,7 +104,8 @@ def compile_explod_controller(
     if trans_text not in trans_map:
         return reject(f"unsupported trans mode {trans_text}")
 
-    alpha_src, _alpha_dst = pair(ctrl.get("alpha"), 256, 256)
+    alpha_src, _alpha_dst = services["pair_static_expr"](
+        ctrl.get("alpha"), 256, 256)
     alpha_value = max(0, min(255, int(round(float(alpha_src) * 255.0 / 256.0))))
     if ctrl.get("supermovetime") is not None:
         super_move_time = max(0, integer(ctrl.get("supermovetime"), 0))

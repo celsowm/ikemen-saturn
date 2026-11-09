@@ -676,7 +676,10 @@ def compile_runtime_controller(
                 f"{variable_kind} "
                 f"index outside 0..{var_count - 1}")
         try:
-            var_value = q16(var_value_text) if var_is_float else integer(var_value_text)
+            var_value = (
+                q16(number(var_value_text)) if var_is_float else
+                integer(var_value_text)
+            )
             var_value_expr = None
         except ValueError:
             try:

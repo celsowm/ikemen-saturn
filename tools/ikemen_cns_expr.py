@@ -214,6 +214,7 @@ _RUNTIME_EXPR_FIELDS = {
     "frontedgebodydist": "IK_EXPR_FIELD_FRONT_EDGE_BODY_DIST",
     "backedgedist": "IK_EXPR_FIELD_BACK_EDGE_DIST",
     "anim": "IK_EXPR_FIELD_ANIM_NO",
+    "id": "IK_EXPR_FIELD_ENTITY_ID",
     "facing": "IK_EXPR_FIELD_FACING",
     "backedgebodydist": "IK_EXPR_FIELD_BACK_EDGE_BODY_DIST",
     "animelem": "IK_EXPR_FIELD_ANIM_ELEM",
@@ -455,6 +456,8 @@ class _ExprCompiler(_ExprParser):
                 "stateno": ("IK_EXPR_FIELD_STATE_NO", "IK_EXPR_REDIRECT_SELF"),
                 "prevstateno": (
                     "IK_EXPR_FIELD_PREV_STATE_NO", "IK_EXPR_REDIRECT_SELF"),
+                "root_prevstateno": (
+                    "IK_EXPR_FIELD_PREV_STATE_NO", "IK_EXPR_REDIRECT_ROOT"),
                 "p2stateno": (
                     "IK_EXPR_FIELD_STATE_NO", "IK_EXPR_REDIRECT_P2"),
                 "entityid": (
@@ -630,6 +633,15 @@ class _ExprCompiler(_ExprParser):
                             "NumHelper() id is outside the signed 32-bit range")
                     return self._load_runtime_field(
                         "IK_EXPR_FIELD_NUM_HELPERS", helper_id, redirect)
+                if field_lower == "numexplod" and len(args) <= 1:
+                    explod_id = (
+                        self._integer_arg(args[0], field_name)
+                        if args else -2147483648)
+                    if explod_id < -2147483648 or explod_id > 2147483647:
+                        raise ValueError(
+                            "NumExplod() id is outside the signed 32-bit range")
+                    return self._load_runtime_field(
+                        "IK_EXPR_FIELD_NUM_EXPLODS", explod_id, redirect)
                 if field_lower == "animelemtime" and len(args) == 1:
                     elem = self._integer_arg(args[0], field_name)
                     if elem < 1 or elem > 65535:
@@ -761,6 +773,23 @@ class _ExprCompiler(_ExprParser):
                 }[field_lower]
                 return self._load_runtime_field(
                     field, index, redirect, helper_id)
+            if field_lower == "numexplod" and \
+                    self._peek() == ("op", "("):
+                self._take()
+                args = self._args()
+                if self._peek() != ("op", ")") or len(args) > 1:
+                    raise ValueError(
+                        "Helper(),NumExplod() takes at most one ID")
+                self._take()
+                explod_id = (
+                    self._integer_arg(args[0], field_name)
+                    if args else -2147483648)
+                if explod_id < -2147483648 or explod_id > 2147483647:
+                    raise ValueError(
+                        "NumExplod() id is outside the signed 32-bit range")
+                return self._load_runtime_field(
+                    "IK_EXPR_FIELD_NUM_EXPLODS", explod_id,
+                    redirect, helper_id)
             raise ValueError(
                 f"unsupported Helper() field in runtime expression: "
                 f"{field_name}")
@@ -1008,6 +1037,9 @@ class _ExprCompiler(_ExprParser):
                 "IK_EXPR_FIELD_CHARACTER_NAME_HASH",
                 redirect="IK_EXPR_REDIRECT_P2",
             )
+        if lower == "p1namehash":
+            return self._load_runtime_field(
+                "IK_EXPR_FIELD_CHARACTER_NAME_HASH")
         if lower == "namehash":
             return self._load_runtime_field(
                 "IK_EXPR_FIELD_CHARACTER_NAME_HASH")
@@ -1141,7 +1173,13 @@ def compile_cns_expr(
         return f"{field}hash {operator} {character_name_hash(name)}"
 
     normalized = re.sub(
-        r"\b(p2name|name)\s*(==|!=|=)\s*\"([^\"]+)\"",
+        r"\b(p3name|p4name)\s*(==|!=|=)\s*\"([^\"]+)\"",
+        lambda match: "1" if match.group(2) == "!=" else "0",
+        normalized,
+        flags=re.I,
+    )
+    normalized = re.sub(
+        r"\b(p1name|p2name|name)\s*(==|!=|=)\s*\"([^\"]+)\"",
         character_name,
         normalized,
         flags=re.I,
@@ -1340,7 +1378,7 @@ def compile_cns_expr(
     )
     normalized = re.sub(
         r"(?<![\w.])(?:(p2|enemy|enemynear|parent|root|target)\s*,\s*)?"
-        r"(anim|stateno|prevstateno|p2stateno|entityid)"
+        r"(anim|stateno|prevstateno|p2stateno|root_prevstateno|entityid)"
         r"\s*(==|!=|<=|>=|=|<|>)\s*(-?\d+)\b",
         lambda match: "rawcmp_{}_{}({})".format(
             (match.group(1).casefold() + "_" if match.group(1) else "") +
