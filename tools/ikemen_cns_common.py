@@ -533,7 +533,8 @@ def compile_common_states(
                     "IK_CNS_TRIGGER_ALWAYS", 0, 0, 150, 0,
                 ),
             ]
-            deferred[n] = ["ForceFeedback"]
+            # Saturn controllers have no force-feedback actuator. This
+            # authored effect is an explicit platform no-op.
 
         elif n == 151:
             row = state_row(151, 150, -1)
@@ -572,7 +573,8 @@ def compile_common_states(
                     "IK_CNS_TRIGGER_ALWAYS", 0, 0, 151, 0,
                 ),
             ]
-            deferred[n] = ["ForceFeedback"]
+            # Saturn controllers have no force-feedback actuator. This
+            # authored effect is an explicit platform no-op.
 
         elif n == 153:
             row = state_row(153, 151, -1)
@@ -611,7 +613,8 @@ def compile_common_states(
                     "IK_CNS_TRIGGER_ALWAYS", 0, 0, 152, 0,
                 ),
             ]
-            deferred[n] = ["ForceFeedback"]
+            # Saturn controllers have no force-feedback actuator. This
+            # authored effect is an explicit platform no-op.
 
         elif n == 155:
             row = state_row(155, 152, -1, land_state=52)
@@ -664,7 +667,7 @@ def compile_common_states(
                     "IK_CNS_TRIGGER_HIT_NO_LAUNCH", 0, 0, 5001, 0,
                 ),
             ]
-            deferred[n] = ["ForceFeedback", "StateTypeSet for launch"]
+            deferred[n] = ["StateTypeSet for launch"]
 
         elif n == 5001:
             row = state_row(5001, -1, -1)
@@ -713,7 +716,7 @@ def compile_common_states(
                     "IK_CNS_TRIGGER_HIT_NO_LAUNCH", 0, 0, 5011, 0,
                 ),
             ]
-            deferred[n] = ["ForceFeedback", "StateTypeSet for launch"]
+            deferred[n] = ["StateTypeSet for launch"]
 
         elif n == 5011:
             row = state_row(5011, -1, -1)
@@ -753,7 +756,8 @@ def compile_common_states(
                     "IK_CNS_TRIGGER_HIT_SHAKE_OVER", 0, 0, 5030, 0,
                 ),
             ]
-            deferred[n] = ["ForceFeedback"]
+            # Saturn controllers have no force-feedback actuator. This
+            # authored effect is an explicit platform no-op.
 
         elif n == 5030:
             row = state_row(5030, -1, 0)
@@ -838,7 +842,8 @@ def compile_common_states(
                     "IK_CNS_TRIGGER_HIT_SHAKE_OVER", 0, 0, 5071, 0,
                 ),
             ]
-            deferred[n] = ["ForceFeedback"]
+            # Saturn controllers have no force-feedback actuator. This
+            # authored effect is an explicit platform no-op.
 
         elif n == 5071:
             row = state_row(5071, -1, -1, land_state=5110)

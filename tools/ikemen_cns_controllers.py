@@ -96,6 +96,7 @@ def compile_runtime_controller(
         "gravity",
         "poweradd",
         "playerpush",
+        "forcefeedback",
     }
     if ctype not in supported:
         return None
@@ -135,6 +136,18 @@ def compile_runtime_controller(
 
     def flag_expr() -> str:
         return " | ".join(flags) if flags else "0u"
+
+    if ctype == "forcefeedback":
+        return {
+            "state_number": state_no,
+            "type": "IK_CNS_CTRL_PLATFORM_NOOP",
+            "trigger_kind": trig_kind,
+            "trigger_value": trig_value,
+            "trigger_value2": trig_value2,
+            "value0": 0,
+            "value1": 0,
+            "flags": flag_expr(),
+        }
 
     if ctype == "assertspecial":
         flag_values = [

@@ -136,6 +136,8 @@ install(FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/tools/ikemen_cns_explods.py"
     "${CMAKE_CURRENT_SOURCE_DIR}/tools/ikemen_cns_emit.py"
     "${CMAKE_CURRENT_SOURCE_DIR}/tools/ikemen_cns_expr.py"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tools/ikemen_cns_expr_normalize.py"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tools/ikemen_cns_expr_parser.py"
     "${CMAKE_CURRENT_SOURCE_DIR}/tools/ikemen_cns_helpers.py"
     "${CMAKE_CURRENT_SOURCE_DIR}/tools/ikemen_cns_pipeline.py"
     "${CMAKE_CURRENT_SOURCE_DIR}/tools/ikemen_cns_projectiles.py"

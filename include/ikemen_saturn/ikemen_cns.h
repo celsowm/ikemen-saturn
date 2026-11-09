@@ -208,7 +208,10 @@ typedef enum ik_cns_controller_type {
     IK_CNS_CTRL_FVAR_SET,
     IK_CNS_CTRL_FVAR_ADD,
     IK_CNS_CTRL_ASSERT_FLAGS,
-    IK_CNS_CTRL_LIFE_ADD
+    IK_CNS_CTRL_LIFE_ADD,
+    /* Saturn controllers have no force-feedback actuator; this preserves the
+     * controller trigger as an explicit platform no-op. */
+    IK_CNS_CTRL_PLATFORM_NOOP
 } ik_cns_controller_type_t;
 
 /* Source compatibility for integrations that used the earlier narrower

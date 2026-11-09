@@ -6,6 +6,10 @@ int ikf_ctrl_apply_fx(const ik_ctrl_exec_t* x) {
     ik_fighter_t* f = x->fighter;
     const ik_cns_controller_t* ctrl = x->ctrl;
     switch ((ik_cns_controller_type_t)ctrl->type) {
+        case IK_CNS_CTRL_PLATFORM_NOOP:
+            /* ForceFeedback has no corresponding output on Saturn hardware. */
+            break;
+
         case IK_CNS_CTRL_SCREEN_BACK_EFFECT: {
             /* Ikemen ZSS Explod F72 / postype:back / pos:0,
              * floor(screenPos Y)-50. Saturn's stage camera has no Y
