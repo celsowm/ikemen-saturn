@@ -42,6 +42,8 @@ def compile_helper_controller(
         "p2": "IK_CNS_HELPER_POS_P2",
         "front": "IK_CNS_HELPER_POS_FRONT",
         "back": "IK_CNS_HELPER_POS_BACK",
+        "left": "IK_CNS_HELPER_POS_LEFT",
+        "right": "IK_CNS_HELPER_POS_RIGHT",
     }
     postype = postypes.get(postype_name)
     if postype is None:

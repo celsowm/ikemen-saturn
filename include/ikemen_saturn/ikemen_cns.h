@@ -219,7 +219,9 @@ typedef enum ik_cns_helper_postype {
     IK_CNS_HELPER_POS_P1 = 0,
     IK_CNS_HELPER_POS_P2,
     IK_CNS_HELPER_POS_FRONT,
-    IK_CNS_HELPER_POS_BACK
+    IK_CNS_HELPER_POS_BACK,
+    IK_CNS_HELPER_POS_LEFT,
+    IK_CNS_HELPER_POS_RIGHT
 } ik_cns_helper_postype_t;
 
 typedef enum ik_cns_explod_postype {

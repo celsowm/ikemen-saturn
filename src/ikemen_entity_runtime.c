@@ -267,6 +267,8 @@ void ik_entity_runtime_init(
     runtime->varrandom_sequence = 0u;
     runtime->stage_min_x = 0;
     runtime->stage_max_x = 320;
+    runtime->camera_left_x_q8 = 0;
+    runtime->camera_right_x_q8 = 320 * IK_CNS_Q8_ONE;
     runtime->external_user = 0;
     runtime->target_controller = 0;
 }
@@ -433,11 +435,41 @@ int ik_entity_runtime_spawn_helper(
         ik_entity_get_const(runtime->pool, base_handle);
     if (!base) return 0;
 
-    int32_t edge_offset_q8 = 0;
-    if (helper->postype == IK_CNS_HELPER_POS_FRONT) {
-        edge_offset_q8 = (int32_t)base->push_front * IK_CNS_Q8_ONE;
-    } else if (helper->postype == IK_CNS_HELPER_POS_BACK) {
-        edge_offset_q8 = -(int32_t)base->push_back * IK_CNS_Q8_ONE;
+    const int8_t base_facing = base->facing < 0 ? -1 : 1;
+    int32_t helper_x_q8;
+    int32_t helper_y_q8;
+    switch ((ik_cns_helper_postype_t)helper->postype) {
+        case IK_CNS_HELPER_POS_FRONT:
+        case IK_CNS_HELPER_POS_BACK: {
+            const int camera_right =
+                (base_facing > 0 &&
+                 helper->postype == IK_CNS_HELPER_POS_FRONT) ||
+                (base_facing < 0 &&
+                 helper->postype == IK_CNS_HELPER_POS_BACK);
+            const int32_t edge_q8 = camera_right
+                ? runtime->camera_right_x_q8
+                : runtime->camera_left_x_q8;
+            const int32_t offset_q8 = base_facing > 0
+                ? helper->pos_x_q8 : -helper->pos_x_q8;
+            helper_x_q8 = edge_q8 + offset_q8;
+            helper_y_q8 = helper->pos_y_q8;
+            break;
+        }
+        case IK_CNS_HELPER_POS_LEFT:
+            helper_x_q8 = runtime->camera_left_x_q8 + helper->pos_x_q8;
+            helper_y_q8 = helper->pos_y_q8;
+            break;
+        case IK_CNS_HELPER_POS_RIGHT:
+            helper_x_q8 = runtime->camera_right_x_q8 + helper->pos_x_q8;
+            helper_y_q8 = helper->pos_y_q8;
+            break;
+        case IK_CNS_HELPER_POS_P1:
+        case IK_CNS_HELPER_POS_P2:
+        default:
+            helper_x_q8 = base->x_q8 +
+                (int32_t)base_facing * helper->pos_x_q8;
+            helper_y_q8 = base->y_q8 + helper->pos_y_q8;
+            break;
     }
 
     ik_entity_handle_t spawned = ik_entity_invalid_handle();
@@ -453,13 +485,16 @@ int ik_entity_runtime_spawn_helper(
         return 0;
     }
 
-    entity->x_q8 =
-        base->x_q8 + (int32_t)base->facing *
-            (helper->pos_x_q8 + edge_offset_q8);
-    entity->y_q8 = base->y_q8 + helper->pos_y_q8;
+    entity->x_q8 = helper_x_q8;
+    entity->y_q8 = helper_y_q8;
     entity->name_hash = helper->name_hash;
-    entity->facing =
-        (int8_t)(parent->facing * (helper->facing < 0 ? -1 : 1));
+    const int8_t helper_facing = helper->facing < 0 ? -1 : 1;
+    if (helper->postype == IK_CNS_HELPER_POS_LEFT ||
+        helper->postype == IK_CNS_HELPER_POS_RIGHT) {
+        entity->facing = helper_facing;
+    } else {
+        entity->facing = (int8_t)(base_facing * helper_facing);
+    }
     entity->spr_priority = helper->spr_priority;
     entity->life = runtime->cns->constants.life;
     entity->power = parent->power;

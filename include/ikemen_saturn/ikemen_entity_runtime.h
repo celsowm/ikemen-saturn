@@ -31,6 +31,9 @@ typedef struct ik_entity_runtime {
     uint32_t varrandom_sequence;
     int16_t stage_min_x;
     int16_t stage_max_x;
+    /* World-space positions of this frame's camera edges for Helper postype. */
+    int32_t camera_left_x_q8;
+    int32_t camera_right_x_q8;
     void* external_user;
     ik_entity_target_controller_fn target_controller;
 } ik_entity_runtime_t;

@@ -258,4 +258,10 @@ void ikf_configure_fight_entity_runtime(
     ik_entity_runtime_set_stage_bounds(
         runtime, (int16_t)(fight->xmin_q8 / IK_CNS_Q8_ONE),
         (int16_t)(fight->xmax_q8 / IK_CNS_Q8_ONE));
+    runtime->camera_left_x_q8 =
+        (int32_t)IK_STAGE_CENTER_X * IK_CNS_Q8_ONE +
+        (fight->cam_x_q16 - fight->cam_half_q16) / 256;
+    runtime->camera_right_x_q8 =
+        (int32_t)IK_STAGE_CENTER_X * IK_CNS_Q8_ONE +
+        (fight->cam_x_q16 + fight->cam_half_q16) / 256;
 }
