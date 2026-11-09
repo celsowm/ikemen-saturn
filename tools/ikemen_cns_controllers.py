@@ -106,11 +106,15 @@ def compile_runtime_controller(
 
     if ctype == "assertspecial":
         flag = (ctrl.get("flag") or "").strip().lower()
-        if flag != "intro":
+        if flag not in {"intro", "roundnotover"}:
             return None
         return {
             "state_number": state_no,
-            "type": "IK_CNS_CTRL_ASSERT_INTRO",
+            "type": (
+                "IK_CNS_CTRL_ASSERT_INTRO"
+                if flag == "intro" else
+                "IK_CNS_CTRL_ASSERT_ROUND_NOT_OVER"
+            ),
             "trigger_kind": trig_kind,
             "trigger_value": trig_value,
             "trigger_value2": trig_value2,

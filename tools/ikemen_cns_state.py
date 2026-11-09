@@ -705,7 +705,18 @@ def compile_state(
                     1 if flag == "nowalk" else 2
                 )
             else:
-                unsupported.append(ctype)
+                try:
+                    compiled = compile_runtime_controller(state.number, ctrl)
+                except ValueError:
+                    compiled = None
+                if compiled is not None:
+                    if ctrl.runtime_trigger_expr is not None:
+                        compiled["trigger_expr"] = ctrl.runtime_trigger_expr
+                    controllers.append(
+                        attach_target_query_selector(compiled, ctrl)
+                    )
+                else:
+                    unsupported.append(ctype)
 
         else:
             try:
