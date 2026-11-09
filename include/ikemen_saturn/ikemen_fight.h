@@ -282,6 +282,7 @@ typedef struct ik_fight {
     const ik_cns_asset_t* cns;
     const ik_cns_asset_t* player_cns[2];
     const ik_frame_table_t* player_frames[2];
+    const ik_frame_table_t* fightfx_frames;
     ik_entity_pool_t* entities;
     ik_entity_handle_t player_entities[2];
     uint32_t frame;
@@ -361,6 +362,9 @@ void ik_fight_bind_entities(
     ik_entity_pool_t* pool,
     ik_entity_handle_t p1,
     ik_entity_handle_t p2);
+void ik_fight_set_fightfx_frames(
+    ik_fight_t* fight,
+    const ik_frame_table_t* fightfx_frames);
 void ik_fight_reset(ik_fight_t* fight);
 void ik_fight_set_stage(ik_fight_t* fight, const ik_stage_params_t* stage);
 void ik_fight_set_stage_author_hash(ik_fight_t* fight, uint32_t author_hash);

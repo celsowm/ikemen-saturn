@@ -81,8 +81,9 @@ static inline const ik_frame_table_t* frames_for_owner(
     const ik_fight_t* fight,
     uint8_t owner
 ) {
-    if (!fight || owner >= 2u) return 0;
-    return fight->player_frames[owner];
+    if (!fight) return 0;
+    if (owner < 2u) return fight->player_frames[owner];
+    return owner == 2u ? fight->fightfx_frames : 0;
 }
 
 static inline const ik_frame_table_t* frames_for_fighter(

@@ -67,7 +67,7 @@ static int runtime_expr_read_field(
         index <= UINT16_MAX) {
         const ik_entity_t* entity = ik_entity_get_const(
             binding->entity.pool, binding->entity.self);
-        if (!entity || entity->anim_owner >= 2u) return 0;
+        if (!entity || entity->anim_owner >= 3u) return 0;
         *out_value = ik_anim_elem_time(
             binding->runtime->frames[entity->anim_owner], entity->anim_no,
             entity->anim_time, (uint16_t)index);
@@ -131,7 +131,7 @@ static const ik_frame_table_t* frames_for(
     const ik_entity_runtime_t* runtime,
     const ik_entity_t* entity
 ) {
-    if (!runtime || !entity || entity->anim_owner >= 2u) return 0;
+    if (!runtime || !entity || entity->anim_owner >= 3u) return 0;
     return runtime->frames[entity->anim_owner];
 }
 
@@ -227,6 +227,7 @@ void ik_entity_runtime_init(
     runtime->player_cns[1] = cns;
     runtime->frames[0] = p1_frames;
     runtime->frames[1] = p2_frames ? p2_frames : p1_frames;
+    runtime->frames[2] = 0;
     runtime->command_masks[0] = 0u;
     runtime->command_masks[1] = 0u;
     runtime->game_time = 0u;
@@ -235,6 +236,13 @@ void ik_entity_runtime_init(
     runtime->stage_max_x = 320;
     runtime->external_user = 0;
     runtime->target_controller = 0;
+}
+
+void ik_entity_runtime_set_fightfx_frames(
+    ik_entity_runtime_t* runtime,
+    const ik_frame_table_t* fightfx_frames
+) {
+    if (runtime) runtime->frames[2] = fightfx_frames;
 }
 
 void ik_entity_runtime_set_player_cns(
@@ -597,6 +605,7 @@ int ik_entity_runtime_spawn_explod(
     const int32_t random_y = explod_random_offset(
         random_seed ^ 0xa511e9b3u, explod->random_y_q8);
     entity->id = explod->id;
+    entity->anim_owner = explod->use_fightfx ? 2u : parent->anim_owner;
     entity->x_q8 = screen_space
         ? explod->pos_x_q8 + random_x
         : base->x_q8 + (int32_t)base->facing *

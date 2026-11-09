@@ -950,6 +950,7 @@ typedef struct ik_cns_explod {
     int32_t random_x_q8;
     int32_t random_y_q8;
     uint8_t has_shadow;
+    uint8_t use_fightfx;
 } ik_cns_explod_t;
 
 typedef struct ik_cns_helper {

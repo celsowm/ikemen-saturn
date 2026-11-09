@@ -22,7 +22,7 @@ typedef struct ik_entity_runtime {
     ik_entity_pool_t* pool;
     const ik_cns_asset_t* cns;
     const ik_cns_asset_t* player_cns[2];
-    const ik_frame_table_t* frames[2];
+    const ik_frame_table_t* frames[3];
     uint16_t command_masks[2];
     uint64_t command_active[2][2];
     uint32_t game_time;
@@ -39,6 +39,10 @@ void ik_entity_runtime_init(
     const ik_cns_asset_t* cns,
     const ik_frame_table_t* p1_frames,
     const ik_frame_table_t* p2_frames);
+
+void ik_entity_runtime_set_fightfx_frames(
+    ik_entity_runtime_t* runtime,
+    const ik_frame_table_t* fightfx_frames);
 
 void ik_entity_runtime_set_player_cns(
     ik_entity_runtime_t* runtime,

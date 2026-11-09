@@ -1,6 +1,8 @@
 """Compile CNS explods controller records."""
 from __future__ import annotations
 
+import re
+
 try:
     from .ikemen_cns_parse import Section
 except ImportError:  # direct `python tools/ikemen_cns.py` invocation
@@ -107,8 +109,15 @@ def compile_explod_controller(
         )
     super_move_time = min(super_move_time, 0xFFFFFFFF)
 
+    anim_text = (ctrl.get("anim") or "0").strip()
+    fightfx_match = re.fullmatch(r"[fF]\s*(-?\d+)", anim_text)
+    use_fightfx = fightfx_match is not None
+    anim_no = (
+        int(fightfx_match.group(1))
+        if fightfx_match else integer(anim_text, 0)
+    )
     explod = {
-        "anim_no": integer(ctrl.get("anim"), 0),
+        "anim_no": anim_no,
         "id": max(0, integer(ctrl.get("id"), 0)),
         "pos_x_q8": q8(px, wide=True),
         "pos_y_q8": q8(py, wide=True),
@@ -119,7 +128,7 @@ def compile_explod_controller(
         "remove_time": integer(ctrl.get("removetime"), -1),
         "spr_priority": integer(ctrl.get("sprpriority"), 0),
         "postype": postype,
-        "ownpal": integer(ctrl.get("ownpal"), 0),
+        "ownpal": integer(ctrl.get("ownpal"), int(use_fightfx)),
         "pause_move_time": max(0, integer(ctrl.get("pausemovetime"), 0)),
         "super_move_time": super_move_time,
         "bind_time": integer(ctrl.get("bindtime"), 0),
@@ -138,6 +147,7 @@ def compile_explod_controller(
         "random_x_q8": q8(random_x, wide=True),
         "random_y_q8": q8(random_y, wide=True),
         "has_shadow": has_shadow,
+        "use_fightfx": int(use_fightfx),
     }
     # Explod entities are not inserted into the fighter/projectile contact
     # queue, so `unhittable = 1` already matches this runtime's behavior.

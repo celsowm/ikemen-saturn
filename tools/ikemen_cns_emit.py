@@ -400,7 +400,7 @@ def emit_cns_source_files(
         f"{e.get('alpha', 255)}u, {e.get('id', -1)}, "
         f"{e.get('under', 0)}u, {e.get('ontop', 0)}u, "
         f"{e.get('random_x_q8', 0)}, {e.get('random_y_q8', 0)}, "
-        f"{e.get('has_shadow', 0)}u"
+        f"{e.get('has_shadow', 0)}u, {e.get('use_fightfx', 0)}u"
         "},"
         for e in explods
     ]

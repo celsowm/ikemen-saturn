@@ -41,8 +41,9 @@ static int rule_expr_read_field(
             rule->entity.pool, rule->entity.self);
         if (!entity) return 0;
         const uint8_t owner = entity->anim_owner;
-        const ik_frame_table_t* frames =
-            owner < 2u ? rule->fight->player_frames[owner] : 0;
+        const ik_frame_table_t* frames = owner < 2u
+            ? rule->fight->player_frames[owner]
+            : owner == 2u ? rule->fight->fightfx_frames : 0;
         *out_value = ik_anim_elem_time(
             frames, entity->anim_no, entity->anim_time, (uint16_t)index);
         return 1;

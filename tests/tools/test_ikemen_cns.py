@@ -2496,9 +2496,9 @@ assert wall_branch["trigger_expr_count"] > 0
 assert wall_branch["value0"] == 1027
 
 assert source_rows[1027]["anim"] == -1
-assert source_rows[1027]["controller_count"] == 6
+assert source_rows[1027]["controller_count"] == 7
 assert source_rows[1027]["playsnd_count"] == 1
-assert source_rows[1027]["unsupported_controllers"] == ["explod"]
+assert source_rows[1027]["unsupported_controllers"] == []
 state1027_ctrls = [
     c for c in report["controllers"] if c["state_number"] == 1027
 ]
@@ -2516,6 +2516,7 @@ freeze1027 = next(
 )
 assert "IK_CNS_CTRL_AXIS_X" in freeze1027["flags"]
 assert "IK_CNS_CTRL_AXIS_Y" in freeze1027["flags"]
+assert any(c["type"] == "IK_CNS_CTRL_EXPLOD" for c in state1027_ctrls)
 
 assert source_rows[1028]["anim"] == -1
 assert source_rows[1028]["controller_count"] == 6
@@ -3175,6 +3176,14 @@ _random_explod = compile_explod_controller(0, Section("random explod", [
 assert _random_explod is not None
 assert (_random_explod[1]["random_x_q8"],
         _random_explod[1]["random_y_q8"]) == (5 * 256, -2 * 256)
+
+_fightfx_explod = compile_explod_controller(0, Section("fightfx explod", [
+    ("type", "Explod"), ("trigger1", "1"), ("anim", "F61"),
+]), 0)
+assert _fightfx_explod is not None
+assert _fightfx_explod[1]["anim_no"] == 61
+assert _fightfx_explod[1]["use_fightfx"] == 1
+assert _fightfx_explod[1]["ownpal"] == 1
 
 _dynamic_explod_section = Section("dynamic explod", [
     ("type", "Explod"), ("trigger1", "1"),

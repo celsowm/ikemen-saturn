@@ -249,6 +249,8 @@ void ikf_configure_fight_entity_runtime(
         runtime, 0u, cns_for_owner(fight, 0u));
     ik_entity_runtime_set_player_cns(
         runtime, 1u, cns_for_owner(fight, 1u));
+    ik_entity_runtime_set_fightfx_frames(
+        runtime, fight->fightfx_frames);
     ik_entity_runtime_set_target_controller(
         runtime, fight, entity_target_controller_bridge);
     ik_entity_runtime_set_stage_bounds(

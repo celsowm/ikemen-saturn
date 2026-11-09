@@ -497,6 +497,7 @@ int main() {
 
         ik_cns_explod_t nested_explod{};
         nested_explod.anim_no=200;
+        nested_explod.use_fightfx=1u;
         nested_explod.remove_time=20;
         nested_explod.scale_x_q8=IK_ENTITY_Q8_ONE;
         nested_explod.scale_y_q8=IK_ENTITY_Q8_ONE;
@@ -532,6 +533,7 @@ int main() {
         ik_entity_runtime_t nested_runtime{};
         ik_entity_runtime_init(
             &nested_runtime,&nested_pool,&nested_cns,&k_table,&k_table);
+        ik_entity_runtime_set_fightfx_frames(&nested_runtime,&k_table);
 
         ik_cns_helper_t nested_helper{};
         nested_helper.id=55;
@@ -553,6 +555,7 @@ int main() {
             if (candidate.type==IK_ENTITY_EXPLOD) {
                 EQ(candidate.x_q8,120*IK_ENTITY_Q8_ONE);
                 EQ(candidate.y_q8,46*IK_ENTITY_Q8_ONE);
+                EQ(candidate.anim_owner,2u);
                 found_dynamic_explod=true;
             }
         }

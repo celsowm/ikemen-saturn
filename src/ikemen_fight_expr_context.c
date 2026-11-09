@@ -386,10 +386,12 @@ static int ikf_expr_read_field(
                 anim_time = entity->anim_time;
             }
         }
-        if (owner >= 2u) return 0;
+        const ik_frame_table_t* frames = owner < 2u
+            ? binding->fight->player_frames[owner]
+            : owner == 2u ? binding->fight->fightfx_frames : 0;
+        if (!frames) return 0;
         *out_value = ik_anim_elem_time(
-            binding->fight->player_frames[owner], anim, anim_time,
-            (uint16_t)index);
+            frames, anim, anim_time, (uint16_t)index);
         return 1;
     }
     if (redirect == IK_EXPR_REDIRECT_SELF &&

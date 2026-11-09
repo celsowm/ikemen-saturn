@@ -155,6 +155,7 @@ void ik_fight_init_players(
     fight->player_cns[1] = p2_cns;
     fight->player_frames[0] = 0;
     fight->player_frames[1] = 0;
+    fight->fightfx_frames = 0;
     fight->entities = 0;
     fight->player_entities[0] = ik_entity_invalid_handle();
     fight->player_entities[1] = ik_entity_invalid_handle();
@@ -264,6 +265,13 @@ void ik_fight_bind_entities(
     fight->player_entities[1] = p2;
 }
 
+void ik_fight_set_fightfx_frames(
+    ik_fight_t* fight,
+    const ik_frame_table_t* fightfx_frames
+) {
+    if (fight) fight->fightfx_frames = fightfx_frames;
+}
+
 void ik_fight_reset(ik_fight_t* fight) {
     if (!fight) return;
     const uint32_t h1 = fight->hits_p1;
@@ -274,6 +282,7 @@ void ik_fight_reset(ik_fight_t* fight) {
     const ik_cns_asset_t* p2_cns = fight->player_cns[1];
     const ik_frame_table_t* p1_frames = fight->player_frames[0];
     const ik_frame_table_t* p2_frames = fight->player_frames[1];
+    const ik_frame_table_t* fightfx_frames = fight->fightfx_frames;
     ik_entity_pool_t* entities = fight->entities;
     const ik_entity_handle_t p1 = fight->player_entities[0];
     const ik_entity_handle_t p2 = fight->player_entities[1];
@@ -301,6 +310,7 @@ void ik_fight_reset(ik_fight_t* fight) {
      * makes state-owned animation lookup depend on a later frame update. */
     fight->player_frames[0] = p1_frames;
     fight->player_frames[1] = p2_frames;
+    fight->fightfx_frames = fightfx_frames;
     ik_fight_set_stage(fight, &stage);
     ik_fight_bind_entities(fight, entities, p1, p2);
     fight->hits_p1 = h1;
