@@ -14,6 +14,48 @@ static int ikf_expr_read_field(
 ) {
     if (!user || !out_value) return 0;
     const ikf_expr_binding_t* binding = (const ikf_expr_binding_t*)user;
+    if (field == IK_EXPR_FIELD_HITDEF_ATTR) {
+        uint8_t owner = 2u;
+        int16_t active_hitdef = -1;
+        const ik_cns_asset_t* asset = 0;
+        if (binding->fighter) {
+            owner = ikf_fighter_player_index(
+                binding->fight, binding->fighter);
+            active_hitdef = binding->fighter->active_hitdef_global;
+            asset = cns_for_fighter(binding->fight, binding->fighter);
+        } else {
+            const ik_entity_t* entity = ik_entity_get_const(
+                binding->entity.pool, binding->entity.self);
+            if (entity) {
+                owner = entity->owner_player;
+                active_hitdef = entity->active_hitdef_global;
+                asset = cns_for_owner(
+                    binding->fight, entity->state_owner);
+            }
+        }
+        if (redirect == IK_EXPR_REDIRECT_P2) owner ^= 1u;
+        else if (redirect != IK_EXPR_REDIRECT_SELF) return 0;
+        if (owner >= 2u) return 0;
+        if (redirect == IK_EXPR_REDIRECT_P2) {
+            const ik_fighter_t* opponent =
+                &binding->fight->fighters[owner];
+            active_hitdef = opponent->active_hitdef_global;
+            asset = cns_for_fighter(binding->fight, opponent);
+        }
+        if (!asset || active_hitdef < 0 ||
+            active_hitdef >= (int16_t)asset->hitdef_count) {
+            *out_value = 0;
+            return 1;
+        }
+        const ik_cns_hitdef_t* hitdef =
+            &asset->hitdefs[(uint16_t)active_hitdef];
+        const uint16_t state_mask = (uint16_t)((uint32_t)index >> 16);
+        const uint16_t attr_mask = (uint16_t)index;
+        *out_value =
+            (hitdef->attack_state_mask & state_mask) != 0u &&
+            (hitdef->attack_attr_mask & attr_mask) != 0u;
+        return 1;
+    }
     if (field == IK_EXPR_FIELD_CHARACTER_NAME_HASH) {
         uint8_t owner = 2u;
         if (binding->fighter) {

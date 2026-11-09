@@ -1013,6 +1013,7 @@ def _projectile_hitdef_row(
     GROUND_TYPE = services['GROUND_TYPE']
     anim_type_code = services['anim_type_code']
     attack_attr_mask = services['attack_attr_mask']
+    attack_state_mask = services['attack_state_mask']
     dist_fields = services['dist_fields']
     fall_anim_type_code = services['fall_anim_type_code']
     guard_mask = services['guard_mask']
@@ -1047,6 +1048,9 @@ def _projectile_hitdef_row(
     ]
     attack_attr = attack_attr_mask(
         attr_parts[1] if len(attr_parts) > 1 else "NP"
+    )
+    attack_states = attack_state_mask(
+        attr_parts[0] if attr_parts else "S"
     )
     flags: list[str] = []
     if integer(ctrl.get("fall"), 0):
@@ -1138,6 +1142,7 @@ def _projectile_hitdef_row(
         "guard_spark_no": integer(
             ctrl.get("guard.sparkno"), default_guard_spark_no),
         "attack_attr_mask": attack_attr,
+        "attack_state_mask": attack_states,
         "fall_damage": integer(ctrl.get("fall.damage"), 0),
         "envshake_time": integer(ctrl.get("envshake.time"), 0),
         "envshake_ampl": integer(ctrl.get("envshake.ampl"), 0),

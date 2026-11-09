@@ -258,6 +258,11 @@ class _ExprCompiler(_ExprParser):
             if not self.q16 and field.endswith("_Q8"):
                 return code + [{"op": "IK_EXPR_TRUNC_Q8"}]
             return code
+        if field == "IK_EXPR_FIELD_HITDEF_ATTR":
+            return code + [
+                {"op": "IK_EXPR_PUSH_CONST", "value0": 65536},
+                {"op": "IK_EXPR_MUL"},
+            ]
         factor = (256 if field.endswith("_Q8") else 65536)
         return code + [
             {"op": "IK_EXPR_PUSH_CONST", "value0": factor},
@@ -576,6 +581,52 @@ class _ExprCompiler(_ExprParser):
                     f"unsupported GetHitVar field {field_name!r}")
             return self._load_runtime_field(fields[field_name])
 
+        if lower == "hitdefattr" and self._peek() == ("op", "("):
+            self._take()
+            state_arg = self._peek()
+            if state_arg is None or state_arg[0] != "ident":
+                raise ValueError("HitDefAttr() requires a state class")
+            self._take()
+            if self._peek() != ("op", ","):
+                raise ValueError("HitDefAttr() requires attack attributes")
+            self._take()
+            state_mask = 0
+            for token in state_arg[1].upper():
+                state_mask |= {"S": 1, "C": 2, "A": 4}.get(token, 0)
+            if not state_mask:
+                raise ValueError(
+                    f"HitDefAttr() has unsupported state class {state_arg[1]!r}")
+            attr_bits = {
+                "NA": 1 << 0, "SA": 1 << 1, "HA": 1 << 2,
+                "NP": 1 << 3, "SP": 1 << 4, "HP": 1 << 5,
+                "NT": 1 << 6, "ST": 1 << 7, "HT": 1 << 8,
+            }
+            attr_mask = 0
+            while True:
+                attr_token = self._peek()
+                if attr_token is None or attr_token[0] != "ident":
+                    raise ValueError("HitDefAttr() requires attack attributes")
+                attr_name = self._take()[1].upper()
+                if attr_name in {"AA", "AP", "AT"}:
+                    groups = {"AA": "NA SA HA", "AP": "NP SP HP",
+                              "AT": "NT ST HT"}[attr_name]
+                    attr_mask |= sum(attr_bits[name] for name in groups.split())
+                elif attr_name in attr_bits:
+                    attr_mask |= attr_bits[attr_name]
+                else:
+                    raise ValueError(
+                        f"HitDefAttr() has unsupported attack {attr_name!r}")
+                if self._peek() != ("op", ","):
+                    break
+                self._take()
+            if self._peek() != ("op", ")"):
+                raise ValueError(f"missing closing parenthesis in {name}()")
+            self._take()
+            packed = (state_mask << 16) | attr_mask
+            code = self._load_runtime_field(
+                "IK_EXPR_FIELD_HITDEF_ATTR", packed)
+            return code
+
         if self._peek() == ("op", "("):
             self._take()
             args = self._args()
@@ -723,6 +774,38 @@ class _ExprCompiler(_ExprParser):
         raise ValueError(f"unsupported symbol in runtime expression: {name}")
 
 
+def _normalize_or_operators(text: str) -> str:
+    """MUGEN accepts a single pipe as a logical OR operator."""
+    output: list[str] = []
+    quote: str | None = None
+    escaped = False
+    index = 0
+    while index < len(text):
+        char = text[index]
+        if quote is not None:
+            output.append(char)
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == quote:
+                quote = None
+            index += 1
+            continue
+        if char in ('"', "'"):
+            quote = char
+            output.append(char)
+            index += 1
+            continue
+        if char == "|":
+            output.append("||")
+            index += 2 if text[index:index + 2] == "||" else 1
+            continue
+        output.append(char)
+        index += 1
+    return "".join(output)
+
+
 def compile_cns_expr(
     text: str,
     q16: bool = False,
@@ -739,7 +822,7 @@ def compile_cns_expr(
             return f"(({field}>={low}) && ({field}<={high}))"
         return f"(({field}<{low}) || ({field}>{high}))"
 
-    normalized = text
+    normalized = _normalize_or_operators(text)
     def character_name(match: re.Match[str]) -> str:
         field, operator, name = match.groups()
         return f"{field}hash {operator} {character_name_hash(name)}"

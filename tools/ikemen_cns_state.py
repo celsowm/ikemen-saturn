@@ -32,6 +32,7 @@ def compile_state(
     _strip_outer_parens = services['_strip_outer_parens']
     anim_type_code = services['anim_type_code']
     attack_attr_mask = services['attack_attr_mask']
+    attack_state_mask = services['attack_state_mask']
     compile_cns_expr = services['compile_cns_expr']
     compile_explod_controller = services['compile_explod_controller']
     compile_helper_controller = services['compile_helper_controller']
@@ -396,6 +397,9 @@ def compile_state(
                     "ground_cornerpush_veloff_q8": q8(cornerpush_veloff),
                     "attack_attr_mask": attack_attr_mask(
                         attr_parts[1] if len(attr_parts) > 1 else ""
+                    ),
+                    "attack_state_mask": attack_state_mask(
+                        attr_parts[0] if attr_parts else "SCA"
                     ),
                     "fall_damage": fall_damage,
                     "envshake_time": envshake_time,

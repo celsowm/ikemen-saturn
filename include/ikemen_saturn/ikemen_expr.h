@@ -85,7 +85,8 @@ typedef enum ik_expr_field {
     IK_EXPR_FIELD_CHARACTER_NAME_HASH,
     IK_EXPR_FIELD_WIN_KO,
     IK_EXPR_FIELD_BACK_EDGE_DIST,
-    IK_EXPR_FIELD_NUM_EXPLODS
+    IK_EXPR_FIELD_NUM_EXPLODS,
+    IK_EXPR_FIELD_HITDEF_ATTR
 } ik_expr_field_t;
 
 typedef enum ik_expr_op {

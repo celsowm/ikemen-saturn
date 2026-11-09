@@ -134,6 +134,7 @@ install(FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/tools/ikemen_cns_expr.py"
     "${CMAKE_CURRENT_SOURCE_DIR}/tools/ikemen_cns_parse.py"
     "${CMAKE_CURRENT_SOURCE_DIR}/tools/ikemen_cns_state.py"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tools/ikemen_cns_triggers.py"
     "${CMAKE_CURRENT_SOURCE_DIR}/tools/ikemen_text.py"
     "${CMAKE_CURRENT_SOURCE_DIR}/tools/ikemen_oracle/ai_compare.py"
     "${CMAKE_CURRENT_SOURCE_DIR}/tools/ikemen_sff/__main__.py"

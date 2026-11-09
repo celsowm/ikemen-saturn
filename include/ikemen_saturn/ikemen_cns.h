@@ -628,6 +628,7 @@ typedef struct ik_cns_hitdef {
     uint8_t p2_facing_expr_count;
     uint16_t yaccel_expr_ofs;
     uint8_t yaccel_expr_count;
+    uint8_t attack_state_mask;
 } ik_cns_hitdef_t;
 
 typedef struct ik_cns_reversaldef {

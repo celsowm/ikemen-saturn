@@ -316,7 +316,8 @@ def emit_cns_source_files(
         f"{h.get('p2_facing_expr_ofs', 0)}u, "
         f"{h.get('p2_facing_expr_count', 0)}u, "
         f"{h.get('yaccel_expr_ofs', 0)}u, "
-        f"{h.get('yaccel_expr_count', 0)}u"
+        f"{h.get('yaccel_expr_count', 0)}u, "
+        f"{h.get('attack_state_mask', 0)}u"
         "},"
         for h in hitdefs
     ]
