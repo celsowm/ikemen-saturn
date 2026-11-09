@@ -433,6 +433,13 @@ int ik_entity_runtime_spawn_helper(
         ik_entity_get_const(runtime->pool, base_handle);
     if (!base) return 0;
 
+    int32_t edge_offset_q8 = 0;
+    if (helper->postype == IK_CNS_HELPER_POS_FRONT) {
+        edge_offset_q8 = (int32_t)base->push_front * IK_CNS_Q8_ONE;
+    } else if (helper->postype == IK_CNS_HELPER_POS_BACK) {
+        edge_offset_q8 = -(int32_t)base->push_back * IK_CNS_Q8_ONE;
+    }
+
     ik_entity_handle_t spawned = ik_entity_invalid_handle();
     if (!ik_entity_spawn(
             runtime->pool, IK_ENTITY_HELPER, helper->id,
@@ -447,7 +454,8 @@ int ik_entity_runtime_spawn_helper(
     }
 
     entity->x_q8 =
-        base->x_q8 + (int32_t)base->facing * helper->pos_x_q8;
+        base->x_q8 + (int32_t)base->facing *
+            (helper->pos_x_q8 + edge_offset_q8);
     entity->y_q8 = base->y_q8 + helper->pos_y_q8;
     entity->name_hash = helper->name_hash;
     entity->facing =
