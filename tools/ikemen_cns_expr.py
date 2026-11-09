@@ -418,6 +418,30 @@ class _ExprCompiler(_ExprParser):
 
         name = self._take()[1]
         lower = name.lower()
+        if lower.startswith("animcmp_") and self._peek() == ("op", "("):
+            operator = lower.removeprefix("animcmp_")
+            operators = {
+                "eq": "IK_EXPR_EQ", "ne": "IK_EXPR_NE",
+                "lt": "IK_EXPR_LT", "le": "IK_EXPR_LE",
+                "gt": "IK_EXPR_GT", "ge": "IK_EXPR_GE",
+            }
+            if operator not in operators:
+                raise ValueError(f"unsupported Anim comparison {operator!r}")
+            self._take()
+            sign = -1 if self._peek() == ("op", "-") else 1
+            if sign < 0:
+                self._take()
+            token = self._peek()
+            if token is None or token[0] != "num" or not re.fullmatch(
+                    r"\d+", token[1]):
+                raise ValueError("Anim comparisons require integer constants")
+            action = sign * int(self._take()[1])
+            if self._peek() != ("op", ")"):
+                raise ValueError("Anim comparisons require one integer constant")
+            self._take()
+            return (self._load("IK_EXPR_FIELD_ANIM_NO") +
+                    [{"op": "IK_EXPR_PUSH_CONST", "value0": action},
+                     {"op": operators[operator]}])
         if lower == "ishelper" and self._peek() != ("op", "("):
             scale = 65536 if self.q16 else 1
             return (
@@ -1234,6 +1258,15 @@ def compile_cns_expr(
             f"animelemtime({match.group(1)}) "
             f"{match.group(2)} {match.group(3)}"
         ),
+        normalized,
+        flags=re.I,
+    )
+    normalized = re.sub(
+        r"(?<![\w.])anim\s*(==|!=|<=|>=|=|<|>)\s*(-?\d+)\b",
+        lambda match: "animcmp_{}({})".format(
+            {"=": "eq", "==": "eq", "!=": "ne", "<": "lt",
+             "<=": "le", ">": "gt", ">=": "ge"}[match.group(1)],
+            match.group(2)),
         normalized,
         flags=re.I,
     )
