@@ -50,6 +50,21 @@ int ikf_ctrl_apply_state(const ik_ctrl_exec_t* x) {
             break;
         }
 
+        case IK_CNS_CTRL_SYSFVAR_SET:
+        case IK_CNS_CTRL_SYSFVAR_ADD: {
+            ik_entity_t* entity = ikf_fighter_entity(fight, f);
+            const int32_t index = ctrl->value0;
+            if (entity && index >= 0 &&
+                index < (int32_t)IK_ENTITY_SYSFVAR_COUNT) {
+                if (ctrl->type == IK_CNS_CTRL_SYSFVAR_SET) {
+                    entity->sysfvars_q16[index] = ctrl->value1;
+                } else {
+                    entity->sysfvars_q16[index] += ctrl->value1;
+                }
+            }
+            break;
+        }
+
         case IK_CNS_CTRL_REMOVE_EXPLOD: {
             if (ctrl->value1 != 0 && x->index < 64u) {
                 const uint64_t bit = (uint64_t)1u << x->index;

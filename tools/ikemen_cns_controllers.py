@@ -62,6 +62,8 @@ def compile_runtime_controller(
         "width",
         "varset",
         "varadd",
+        "sysfvarset",
+        "sysfvaradd",
         "targetbind",
         "targetfacing",
         "targetlifeadd",
@@ -635,39 +637,53 @@ def compile_runtime_controller(
 
         var_index = None
         var_value_text = None
-        var_is_system = False
+        var_is_system = ctype in {"sysfvarset", "sysfvaradd"}
+        var_is_float = ctype in {"sysfvarset", "sysfvaradd"}
         if ctrl.get("v") is not None and ctrl.get("value") is not None:
             var_index = integer(ctrl.get("v"))
             var_value_text = ctrl.get("value")
         else:
             assignments = []
             for key, value in ctrl.values:
-                match = re.fullmatch(r"var\((\d+)\)", key.strip(), flags=re.I)
+                match = re.fullmatch(
+                    r"(sysfvar|sysvar|var)\((\d+)\)",
+                    key.strip(), flags=re.I)
                 if match:
-                    assignments.append((int(match.group(1)), value, False))
-                match = re.fullmatch(r"sysvar\((\d+)\)", key.strip(), flags=re.I)
-                if match:
-                    assignments.append((int(match.group(1)), value, True))
+                    kind = match.group(1).casefold()
+                    assignments.append((
+                        int(match.group(2)), value,
+                        kind.startswith("sys"),
+                        kind.endswith("fvar"),
+                    ))
             if len(assignments) == 1:
-                var_index, var_value_text, var_is_system = assignments[0]
+                (var_index, var_value_text,
+                 var_is_system, var_is_float) = assignments[0]
 
         if var_index is None or var_value_text is None:
             return None
-        var_count = 4 if var_is_system else 60
+        if var_is_system:
+            var_count = 5
+        else:
+            var_count = 40 if var_is_float else 60
         if var_index < 0 or var_index >= var_count:
+            variable_kind = (
+                "sysfvar" if var_is_system and var_is_float else
+                "sysvar" if var_is_system else
+                "fvar" if var_is_float else "var"
+            )
             raise ValueError(
-                f"[{ctrl.name}] {'sysvar' if var_is_system else 'var'} "
+                f"[{ctrl.name}] "
+                f"{variable_kind} "
                 f"index outside 0..{var_count - 1}")
         try:
-            var_value = integer(var_value_text)
+            var_value = q16(var_value_text) if var_is_float else integer(var_value_text)
             var_value_expr = None
         except ValueError:
             try:
-                # CNS VarSet/VarAdd expressions produce integer values. Keep
-                # their bytecode unscaled so the full int32 variable range is
-                # available at runtime.
+                # Float-variable expressions use Q16.16, while integer VarSet
+                # and SysVarSet expressions retain their full int32 range.
                 var_value_expr = compile_cns_expr(
-                    var_value_text, q16=False)
+                    var_value_text, q16=var_is_float)
                 var_value = 0
             except ValueError:
                 if STRICT_CONVERSION:
@@ -676,13 +692,22 @@ def compile_runtime_controller(
         if var_value < -2147483648 or var_value > 2147483647:
             raise ValueError(f"[{ctrl.name}] var value outside int32")
         ctrl.runtime_value1_expr = var_value_expr
-        return {
-            "state_number": state_no,
-            "type": (
-                "IK_CNS_CTRL_SYSVAR_SET" if var_is_system else
+        if var_is_system and var_is_float:
+            variable_controller = (
+                "IK_CNS_CTRL_SYSFVAR_ADD"
+                if ctype in {"sysfvaradd", "varadd"} else
+                "IK_CNS_CTRL_SYSFVAR_SET"
+            )
+        elif var_is_system:
+            variable_controller = "IK_CNS_CTRL_SYSVAR_SET"
+        else:
+            variable_controller = (
                 "IK_CNS_CTRL_VAR_SET" if ctype == "varset" else
                 "IK_CNS_CTRL_VAR_ADD"
-            ),
+            )
+        return {
+            "state_number": state_no,
+            "type": variable_controller,
             "trigger_kind": trig_kind,
             "trigger_value": trig_value,
             "trigger_value2": trig_value2,

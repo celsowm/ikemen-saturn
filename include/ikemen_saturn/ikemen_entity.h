@@ -13,6 +13,8 @@ extern "C" {
 #define IK_ENTITY_VAR_COUNT 60u
 #define IK_ENTITY_FVAR_COUNT 40u
 #define IK_ENTITY_SYSVAR_COUNT 5u
+/* The original KOF '98 sources use SysFVar indices 0 through 4. */
+#define IK_ENTITY_SYSFVAR_COUNT 5u
 #define IK_ENTITY_INVALID_SLOT 0xFFu
 #define IK_ENTITY_Q8_ONE 256
 #define IK_ENTITY_TARGET_CAPACITY 4u
@@ -135,6 +137,7 @@ typedef struct ik_entity {
     int32_t vars[IK_ENTITY_VAR_COUNT];
     int32_t fvars_q16[IK_ENTITY_FVAR_COUNT];
     int32_t sysvars[IK_ENTITY_SYSVAR_COUNT];
+    int32_t sysfvars_q16[IK_ENTITY_SYSFVAR_COUNT];
 } ik_entity_t;
 
 typedef struct ik_entity_pool {

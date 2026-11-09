@@ -270,6 +270,7 @@ class _ExprCompiler(_ExprParser):
                         instruction["redirect_index"] = redirect_index
         if not self.q16 or field in {
             "IK_EXPR_FIELD_FVAR_Q16",
+            "IK_EXPR_FIELD_SYSFVAR_Q16",
             "IK_EXPR_FIELD_STAGE_AUTHOR_MATCH",
         }:
             if not self.q16 and field.endswith("_Q8"):
@@ -590,14 +591,17 @@ class _ExprCompiler(_ExprParser):
                     raise ValueError(
                         f"missing closing parenthesis in {name},{field_name}()")
                 self._take()
-                if field_lower in ("var", "sysvar", "fvar") and len(args) == 1:
+                if field_lower in ("var", "sysvar", "fvar", "sysfvar") and len(args) == 1:
                     index = self._constant_arg(args[0], field_name)
                     if self.q16:
                         if index % 65536:
                             raise ValueError(
                                 f"{field_name}() index must be an integer constant")
                         index //= 65536
-                    max_count = 60 if field_lower == "var" else 40
+                    max_count = {
+                        "var": 60, "fvar": 40,
+                        "sysvar": 5, "sysfvar": 5,
+                    }[field_lower]
                     if index < 0 or index >= max_count:
                         raise ValueError(
                             f"{field_name}({index}) is outside the supported "
@@ -606,6 +610,7 @@ class _ExprCompiler(_ExprParser):
                         "var": "IK_EXPR_FIELD_VAR",
                         "sysvar": "IK_EXPR_FIELD_SYSVAR",
                         "fvar": "IK_EXPR_FIELD_FVAR_Q16",
+                        "sysfvar": "IK_EXPR_FIELD_SYSFVAR_Q16",
                     }[field_lower]
                     return self._load_runtime_field(
                         runtime_field, index, redirect)
@@ -732,7 +737,7 @@ class _ExprCompiler(_ExprParser):
                 }[(field_lower, axis)]
                 return self._load_runtime_field(
                     mapped, redirect=redirect, redirect_id=helper_id)
-            if field_lower in ("var", "sysvar", "fvar") and \
+            if field_lower in ("var", "sysvar", "fvar", "sysfvar") and \
                     self._peek() == ("op", "("):
                 self._take()
                 args = self._args()
@@ -741,7 +746,10 @@ class _ExprCompiler(_ExprParser):
                         f"Helper(),{field_name}() takes one constant index")
                 self._take()
                 index = self._integer_arg(args[0], field_name)
-                max_count = 60 if field_lower == "var" else 40
+                max_count = {
+                    "var": 60, "fvar": 40,
+                    "sysvar": 5, "sysfvar": 5,
+                }[field_lower]
                 if index < 0 or index >= max_count:
                     raise ValueError(
                         f"{field_name}({index}) is outside 0..{max_count - 1}")
@@ -749,6 +757,7 @@ class _ExprCompiler(_ExprParser):
                     "var": "IK_EXPR_FIELD_VAR",
                     "sysvar": "IK_EXPR_FIELD_SYSVAR",
                     "fvar": "IK_EXPR_FIELD_FVAR_Q16",
+                    "sysfvar": "IK_EXPR_FIELD_SYSFVAR_Q16",
                 }[field_lower]
                 return self._load_runtime_field(
                     field, index, redirect, helper_id)
@@ -880,7 +889,10 @@ class _ExprCompiler(_ExprParser):
                 )
             if lower == "ceil" and len(args) == 1:
                 code = args[0]
-                if any(ins.get("field") == "IK_EXPR_FIELD_FVAR_Q16"
+                if any(ins.get("field") in {
+                           "IK_EXPR_FIELD_FVAR_Q16",
+                           "IK_EXPR_FIELD_SYSFVAR_Q16",
+                       }
                        for ins in code):
                     return code + [{"op": "IK_EXPR_CEIL_Q16"}]
                 return code
@@ -915,14 +927,17 @@ class _ExprCompiler(_ExprParser):
                         "NumExplod() id is outside the signed 32-bit range")
                 return self._load_runtime_field(
                     "IK_EXPR_FIELD_NUM_EXPLODS", explod_id)
-            if lower in ("var", "sysvar", "fvar") and len(args) == 1:
+            if lower in ("var", "sysvar", "fvar", "sysfvar") and len(args) == 1:
                 index = self._constant_arg(args[0], name)
                 if self.q16:
                     if index % 65536:
                         raise ValueError(
                             f"{name}() index must be an integer constant")
                     index //= 65536
-                max_count = 60 if lower == "var" else 40
+                max_count = {
+                    "var": 60, "fvar": 40,
+                    "sysvar": 5, "sysfvar": 5,
+                }[lower]
                 if index < 0 or index >= max_count:
                     raise ValueError(
                         f"{name}({index}) is outside the supported range 0..{max_count - 1}")
@@ -930,6 +945,7 @@ class _ExprCompiler(_ExprParser):
                     "var": "IK_EXPR_FIELD_VAR",
                     "sysvar": "IK_EXPR_FIELD_SYSVAR",
                     "fvar": "IK_EXPR_FIELD_FVAR_Q16",
+                    "sysfvar": "IK_EXPR_FIELD_SYSFVAR_Q16",
                 }[lower]
                 return self._load_runtime_field(field, index)
             if lower == "ifelse" and len(args) == 3:

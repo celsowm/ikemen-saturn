@@ -570,6 +570,10 @@ int ik_entity_expr_read_field(
             if (index < 0 || index >= (int32_t)IK_ENTITY_FVAR_COUNT) return 0;
             *out_value = entity->fvars_q16[index];
             return 1;
+        case IK_EXPR_FIELD_SYSFVAR_Q16:
+            if (index < 0 || index >= (int32_t)IK_ENTITY_SYSFVAR_COUNT) return 0;
+            *out_value = entity->sysfvars_q16[index];
+            return 1;
         case IK_EXPR_FIELD_NUM_PROJECTILES: {
             uint8_t count = 0u;
             for (uint8_t slot = 0u; slot < IK_ENTITY_CAPACITY; ++slot) {

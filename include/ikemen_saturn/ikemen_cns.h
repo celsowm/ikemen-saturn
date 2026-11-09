@@ -199,7 +199,9 @@ typedef enum ik_cns_controller_type {
     IK_CNS_CTRL_POWER_ADD,
     IK_CNS_CTRL_REMOVE_EXPLOD,
     IK_CNS_CTRL_ENV_COLOR,
-    IK_CNS_CTRL_PLAYER_PUSH
+    IK_CNS_CTRL_PLAYER_PUSH,
+    IK_CNS_CTRL_SYSFVAR_SET,
+    IK_CNS_CTRL_SYSFVAR_ADD
 } ik_cns_controller_type_t;
 
 typedef enum ik_cns_helper_postype {

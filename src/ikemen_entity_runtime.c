@@ -977,7 +977,9 @@ static int process_controllers(
                 evaluated_ctrl.value7 = value / 256;
             } else if (ctrl->type == IK_CNS_CTRL_VAR_SET ||
                        ctrl->type == IK_CNS_CTRL_VAR_ADD ||
-                       ctrl->type == IK_CNS_CTRL_SYSVAR_SET) {
+                       ctrl->type == IK_CNS_CTRL_SYSVAR_SET ||
+                       ctrl->type == IK_CNS_CTRL_SYSFVAR_SET ||
+                       ctrl->type == IK_CNS_CTRL_SYSFVAR_ADD) {
                 evaluated_ctrl.value1 = value;
                 evaluated_ctrl.value5 = value;
             } else {
@@ -1033,6 +1035,25 @@ static int process_controllers(
                 if (ctrl->value0 >= 0 &&
                     ctrl->value0 < (int32_t)IK_ENTITY_VAR_COUNT) {
                     entity->vars[ctrl->value0] += ctrl->value1;
+                }
+                break;
+
+            case IK_CNS_CTRL_SYSVAR_SET:
+                if (ctrl->value0 >= 0 &&
+                    ctrl->value0 < (int32_t)IK_ENTITY_SYSVAR_COUNT) {
+                    entity->sysvars[ctrl->value0] = ctrl->value1;
+                }
+                break;
+
+            case IK_CNS_CTRL_SYSFVAR_SET:
+            case IK_CNS_CTRL_SYSFVAR_ADD:
+                if (ctrl->value0 >= 0 &&
+                    ctrl->value0 < (int32_t)IK_ENTITY_SYSFVAR_COUNT) {
+                    if (ctrl->type == IK_CNS_CTRL_SYSFVAR_SET) {
+                        entity->sysfvars_q16[ctrl->value0] = ctrl->value1;
+                    } else {
+                        entity->sysfvars_q16[ctrl->value0] += ctrl->value1;
+                    }
                 }
                 break;
 
