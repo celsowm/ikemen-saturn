@@ -202,7 +202,8 @@ typedef enum ik_cns_controller_type {
     IK_CNS_CTRL_PLAYER_PUSH,
     IK_CNS_CTRL_SYSFVAR_SET,
     IK_CNS_CTRL_SYSFVAR_ADD,
-    IK_CNS_CTRL_HIT_BY
+    IK_CNS_CTRL_HIT_BY,
+    IK_CNS_CTRL_VAR_RANDOM
 } ik_cns_controller_type_t;
 
 typedef enum ik_cns_helper_postype {

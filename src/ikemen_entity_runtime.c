@@ -6,6 +6,28 @@ typedef struct ik_entity_runtime_expr_binding {
     ik_entity_expr_binding_t entity;
 } ik_entity_runtime_expr_binding_t;
 
+static uint32_t varrandom_hash(
+    ik_entity_runtime_t* runtime,
+    const ik_entity_t* entity,
+    uint16_t controller_index
+) {
+    uint32_t value = runtime->game_time * 0x9e3779b9u;
+    value ^= (uint32_t)controller_index * 0x85ebca6bu;
+    value ^= runtime->varrandom_sequence++ * 0xc2b2ae35u;
+    if (entity) {
+        value ^= (uint32_t)entity->state_no * 0x27d4eb2fu;
+        value ^= entity->state_time * 0x165667b1u;
+        value ^= (uint32_t)entity->id;
+        value ^= (uint32_t)entity->owner_player << 24;
+    }
+    value ^= value >> 16;
+    value *= 0x7feb352du;
+    value ^= value >> 15;
+    value *= 0x846ca68bu;
+    value ^= value >> 16;
+    return value;
+}
+
 static int runtime_expr_read_field(
     void* user, uint8_t redirect, uint8_t field,
     int32_t index, int32_t redirect_id, uint8_t redirect_index,
@@ -242,6 +264,7 @@ void ik_entity_runtime_init(
     runtime->command_masks[1] = 0u;
     runtime->game_time = 0u;
     runtime->explod_random_sequence = 0u;
+    runtime->varrandom_sequence = 0u;
     runtime->stage_min_x = 0;
     runtime->stage_max_x = 320;
     runtime->external_user = 0;
@@ -1035,6 +1058,24 @@ static int process_controllers(
                 if (ctrl->value0 >= 0 &&
                     ctrl->value0 < (int32_t)IK_ENTITY_VAR_COUNT) {
                     entity->vars[ctrl->value0] += ctrl->value1;
+                }
+                break;
+
+            case IK_CNS_CTRL_VAR_RANDOM:
+                if (ctrl->value0 >= 0 &&
+                    ctrl->value0 < (int32_t)IK_ENTITY_VAR_COUNT) {
+                    int64_t low = ctrl->value1;
+                    int64_t high = ctrl->value2;
+                    if (low > high) {
+                        const int64_t swap = low;
+                        low = high;
+                        high = swap;
+                    }
+                    const uint64_t range = (uint64_t)(high - low) + 1u;
+                    const uint32_t random_value = varrandom_hash(
+                        runtime, entity, index);
+                    entity->vars[ctrl->value0] = (int32_t)(low +
+                        ((uint64_t)random_value % range));
                 }
                 break;
 

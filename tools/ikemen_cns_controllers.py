@@ -62,6 +62,7 @@ def compile_runtime_controller(
         "width",
         "varset",
         "varadd",
+        "varrandom",
         "sysfvarset",
         "sysfvaradd",
         "targetbind",
@@ -723,6 +724,38 @@ def compile_runtime_controller(
             "trigger_value2": trig_value2,
             "value0": var_index,
             "value1": var_value,
+            "flags": flag_expr(),
+        }
+
+    if ctype == "varrandom":
+        if ctrl.get("v") is None:
+            raise ValueError(f"[{ctrl.name}] varrandom requires v")
+        var_index = integer(ctrl.get("v"))
+        if not 0 <= var_index < 60:
+            raise ValueError(f"[{ctrl.name}] var index outside 0..59")
+        range_values = _split_top_level(ctrl.get("range") or "0,999")
+        if len(range_values) == 1:
+            range_min = 0
+            range_max = integer(range_values[0])
+        elif len(range_values) == 2:
+            range_min = integer(range_values[0])
+            range_max = integer(range_values[1])
+        else:
+            raise ValueError(
+                f"[{ctrl.name}] varrandom range must have one or two values")
+        if range_min > range_max:
+            range_min, range_max = range_max, range_min
+        if range_min < -2147483648 or range_max > 2147483647:
+            raise ValueError(f"[{ctrl.name}] varrandom range outside int32")
+        return {
+            "state_number": state_no,
+            "type": "IK_CNS_CTRL_VAR_RANDOM",
+            "trigger_kind": trig_kind,
+            "trigger_value": trig_value,
+            "trigger_value2": trig_value2,
+            "value0": var_index,
+            "value1": range_min,
+            "value2": range_max,
             "flags": flag_expr(),
         }
 
