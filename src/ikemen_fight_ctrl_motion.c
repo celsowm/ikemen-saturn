@@ -7,6 +7,10 @@ int ikf_ctrl_apply_motion(const ik_ctrl_exec_t* x) {
     const ik_cns_controller_t* ctrl = x->ctrl;
     const uint16_t elem = x->anim_elem;
     switch ((ik_cns_controller_type_t)ctrl->type) {
+        case IK_CNS_CTRL_PLAYER_PUSH:
+            f->player_push_enabled = ctrl->value0 != 0;
+            break;
+
         case IK_CNS_CTRL_POS_ADD:
             f->x_q8 += (int32_t)f->facing * ctrl->value0;
             f->y_q8 += ctrl->value1;

@@ -89,6 +89,7 @@ def compile_runtime_controller(
         "makedust",
         "gravity",
         "poweradd",
+        "playerpush",
     }
     if ctype not in supported:
         return None
@@ -173,6 +174,33 @@ def compile_runtime_controller(
             "trigger_value": trig_value,
             "trigger_value2": trig_value2,
             "value0": 0,
+            "value1": 0,
+            "flags": flag_expr(),
+        }
+
+    if ctype == "playerpush":
+        for key, _ in ctrl.values:
+            lowered = key.strip().casefold()
+            if lowered.startswith("trigger") or lowered in {
+                "type", "value", "ignorehitpause",
+            }:
+                continue
+            return None
+        value_text = ctrl.get("value") or "1"
+        try:
+            value = integer(value_text)
+            value_expr = None
+        except ValueError:
+            value = 0
+            value_expr = compile_cns_expr(value_text, q16=True)
+        ctrl.runtime_value0_expr = value_expr
+        return {
+            "state_number": state_no,
+            "type": "IK_CNS_CTRL_PLAYER_PUSH",
+            "trigger_kind": trig_kind,
+            "trigger_value": trig_value,
+            "trigger_value2": trig_value2,
+            "value0": value,
             "value1": 0,
             "flags": flag_expr(),
         }

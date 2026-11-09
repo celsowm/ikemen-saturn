@@ -223,7 +223,8 @@ void ikf_push_fighters(ik_fight_t* fight, const ik_frame_table_t* p1_frames,
                        const ik_frame_table_t* p2_frames) {
     ik_fighter_t* a = &fight->fighters[0];
     ik_fighter_t* b = &fight->fighters[1];
-    if (a->bound_to >= 0 || b->bound_to >= 0 ||
+    if (!a->player_push_enabled || !b->player_push_enabled ||
+        a->bound_to >= 0 || b->bound_to >= 0 ||
         ik_entity_handle_is_valid(a->bound_entity) ||
         ik_entity_handle_is_valid(b->bound_entity)) {
         return;

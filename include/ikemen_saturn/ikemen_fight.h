@@ -184,6 +184,7 @@ typedef struct ik_fighter {
 
     int16_t push_back;
     int16_t push_front;
+    uint8_t player_push_enabled;
     /* Width controller edge widths (0 by default, reset every tick) and the
      * per-tick ScreenBound / camera tracking flags. */
     uint8_t body_air;           /* push widths were reset for an air state */

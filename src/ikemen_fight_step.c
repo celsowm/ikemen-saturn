@@ -404,6 +404,11 @@ static void step_fighter_body(
         return;
     }
 
+    /* PlayerPush is reasserted by state controllers each active tick. Keep
+     * its authored value during hit pause, matching MUGEN's per-tick reset. */
+    f->player_push_enabled =
+        (uint8_t)(fight->round_state > 0u && fight->round_state < 4u);
+
     if (f->statedef_pending) ikf_init_statedef(fight, f);
     update_facing_and_fall_time(fight, f, foe);
 

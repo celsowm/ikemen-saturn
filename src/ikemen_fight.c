@@ -71,6 +71,7 @@ static void fighter_spawn(ik_fight_t* fight, ik_fighter_t* f,
     f->guard_type = IK_CNS_STATE_STAND;
     f->push_back = c ? c->ground_back : 15;
     f->push_front = c ? c->ground_front : 16;
+    f->player_push_enabled = 1u;
     f->body_height = c ? c->height : 60;
     f->hitdef_hit_mask = 0u;
     f->attack_id = 0;
