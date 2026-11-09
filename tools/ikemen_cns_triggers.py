@@ -498,3 +498,228 @@ def compile_controller_trigger(
 
     return simple_trigger(ctrl)
 
+
+def compile_simple_trigger(
+    section: Section, *, services: dict
+) -> tuple[str, int, int]:
+    _strip_outer_parens = services["_strip_outer_parens"]
+    STRICT_CONVERSION = services["STRICT_CONVERSION"]
+    triggers = section.all("trigger1")
+    if not triggers:
+        return "IK_CNS_TRIGGER_ALWAYS", 0, 0
+    if len(triggers) != 1:
+        raise ValueError(
+            f"[{section.name}] unsupported trigger conjunction {triggers!r}"
+        )
+
+    expr = _strip_outer_parens(triggers[0].strip())
+
+    if expr == "1":
+        return "IK_CNS_TRIGGER_ALWAYS", 0, 0
+
+    m = re.fullmatch(r"Time\s*=\s*(-?\d+)", expr, flags=re.I)
+    if m:
+        return "IK_CNS_TRIGGER_TIME_EQ", int(m.group(1)), 0
+
+    m = re.fullmatch(r"AnimElem\s*=\s*(\d+)(?:,\s*=\s*(-?\d+))?", expr, flags=re.I)
+    if m:
+        elem = int(m.group(1))
+        time = m.group(2)
+        if time is not None:
+            offset = int(time)
+            if elem < 1 or elem > 255 or offset < -128 or offset > 127:
+                raise ValueError(
+                    f"[{section.name}] AnimElemTime packed trigger out of range"
+                )
+            packed = (elem << 8) | (offset & 0xff)
+            if packed >= 32768:
+                packed -= 65536
+            return "IK_CNS_TRIGGER_ANIM_ELEM_TIME_EQ_PACKED", packed, 0
+        return "IK_CNS_TRIGGER_ANIM_ELEM_EQ", elem, 0
+
+    m = re.fullmatch(
+        r"AnimElemTime\s*\(\s*(\d+)\s*\)\s*=\s*(-?\d+)",
+        expr,
+        flags=re.I,
+    )
+    if m:
+        elem = int(m.group(1))
+        offset = int(m.group(2))
+        if elem < 1 or elem > 255 or offset < -128 or offset > 127:
+            raise ValueError(
+                f"[{section.name}] AnimElemTime packed trigger out of range"
+            )
+        packed = (elem << 8) | (offset & 0xff)
+        if packed >= 32768:
+            packed -= 65536
+        return "IK_CNS_TRIGGER_ANIM_ELEM_TIME_EQ_PACKED", packed, 0
+
+    if re.fullmatch(r"AnimTime\s*=\s*0", expr, flags=re.I):
+        return "IK_CNS_TRIGGER_ANIM_END", 0, 0
+
+    message = (
+        f"[{section.name}] unsupported trigger expression {expr!r}; "
+        "the converter will not replace it with an always-true trigger"
+    )
+    if STRICT_CONVERSION:
+        raise ValueError(message)
+    import sys
+    print(f"[WARN] {message}; using compatibility fallback", file=sys.stderr)
+    return "IK_CNS_TRIGGER_ALWAYS", 0, 0
+
+
+def compile_hitdef_trigger(
+    section: Section, *, services: dict
+) -> tuple[str, int, int, int, str, int, list[dict] | None, list[dict] | None]:
+    _strip_outer_parens = services["_strip_outer_parens"]
+    simple_trigger = services["simple_trigger"]
+    compile_cns_expr = services["compile_cns_expr"]
+    STRICT_CONVERSION = services["STRICT_CONVERSION"]
+    Section = services["Section"]
+    triggers = section.all("trigger1") or ["1"]
+    trigger2 = section.all("trigger2")
+    trigger_all = section.all("triggerall")
+    dist_op = "IK_CNS_P2_DIST_NONE"
+    dist_value = 0
+
+    def strip_distance(values: list[str]) -> list[str]:
+        nonlocal dist_op, dist_value
+        result = []
+        for expr in values:
+            value = _strip_outer_parens(expr)
+            match = re.fullmatch(
+                r"p2bodydist\s+X\s*(<|<=|>|>=)\s*(-?\d+)",
+                value,
+                flags=re.I,
+            )
+            if not match:
+                result.append(expr)
+                continue
+            if dist_op != "IK_CNS_P2_DIST_NONE":
+                raise ValueError(
+                    f"[{section.name}] multiple p2bodydist predicates")
+            dist_op = {
+                "<": "IK_CNS_P2_DIST_LT",
+                "<=": "IK_CNS_P2_DIST_LE",
+                ">": "IK_CNS_P2_DIST_GT",
+                ">=": "IK_CNS_P2_DIST_GE",
+            }[match.group(1)]
+            dist_value = int(match.group(2))
+        return result
+
+    def compile_group(values: list[str]) -> tuple[str, int, list[dict] | None]:
+        if not values:
+            return "IK_CNS_TRIGGER_ALWAYS", 0, None
+        if len(values) == 1:
+            expr = values[0]
+            try:
+                kind, value, _ = simple_trigger(
+                    Section(section.name, [("trigger1", expr)]))
+                if (kind != "IK_CNS_TRIGGER_ALWAYS" or
+                        expr.strip().casefold() in {"1", "1.0", "true"}):
+                    return kind, value, None
+            except ValueError:
+                if not STRICT_CONVERSION:
+                    raise
+        conjunction = " && ".join(f"({expr})" for expr in values)
+        try:
+            code = compile_cns_expr(conjunction, q16=True)
+        except ValueError as exc:
+            raise ValueError(
+                f"[{section.name}] unsupported HitDef trigger conjunction "
+                f"{conjunction!r}: {exc}") from exc
+        return "IK_CNS_TRIGGER_ALWAYS", 0, code
+
+    primary_values = strip_distance([*trigger_all, *triggers])
+    if not primary_values:
+        primary_values = ["1"]
+    base, base_value, base_expr = compile_group(primary_values)
+
+    second_kind = 255
+    second_value = 0
+    second_expr: list[dict] | None = None
+    if trigger2:
+        secondary_values = strip_distance([*trigger_all, *trigger2])
+        if not secondary_values:
+            secondary_values = ["1"]
+        second_kind, second_value, second_expr = compile_group(secondary_values)
+
+    return (
+        base or "IK_CNS_TRIGGER_ALWAYS",
+        base_value,
+        second_kind,
+        second_value,
+        dist_op,
+        dist_value,
+        base_expr,
+        second_expr,
+    )
+
+
+def strip_outer_parens(text: str) -> str:
+    value = text.strip()
+    while value.startswith("(") and value.endswith(")"):
+        depth = 0
+        balanced = True
+        for i, ch in enumerate(value):
+            if ch == "(":
+                depth += 1
+            elif ch == ")":
+                depth -= 1
+                if depth == 0 and i != len(value) - 1:
+                    balanced = False
+                    break
+        if not balanced or depth != 0:
+            break
+        value = value[1:-1].strip()
+    return value
+
+
+_strip_outer_parens = strip_outer_parens
+
+
+def anim_elem_range_trigger(expr: str) -> tuple[int, int] | None:
+    value = _strip_outer_parens(expr)
+    pattern = re.compile(
+        r"^\(?\s*AnimElemTime\s*\(\s*(\d+)\s*\)\s*>=\s*0\s*\)?"
+        r"\s*&&\s*"
+        r"\(?\s*AnimElemTime\s*\(\s*(\d+)\s*\)\s*<\s*0\s*\)?$",
+        flags=re.I,
+    )
+    m = pattern.fullmatch(value)
+    if not m:
+        return None
+    return int(m.group(1)), int(m.group(2))
+
+
+def move_contact_window(
+    triggers: list[str],
+) -> tuple[int, int] | None:
+    if len(triggers) != 2:
+        return None
+
+    normalized = [_strip_outer_parens(t) for t in triggers]
+    if not any(re.fullmatch(r"movecontact", t, flags=re.I) for t in normalized):
+        return None
+
+    window = next(
+        (
+            t
+            for t in normalized
+            if not re.fullmatch(r"movecontact", t, flags=re.I)
+        ),
+        None,
+    )
+    if window is None:
+        return None
+
+    pattern = re.compile(
+        r"^\(?\s*AnimElemTime\s*\(\s*(\d+)\s*\)\s*>\s*0\s*\)?"
+        r"\s*&&\s*"
+        r"\(?\s*AnimElemTime\s*\(\s*(\d+)\s*\)\s*<=\s*0\s*\)?$",
+        flags=re.I,
+    )
+    m = pattern.fullmatch(window)
+    if not m:
+        return None
+    return int(m.group(1)), int(m.group(2))
