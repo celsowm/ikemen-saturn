@@ -78,6 +78,14 @@ def emit(
             ):
                 values = [value * 320.0 / LOCALCOORD_X for value in values]
             CONST_VALUES[prefix] = values[0]
+            if (section_name == "size" and
+                    key.casefold() in {"head.pos", "mid.pos"}):
+                # Const(Size.Head.Pos.X/Y) and Const(Size.Mid.Pos.X/Y)
+                # are named components in CNS even though [Size] stores
+                # each pair under a single key.
+                CONST_VALUES[f"{prefix}.x"] = values[0]
+                if len(values) > 1:
+                    CONST_VALUES[f"{prefix}.y"] = values[1]
             if section_name == "velocity":
                 # Ikemen exposes velocity constants as named components even
                 # when the CNS declaration uses a scalar (for example,
