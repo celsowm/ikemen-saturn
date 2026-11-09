@@ -20,6 +20,7 @@ def compile_explod_controller(
     integer = services['integer']
     pair = services['pair']
     pair_runtime_expr = services['pair_runtime_expr']
+    integer_or_runtime_expr = services['integer_or_runtime_expr']
     q8 = services['q8']
     def reject(reason: str) -> None:
         ctrl.unsupported_reason = reason
@@ -140,6 +141,9 @@ def compile_explod_controller(
     except ValueError:
         facing = 1
         facing_expr = services["compile_cns_expr"](facing_text, q16=True)
+    spr_priority, spr_priority_expr = integer_or_runtime_expr(
+        ctrl.get("sprpriority"), 0)
+    spr_priority = max(-127, min(127, spr_priority))
     explod = {
         "anim_no": anim_no,
         "id": max(0, integer(ctrl.get("id"), 0)),
@@ -150,8 +154,7 @@ def compile_explod_controller(
         "accel_x_q8": q8(ax, wide=True),
         "accel_y_q8": q8(ay, wide=True),
         "remove_time": integer(ctrl.get("removetime"), -1),
-        "spr_priority": max(-127, min(127, integer(
-            ctrl.get("sprpriority"), 0))),
+        "spr_priority": spr_priority,
         "postype": postype,
         "ownpal": integer(ctrl.get("ownpal"), int(use_fightfx)),
         "pause_move_time": min(0xFFFFFFFF, max(0, integer(
@@ -175,6 +178,7 @@ def compile_explod_controller(
         "use_fightfx": int(use_fightfx),
         "_anim_expr": anim_expr,
         "_facing_expr": facing_expr,
+        "_spr_priority_expr": spr_priority_expr,
     }
     # Explod entities are not inserted into the fighter/projectile contact
     # queue, so `unhittable = 1` already matches this runtime's behavior.

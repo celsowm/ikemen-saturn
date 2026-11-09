@@ -1195,6 +1195,18 @@ static int process_controllers(
                     runtime->cns->explods) {
                     ik_cns_explod_t explod =
                         runtime->cns->explods[ctrl->value0];
+                    if (explod.spr_priority_expr_count) {
+                        int32_t dynamic_priority = explod.spr_priority;
+                        if (runtime_eval_expr(
+                                runtime, state_cns, handle,
+                                explod.spr_priority_expr_ofs,
+                                explod.spr_priority_expr_count,
+                                &dynamic_priority)) {
+                            if (dynamic_priority < -127) dynamic_priority = -127;
+                            if (dynamic_priority > 127) dynamic_priority = 127;
+                            explod.spr_priority = (int8_t)dynamic_priority;
+                        }
+                    }
                     if (ctrl->value0_expr_count) {
                         explod.pos_x_q8 = ctrl->value6;
                     }
