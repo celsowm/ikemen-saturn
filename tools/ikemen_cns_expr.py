@@ -135,6 +135,26 @@ class _ExprCompiler(_ExprParser):
             {"op": "IK_EXPR_MUL"},
         ]
 
+    def _root_dist(self, axis: str) -> list[dict]:
+        if axis not in ("x", "y"):
+            raise ValueError(f"unsupported RootDist axis {axis!r}")
+        field = (
+            "IK_EXPR_FIELD_POS_X_Q8" if axis == "x" else
+            "IK_EXPR_FIELD_POS_Y_Q8"
+        )
+        code = (
+            self._load_runtime_field(
+                field, redirect="IK_EXPR_REDIRECT_ROOT") +
+            self._load_runtime_field(field) +
+            [{"op": "IK_EXPR_SUB"}]
+        )
+        if axis == "x":
+            code = (
+                self._load_runtime_field("IK_EXPR_FIELD_FACING") + code +
+                [{"op": "IK_EXPR_MUL_Q16" if self.q16 else "IK_EXPR_MUL"}]
+            )
+        return code
+
     def parse(self) -> list[dict]:
         code = self._or()
         if self._peek() is not None:
@@ -1198,6 +1218,8 @@ class _ExprCompiler(_ExprParser):
                 "IK_EXPR_FIELD_P2_DIST_X_Q8" if axis == "x" else
                 "IK_EXPR_FIELD_P2_DIST_Y_Q8"
             )
+        if lower == "rootdist":
+            return self._root_dist(self._take()[1].lower())
         if lower == "p2bodydist":
             axis = self._take()[1].lower()
             if axis == "x":

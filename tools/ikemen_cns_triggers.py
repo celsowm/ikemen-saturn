@@ -3,9 +3,9 @@ from __future__ import annotations
 
 import re
 try:
-    from .ikemen_cns_parse import Section
+    from .ikemen_cns_parse import Section, trigger_indices
 except ImportError:  # direct tool invocation
-    from ikemen_cns_parse import Section
+    from ikemen_cns_parse import Section, trigger_indices
 
 
 def compile_controller_trigger(
@@ -26,7 +26,7 @@ def compile_controller_trigger(
 
     if ctype == "stopsnd" and not ctrl.all("triggerall"):
         all_triggers = [
-            expr.strip() for index in range(1, 9)
+            expr.strip() for index in trigger_indices(ctrl)
             for expr in ctrl.all(f"trigger{index}")
         ]
         if len(all_triggers) == 1:
@@ -46,7 +46,7 @@ def compile_controller_trigger(
                     int(m.group(3)), op)
 
     anim_or: list[str] = []
-    for trigger_index in range(1, 9):
+    for trigger_index in trigger_indices(ctrl):
         group = ctrl.all(f"trigger{trigger_index}")
         # Lines of one triggerN are ANDed: two different `AnimElem = n` in a
         # group can never both hold, so that group drops out of the OR.
@@ -535,7 +535,7 @@ def compile_controller_trigger(
     if result[0] == "IK_CNS_TRIGGER_ALWAYS":
         texts = [
             expr.strip().casefold()
-            for index in range(1, 9)
+            for index in trigger_indices(ctrl)
             for expr in ctrl.all(f"trigger{index}")
         ]
         if texts and any(text not in {"1", "1.0", "true"} for text in texts):
@@ -549,15 +549,10 @@ def controller_requires_runtime_expr(ctrl: Section) -> bool:
         return True
     if move_contact_window(ctrl.all("trigger1")) is not None:
         return False
-    groups = [
-        ctrl.all(f"trigger{index}")
-        for index in range(1, 9)
-    ]
-    present = [index for index, group in enumerate(groups, start=1) if group]
+    present = trigger_indices(ctrl)
+    first_group = ctrl.all("trigger1")
     return (
-        len(present) != 1 or
-        present[0] != 1 or
-        len(groups[0]) != 1
+        len(present) != 1 or present[0] != 1 or len(first_group) != 1
     )
 
 

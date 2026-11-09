@@ -8,8 +8,10 @@ _SERVICES: dict | None = None
 
 try:
     from .ikemen_cns_expr import _ExprParser, compile_cns_expr as compile_expression
+    from .ikemen_cns_parse import trigger_indices
 except ImportError:  # direct `python tools/ikemen_cns.py` invocation
     from ikemen_cns_expr import _ExprParser, compile_cns_expr as compile_expression
+    from ikemen_cns_parse import trigger_indices
 
 
 def configure(services: dict) -> None:
@@ -153,7 +155,7 @@ def compile_controller_trigger_expr(ctrl: Section) -> list[dict]:
     """Compile triggerall and triggerN lines with MUGEN's AND/OR grouping."""
     common = [f"({expr})" for expr in ctrl.all("triggerall")]
     groups: list[str] = []
-    for index in range(1, 9):
+    for index in trigger_indices(ctrl):
         expressions = ctrl.all(f"trigger{index}")
         if not expressions:
             continue

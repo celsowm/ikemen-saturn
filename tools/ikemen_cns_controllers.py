@@ -39,6 +39,7 @@ def compile_runtime_controller(
     compile_controller_trigger_expr = services['compile_controller_trigger_expr']
     controller_requires_runtime_expr = services['controller_requires_runtime_expr']
     controller_trigger = services['controller_trigger']
+    trigger_indices = services['trigger_indices']
     eval_int = services['eval_int']
     integer = services['integer']
     integer_or_runtime_expr = services['integer_or_runtime_expr']
@@ -124,7 +125,7 @@ def compile_runtime_controller(
     if trig_kind == "IK_CNS_TRIGGER_ALWAYS":
         trigger_texts = [
             expr.strip().casefold()
-            for trigger_index in range(1, 9)
+            for trigger_index in trigger_indices(ctrl)
             for expr in ctrl.all(f"trigger{trigger_index}")
         ]
         if trigger_texts and any(

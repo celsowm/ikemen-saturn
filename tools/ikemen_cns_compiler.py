@@ -80,9 +80,15 @@ try:
 except ImportError:  # direct `python tools/ikemen_cns.py` invocation
     from ikemen_cns_common import compile_common_states
 try:
-    from .ikemen_cns_parse import Section, State, collect_states, parse_sections, select_state_numbers
+    from .ikemen_cns_parse import (
+        Section, State, collect_states, parse_sections, select_state_numbers,
+        trigger_indices,
+    )
 except ImportError:  # direct `python tools/ikemen_cns.py` invocation
-    from ikemen_cns_parse import Section, State, collect_states, parse_sections, select_state_numbers
+    from ikemen_cns_parse import (
+        Section, State, collect_states, parse_sections, select_state_numbers,
+        trigger_indices,
+    )
 try:
     from tools.ikemen_text import read_mugen_text
     from tools.ikemen_cmd import parse_cmd

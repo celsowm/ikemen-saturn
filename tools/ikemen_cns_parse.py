@@ -28,6 +28,15 @@ class Section:
         return values[-1] if values else default
 
 
+def trigger_indices(section: Section) -> list[int]:
+    """Return numbered trigger groups present in a parsed CNS section."""
+    return sorted({
+        int(match.group(1))
+        for key, _ in section.values
+        if (match := re.fullmatch(r"trigger(\d+)", key.strip(), re.I))
+    })
+
+
 @dataclass
 class State:
     number: int
