@@ -231,6 +231,23 @@ def normalize_cns_expr(
                 f"command {name!r} has no matching --command-source entry")
         return f"command({command_id}) {match.group(1)} 1"
 
+    def owner_command_name(match: re.Match[str]) -> str:
+        name = match.group(3)
+        command_id = (command_ids or {}).get(name.casefold())
+        if command_id is None:
+            raise ValueError(
+                f"command {name!r} has no matching --command-source entry")
+        # Parent and Root helpers use their owner's input stream, so these
+        # command queries resolve to the same player command table.
+        return f"command({command_id}) {match.group(2)} 1"
+
+    normalized = re.sub(
+        r"\b(parent|root)\s*,\s*command\s*(=|!=|==)\s*\"([^\"]+)\"",
+        owner_command_name,
+        normalized,
+        flags=re.I,
+    )
+
     normalized = re.sub(
         r"\bcommand\s*(=|!=|==)\s*\"([^\"]+)\"",
         command_name,

@@ -261,6 +261,15 @@ int ik_entity_expr_read_field(
     uint8_t redirect_index,
     int32_t* out_value);
 
+int ik_entity_expr_write_field(
+    void* user,
+    uint8_t redirect,
+    uint8_t field,
+    int32_t index,
+    int32_t redirect_id,
+    uint8_t redirect_index,
+    int32_t value);
+
 #ifdef __cplusplus
 }
 #endif

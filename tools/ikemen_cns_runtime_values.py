@@ -154,16 +154,24 @@ def pair_static_expr(
 def compile_controller_trigger_expr(ctrl: Section) -> list[dict]:
     """Compile triggerall and triggerN lines with MUGEN's AND/OR grouping."""
     common = [f"({expr})" for expr in ctrl.all("triggerall")]
+    factor_common = common and not any(":=" in expr for expr in common)
     groups: list[str] = []
     for index in trigger_indices(ctrl):
         expressions = ctrl.all(f"trigger{index}")
         if not expressions:
             continue
-        pieces = common + [f"({expr})" for expr in expressions]
+        pieces = ([] if factor_common else common) + [
+            f"({expr})" for expr in expressions
+        ]
         groups.append("(" + " && ".join(pieces) + ")")
     if not groups:
         raise ValueError(f"{ctrl.name}: missing trigger lines")
-    return compile_cns_expr(" || ".join(groups), q16=True)
+    if factor_common:
+        alternatives = " || ".join(groups)
+        expression = "(" + " && ".join(common) + ") && (" + alternatives + ")"
+    else:
+        expression = " || ".join(groups)
+    return compile_cns_expr(expression, q16=True)
 
 
 def eval_expr(text: str | None, default: float = 0.0) -> float:

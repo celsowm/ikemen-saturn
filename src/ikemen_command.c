@@ -666,7 +666,8 @@ int ik_command_eval_state_change(const ik_command_state_t* state,
     const ik_expr_context_t expression = {
         (void*)&user,
         state_rule_read_field,
-        state_rule_read_command
+        state_rule_read_command,
+        0
     };
     return ik_command_eval_state_change_expr(
         rules, &expression, out_state);

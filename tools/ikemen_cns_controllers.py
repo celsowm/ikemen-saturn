@@ -913,7 +913,9 @@ def compile_runtime_controller(
             assignments = []
             for key, value in ctrl.values:
                 match = re.fullmatch(
-                    r"(sysfvar|sysvar|fvar|var)\((\d+)\)",
+                    # A small number of legacy roster files have one extra
+                    # closing parenthesis on the assignment key.
+                    r"(sysfvar|sysvar|fvar|var)\((\d+)\)\)?",
                     key.strip(), flags=re.I)
                 if match:
                     kind = match.group(1).casefold()
@@ -937,7 +939,7 @@ def compile_runtime_controller(
             }
             if any(
                 re.fullmatch(
-                    r"(?:sysfvar|sysvar|fvar|var)\(\d+\)",
+                    r"(?:sysfvar|sysvar|fvar|var)\(\d+\)\)?",
                     key.strip(), flags=re.I) is None and
                 not key.strip().casefold().startswith("trigger") and
                 key.strip().casefold() not in allowed_keys

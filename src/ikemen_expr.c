@@ -231,6 +231,16 @@ int ik_expr_eval(
                 }
                 break;
 
+            case IK_EXPR_STORE_FIELD:
+                if (sp < 1u || !context->write_field ||
+                    !context->write_field(
+                        context->user, ins->redirect, ins->field,
+                        ins->value0, ins->value1, ins->reserved,
+                        stack[sp - 1u])) {
+                    return 0;
+                }
+                break;
+
             case IK_EXPR_SELF_ANIM_EXISTS:
                 if (sp < 1u || !context->read_field ||
                     !context->read_field(

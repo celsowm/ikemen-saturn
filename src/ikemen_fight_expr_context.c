@@ -611,6 +611,18 @@ static int ikf_expr_read_command(
     return 1;
 }
 
+static int ikf_expr_write_field(
+    void* user, uint8_t redirect, uint8_t field,
+    int32_t index, int32_t redirect_id, uint8_t redirect_index,
+    int32_t value
+) {
+    if (!user) return 0;
+    const ikf_expr_binding_t* binding = (const ikf_expr_binding_t*)user;
+    return ik_entity_expr_write_field(
+        (void*)&binding->entity, redirect, field, index,
+        redirect_id, redirect_index, value);
+}
+
 int ikf_eval_cns_expr(
     const ik_fight_t* fight,
     const ik_fighter_t* fighter,
@@ -627,7 +639,8 @@ int ikf_eval_cns_expr(
         {fight->entities, ikf_fighter_entity_handle(fight, fighter)}
     };
     const ik_expr_context_t expression = {
-        &binding, ikf_expr_read_field, ikf_expr_read_command
+        &binding, ikf_expr_read_field, ikf_expr_read_command,
+        ikf_expr_write_field
     };
     return ik_expr_eval(cns->expressions + offset, count,
                         &expression, out_value);
@@ -659,7 +672,8 @@ int ikf_eval_cns_entity_expr(
         fight, 0, {fight->entities, handle}
     };
     const ik_expr_context_t expression = {
-        &binding, ikf_expr_read_field, ikf_expr_read_command
+        &binding, ikf_expr_read_field, ikf_expr_read_command,
+        ikf_expr_write_field
     };
     return ik_expr_eval(cns->expressions + offset, count,
                         &expression, out_value);

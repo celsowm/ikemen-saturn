@@ -719,3 +719,32 @@ int ik_entity_expr_read_field(
             return 0;
     }
 }
+
+int ik_entity_expr_write_field(
+    void* user,
+    uint8_t redirect,
+    uint8_t field,
+    int32_t index,
+    int32_t redirect_id,
+    uint8_t redirect_index,
+    int32_t value
+) {
+    (void)redirect_id;
+    if (!user || redirect != IK_EXPR_REDIRECT_SELF) return 0;
+    ik_entity_expr_binding_t* binding = (ik_entity_expr_binding_t*)user;
+    ik_entity_t* entity = ik_entity_get(
+        (ik_entity_pool_t*)binding->pool, binding->self);
+    if (!entity) return 0;
+    if (redirect_index != 0u) value /= 65536;
+    if (field == IK_EXPR_FIELD_VAR && index >= 0 &&
+        index < (int32_t)IK_ENTITY_VAR_COUNT) {
+        entity->vars[index] = value;
+        return 1;
+    }
+    if (field == IK_EXPR_FIELD_SYSVAR && index >= 0 &&
+        index < (int32_t)IK_ENTITY_SYSVAR_COUNT) {
+        entity->sysvars[index] = value;
+        return 1;
+    }
+    return 0;
+}

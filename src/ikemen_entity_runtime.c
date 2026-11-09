@@ -150,6 +150,19 @@ static int runtime_expr_read_command(
     return 1;
 }
 
+static int runtime_expr_write_field(
+    void* user, uint8_t redirect, uint8_t field,
+    int32_t index, int32_t redirect_id, uint8_t redirect_index,
+    int32_t value
+) {
+    if (!user) return 0;
+    const ik_entity_runtime_expr_binding_t* binding =
+        (const ik_entity_runtime_expr_binding_t*)user;
+    return ik_entity_expr_write_field(
+        (void*)&binding->entity, redirect, field, index,
+        redirect_id, redirect_index, value);
+}
+
 static int runtime_eval_expr(
     const ik_entity_runtime_t* runtime,
     const ik_cns_asset_t* cns,
@@ -165,7 +178,8 @@ static int runtime_eval_expr(
         runtime, {runtime->pool, handle}
     };
     const ik_expr_context_t context = {
-        &binding, runtime_expr_read_field, runtime_expr_read_command
+        &binding, runtime_expr_read_field, runtime_expr_read_command,
+        runtime_expr_write_field
     };
     return ik_expr_eval(cns->expressions + offset, count,
                         &context, out_value);

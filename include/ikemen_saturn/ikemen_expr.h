@@ -141,7 +141,8 @@ typedef enum ik_expr_op {
     IK_EXPR_SELF_ANIM_EXISTS,
     IK_EXPR_LOAD_PLAYER_FIELD,
     IK_EXPR_LOAD_PLAYER_FIELD_DYNAMIC_INDEX,
-    IK_EXPR_EXP_Q16
+    IK_EXPR_EXP_Q16,
+    IK_EXPR_STORE_FIELD
 } ik_expr_op_t;
 
 typedef struct ik_expr_instr {
@@ -167,10 +168,20 @@ typedef int (*ik_expr_read_command_fn)(
     uint16_t command_id,
     int32_t* out_value);
 
+typedef int (*ik_expr_write_field_fn)(
+    void* user,
+    uint8_t redirect,
+    uint8_t field,
+    int32_t index,
+    int32_t redirect_id,
+    uint8_t redirect_index,
+    int32_t value);
+
 typedef struct ik_expr_context {
     void* user;
     ik_expr_read_field_fn read_field;
     ik_expr_read_command_fn read_command;
+    ik_expr_write_field_fn write_field;
 } ik_expr_context_t;
 
 int ik_expr_eval(

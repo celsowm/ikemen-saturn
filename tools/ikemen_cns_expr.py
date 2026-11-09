@@ -1110,6 +1110,19 @@ class _ExprCompiler(_ExprParser):
                     "fvar": "IK_EXPR_FIELD_FVAR_Q16",
                     "sysfvar": "IK_EXPR_FIELD_SYSFVAR_Q16",
                 }[lower]
+                if self._peek() == ("op", ":="):
+                    if lower in ("fvar", "sysfvar"):
+                        raise ValueError(
+                            f"assignment to {name}() is unsupported")
+                    self._take()
+                    value_code = self._or()
+                    return value_code + [{
+                        "op": "IK_EXPR_STORE_FIELD",
+                        "field": field,
+                        "redirect": "IK_EXPR_REDIRECT_SELF",
+                        "redirect_index": int(self.q16),
+                        "value0": index,
+                    }]
                 return self._load_runtime_field(field, index)
             if lower == "ifelse" and len(args) == 3:
                 condition, when_true, when_false = args

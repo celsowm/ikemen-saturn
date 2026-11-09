@@ -278,7 +278,7 @@ static void controls_from_commands(
         {&ctx->pool, ctx->players[player]}, state, character->commands, fight
     };
     const ik_expr_context_t expression = {
-        &user, rule_expr_read_field, rule_expr_read_command
+        &user, rule_expr_read_field, rule_expr_read_command, 0
     };
     int32_t requested = 0;
     if (character->state_rules && ik_command_eval_state_change_expr(
