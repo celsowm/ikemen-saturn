@@ -122,10 +122,26 @@ def normalize_cns_expr(
     )
     if self_anims is not None:
         normalized = expand_dynamic_self_anim_exist(normalized, self_anims)
+
+    def expand_self_const(match: re.Match[str]) -> str:
+        # A redirected Const belongs to that player/helper/target. Keep it in
+        # the expression so runtime field loading can resolve the right CNS
+        # asset instead of substituting the current character's value.
+        prefix = normalized[:match.start()]
+        if re.search(
+            r"\b(?:p2|enemy|enemynear|target|parent|root)\s*,\s*$",
+            prefix,
+            flags=re.I,
+        ):
+            return match.group(0)
+        name = match.group(1).casefold()
+        if name in (const_values or {}):
+            return str((const_values or {})[name])
+        return match.group(0)
+
     normalized = re.sub(
         r"\bconst\s*\(\s*([a-z][a-z0-9_.]*)\s*\)",
-        lambda match: str((const_values or {})[match.group(1).casefold()])
-        if match.group(1).casefold() in (const_values or {}) else match.group(0),
+        expand_self_const,
         normalized,
         flags=re.I,
     )
