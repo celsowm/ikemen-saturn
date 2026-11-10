@@ -223,7 +223,8 @@ typedef enum ik_cns_controller_type {
     IK_CNS_CTRL_PARENT_VAR_SET,
     IK_CNS_CTRL_PARENT_FVAR_SET,
     IK_CNS_CTRL_PARENT_SYSVAR_SET,
-    IK_CNS_CTRL_PARENT_SYSFVAR_SET
+    IK_CNS_CTRL_PARENT_SYSFVAR_SET,
+    IK_CNS_CTRL_BIND_TO_ROOT
 } ik_cns_controller_type_t;
 
 enum {

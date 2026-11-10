@@ -1590,6 +1590,15 @@ static int process_controllers(
                 }
                 break;
 
+            case IK_CNS_CTRL_BIND_TO_ROOT:
+                if (entity->type == IK_ENTITY_HELPER) {
+                    entity->root_bind_time = ctrl->value2;
+                    entity->root_bind_x_q8 = ctrl->value0;
+                    entity->root_bind_y_q8 = ctrl->value1;
+                    entity->root_bind_facing = (int8_t)ctrl->value3;
+                }
+                break;
+
             case IK_CNS_CTRL_TARGET_DROP:
                 ik_entity_drop_targets(
                     runtime->pool, handle,
@@ -1647,6 +1656,30 @@ static int projectile_begin_remove(
 
     (void)ik_entity_destroy(runtime->pool, handle);
     return 1;
+}
+
+static void update_helper_root_bind(
+    ik_entity_runtime_t* runtime,
+    ik_entity_t* entity
+) {
+    if (!runtime || !runtime->pool || !entity ||
+        entity->type != IK_ENTITY_HELPER || entity->root_bind_time == 0) {
+        return;
+    }
+    const ik_entity_t* root =
+        ik_entity_get_const(runtime->pool, entity->root);
+    if (!root) {
+        entity->root_bind_time = 0;
+        entity->root_bind_facing = 0;
+        return;
+    }
+    entity->x_q8 = root->x_q8 +
+        (int32_t)root->facing * entity->root_bind_x_q8;
+    entity->y_q8 = root->y_q8 + entity->root_bind_y_q8;
+    if (entity->root_bind_facing != 0) {
+        entity->facing = (int8_t)(root->facing * entity->root_bind_facing);
+    }
+    if (entity->root_bind_time > 0) --entity->root_bind_time;
 }
 
 static void step_one(
@@ -1811,6 +1844,7 @@ static void step_one(
         if (entity && entity->hit_pause > 0u) {
             --entity->hit_pause;
         }
+        update_helper_root_bind(runtime, entity);
         return;
     }
 
@@ -1855,6 +1889,7 @@ static void step_one(
 
     if (!freeze_x) entity->x_q8 += entity->vx_q8;
     if (!freeze_y) entity->y_q8 += entity->vy_q8;
+    update_helper_root_bind(runtime, entity);
     ++entity->state_time;
     entity->anim_clock_pending = 1u;
 }

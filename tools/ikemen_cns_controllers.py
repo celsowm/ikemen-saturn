@@ -79,6 +79,7 @@ def compile_runtime_controller(
         "sysfvarset",
         "sysfvaradd",
         "targetbind",
+        "bindtoroot",
         "targetfacing",
         "targetlifeadd",
         "targetstate",
@@ -157,6 +158,34 @@ def compile_runtime_controller(
             "trigger_value2": trig_value2,
             "value0": 0,
             "value1": 0,
+            "flags": flag_expr(),
+        }
+
+    if ctype == "bindtoroot":
+        allowed = {"type", "time", "pos", "facing", "ignorehitpause"}
+        for key, _ in ctrl.values:
+            lowered = key.strip().lower()
+            if not lowered.startswith("trigger") and lowered not in allowed:
+                return None
+        time = integer(ctrl.get("time"), 1)
+        if time < -1 or time > 32767:
+            return None
+        facing = integer(ctrl.get("facing"), 0)
+        if facing not in (-1, 0, 1):
+            return None
+        x, y, x_expr, y_expr = pair_runtime_expr(ctrl.get("pos"), 0, 0)
+        ctrl.runtime_value0_expr = x_expr
+        ctrl.runtime_value1_expr = y_expr
+        return {
+            "state_number": state_no,
+            "type": "IK_CNS_CTRL_BIND_TO_ROOT",
+            "trigger_kind": trig_kind,
+            "trigger_value": trig_value,
+            "trigger_value2": trig_value2,
+            "value0": q8(x, wide=True),
+            "value1": q8(y, wide=True),
+            "value2": time,
+            "value3": facing,
             "flags": flag_expr(),
         }
 

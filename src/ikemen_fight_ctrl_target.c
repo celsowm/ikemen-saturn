@@ -34,6 +34,12 @@ int ikf_ctrl_apply_target(const ik_ctrl_exec_t* x) {
             }
             break;
 
+        case IK_CNS_CTRL_BIND_TO_ROOT:
+            /* Player characters are already their own root. BindToRoot is
+             * meaningful for spawned helper entities, handled by the entity
+             * runtime. */
+            break;
+
         case IK_CNS_CTRL_TARGET_FACING:
             if (f->target_index >= 0 && f->target_index < 2 &&
                 (ctrl->value2 < 0 || f->target_id == ctrl->value2)) {

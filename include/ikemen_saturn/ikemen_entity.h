@@ -62,6 +62,10 @@ typedef struct ik_entity {
 
     ik_entity_handle_t parent;
     ik_entity_handle_t root;
+    int32_t root_bind_time;
+    int32_t root_bind_x_q8;
+    int32_t root_bind_y_q8;
+    int8_t root_bind_facing;
     ik_entity_handle_t target;
     ik_entity_handle_t targets[IK_ENTITY_TARGET_CAPACITY];
     int32_t target_ids[IK_ENTITY_TARGET_CAPACITY];
