@@ -103,7 +103,7 @@ class _ExprCompiler(_ExprParser):
         field: str,
         index: int = 0,
         redirect: str = "IK_EXPR_REDIRECT_SELF",
-        redirect_id: int = 0,
+        redirect_id: int | None = None,
         redirect_index: int = 0,
     ) -> list[dict]:
         code = self._load(field, index)
@@ -111,8 +111,14 @@ class _ExprCompiler(_ExprParser):
             for instruction in code:
                 if instruction.get("op") == "IK_EXPR_LOAD_FIELD":
                     instruction["redirect"] = redirect
-                    if redirect == "IK_EXPR_REDIRECT_HELPER":
-                        instruction["value1"] = redirect_id
+                    if redirect in {
+                        "IK_EXPR_REDIRECT_HELPER",
+                        "IK_EXPR_REDIRECT_TARGET",
+                    }:
+                        instruction["value1"] = (
+                            redirect_id if redirect_id is not None else
+                            -1 if redirect == "IK_EXPR_REDIRECT_TARGET" else 0
+                        )
                         instruction["redirect_index"] = redirect_index
         if not self.q16 or field in {
             "IK_EXPR_FIELD_FVAR_Q16",
@@ -304,6 +310,10 @@ class _ExprCompiler(_ExprParser):
             if not self.q16 and int(value) != value:
                 raise ValueError("runtime CNS expression requires integer constants")
             scaled = int(round(value * 65536)) if self.q16 else int(value)
+            if not -(1 << 31) <= scaled <= (1 << 31) - 1:
+                raise ValueError(
+                    f"runtime CNS expression constant is out of range: {tok[1]}"
+                )
             return [{"op": "IK_EXPR_PUSH_CONST", "value0": scaled}]
         if tok[0] != "ident":
             raise ValueError(f"unexpected token in expression: {tok!r}")
@@ -637,6 +647,10 @@ class _ExprCompiler(_ExprParser):
                     "size.head.pos.y": 2,
                     "size.mid.pos.x": 3,
                     "size.mid.pos.y": 4,
+                    "size.ground.back": 5,
+                    "size.ground.front": 6,
+                    "size.air.back": 7,
+                    "size.air.front": 8,
                 }
                 if const_name not in const_indexes:
                     raise ValueError(
@@ -795,6 +809,54 @@ class _ExprCompiler(_ExprParser):
             raise ValueError(
                 f"unsupported redirected symbol in runtime expression: "
                 f"{name},{field_name}")
+        if lower == "target" and self._peek() == ("op", "("):
+            self._take()
+            args = self._args()
+            if self._peek() != ("op", ")") or len(args) not in (1, 2):
+                raise ValueError(
+                    "Target redirection requires an ID and optional index")
+            self._take()
+            target_id = self._integer_arg(args[0], "Target")
+            target_index = (
+                self._integer_arg(args[1], "Target") if len(args) == 2 else 0
+            )
+            if target_id < -1 or target_index < 0 or target_index > 255:
+                raise ValueError("Target redirection ID or index is out of range")
+            if self._peek() != ("op", ","):
+                raise ValueError("Target redirection requires a field")
+            self._take()
+            field_name = self._peek()
+            if field_name is None or field_name[0] != "ident" or \
+                    field_name[1].casefold() != "const":
+                raise ValueError("Target redirection supports Const() fields")
+            self._take()
+            if self._peek() != ("op", "("):
+                raise ValueError("Target,Const requires a constant name")
+            self._take()
+            const_name = self._peek()
+            if const_name is None or const_name[0] != "ident":
+                raise ValueError("Target,Const requires a constant name")
+            self._take()
+            if self._peek() != ("op", ")"):
+                raise ValueError("Target,Const takes one constant name")
+            self._take()
+            const_indexes = {
+                "size.head.pos.x": 1,
+                "size.head.pos.y": 2,
+                "size.mid.pos.x": 3,
+                "size.mid.pos.y": 4,
+                "size.ground.back": 5,
+                "size.ground.front": 6,
+                "size.air.back": 7,
+                "size.air.front": 8,
+            }
+            constant_index = const_indexes.get(const_name[1].casefold())
+            if constant_index is None:
+                raise ValueError(
+                    f"unsupported redirected Const() value {const_name[1]!r}")
+            return self._load_runtime_field(
+                "IK_EXPR_FIELD_CHAR_CONSTANT", constant_index,
+                "IK_EXPR_REDIRECT_TARGET", target_id, target_index)
         if lower == "helper" and self._peek() == ("op", "("):
             self._take()
             args = self._args()

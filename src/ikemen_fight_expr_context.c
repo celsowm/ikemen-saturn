@@ -127,7 +127,8 @@ static int ikf_expr_read_field(
             const ik_entity_handle_t handle =
                 redirect == IK_EXPR_REDIRECT_TARGET
                 ? ik_entity_redirect_target(
-                    binding->entity.pool, binding->entity.self, 0, 0u)
+                    binding->entity.pool, binding->entity.self,
+                    redirect_id, redirect_index)
                 : ik_entity_redirect(
                     binding->entity.pool, binding->entity.self, redirect);
             entity = ik_entity_get_const(binding->entity.pool, handle);
@@ -154,6 +155,10 @@ static int ikf_expr_read_field(
             case 2: *out_value = asset->constants.head_pos_y; return 1;
             case 3: *out_value = asset->constants.mid_pos_x; return 1;
             case 4: *out_value = asset->constants.mid_pos_y; return 1;
+            case 5: *out_value = asset->constants.ground_back; return 1;
+            case 6: *out_value = asset->constants.ground_front; return 1;
+            case 7: *out_value = asset->constants.air_back; return 1;
+            case 8: *out_value = asset->constants.air_front; return 1;
             default: return 0;
         }
     }
