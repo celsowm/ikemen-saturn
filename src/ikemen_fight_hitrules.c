@@ -352,21 +352,28 @@ static uint8_t guard_mask_for_type(uint8_t state_type) {
     return IK_CNS_GUARD_STAND;
 }
 
-/* HitDef guard.dist when the attacker's current HitDef set one, otherwise the
- * character's size.attack.dist. */
+/* AttackDist overrides the active HitDef's guard.dist; absent that, use its
+ * explicit value or the character's size.attack.dist. Return Q8.8. */
 static int attacker_guard_dist(
+    const ik_fighter_t* attacker,
     const ik_fight_t* fight,
     const ik_cns_hitdef_t* hitdef,
     uint8_t attacker_owner
 ) {
-    if (hitdef && hitdef->guard_dist >= 0) return hitdef->guard_dist;
+    if (attacker && attacker->has_attack_dist_override) {
+        return attacker->attack_dist_override_q8;
+    }
+    if (hitdef && hitdef->guard_dist >= 0) {
+        return (int)hitdef->guard_dist * IK_CNS_Q8_ONE;
+    }
     const ik_cns_asset_t* cns = cns_for_owner(fight, attacker_owner);
-    return cns ? cns->constants.attack_dist : 0;
+    return cns ? (int)cns->constants.attack_dist * IK_CNS_Q8_ONE : 0;
 }
 
 /* Upstream inGuardDist: the foe is in front of an attacker (MoveType A) and
  * closer than its guard distance. */
 static int attacker_reaches(
+    const ik_fighter_t* attacker,
     const ik_fight_t* fight,
     const ik_cns_hitdef_t* hitdef,
     uint8_t attacker_owner,
@@ -376,9 +383,8 @@ static int attacker_reaches(
 ) {
     const int32_t dist_q8 =
         (victim->x_q8 - attacker_x_q8) * (int32_t)attacker_facing;
-    const int32_t front_q8 =
-        (int32_t)attacker_guard_dist(fight, hitdef, attacker_owner) *
-        IK_CNS_Q8_ONE;
+    const int32_t front_q8 = attacker_guard_dist(
+        attacker, fight, hitdef, attacker_owner);
     return dist_q8 > 0 && dist_q8 < front_q8;
 }
 
@@ -399,7 +405,7 @@ void ikf_update_guard_dist(ik_fight_t* fight) {
                 ? &state_cns->hitdefs[(uint16_t)attacker->active_hitdef_global]
                 : 0;
         if (attacker_reaches(
-                fight, hitdef, attacker->owner_player, attacker->x_q8,
+                attacker, fight, hitdef, attacker->owner_player, attacker->x_q8,
                 attacker->facing, victim)) {
             victim->in_guard_dist = 1u;
         }
@@ -418,7 +424,7 @@ void ikf_update_guard_dist(ik_fight_t* fight) {
                                             ? entity->anim_owner : 0],
             entity, victim, 0);
         if (hitdef && attacker_reaches(
-                fight, hitdef, entity->owner_player, entity->x_q8,
+                0, fight, hitdef, entity->owner_player, entity->x_q8,
                 entity->facing, victim)) {
             victim->in_guard_dist = 1u;
         }

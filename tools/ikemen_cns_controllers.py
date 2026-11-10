@@ -65,6 +65,7 @@ def compile_runtime_controller(
         "width",
         "varset",
         "varadd",
+        "attackdist",
         "parentvarset",
         "varrandom",
         "lifeadd",
@@ -936,6 +937,37 @@ def compile_runtime_controller(
             "trigger_value": trig_value,
             "trigger_value2": trig_value2,
             "value0": max(-128, min(127, integer(ctrl.get("value")))),
+            "value1": 0,
+            "flags": flag_expr(),
+        }
+
+    if ctype == "attackdist":
+        allowed = {
+            "type", "value", "persistent", "ignorehitpause",
+        }
+        if any(
+            not key.strip().casefold().startswith("trigger") and
+            key.strip().casefold() not in allowed
+            for key, _ in ctrl.values
+        ):
+            return None
+        value_text = ctrl.get("value")
+        if value_text is None:
+            return None
+        value, value_expr = number_or_runtime_expr(value_text, 0)
+        ctrl.runtime_value0_expr = value_expr
+        value_q8 = int(round(float(value) * 256.0))
+        if value_q8 < 0:
+            value_q8 = 0
+        if value_q8 > 2147483647:
+            return None
+        return {
+            "state_number": state_no,
+            "type": "IK_CNS_CTRL_ATTACK_DIST",
+            "trigger_kind": trig_kind,
+            "trigger_value": trig_value,
+            "trigger_value2": trig_value2,
+            "value0": value_q8,
             "value1": 0,
             "flags": flag_expr(),
         }

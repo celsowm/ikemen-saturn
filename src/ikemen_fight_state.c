@@ -105,6 +105,8 @@ void ikf_init_statedef(ik_fight_t* fight, ik_fighter_t* f) {
         f->active_hitdef_global = -1;
         f->active_hitdef_secondary = 0u;
         f->hitdef_target = -1;
+        f->has_attack_dist_override = 0u;
+        f->attack_dist_override_q8 = 0;
     }
     f->state_axis = 0;
 

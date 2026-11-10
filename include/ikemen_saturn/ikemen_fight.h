@@ -144,6 +144,10 @@ typedef struct ik_fighter {
     uint8_t anim_clock_pending;
     uint8_t statedef_pending;
     uint8_t in_guard_dist;
+    /* AttackDist overrides the current HitDef/size guard reach until the
+     * next StateDef that clears HitDef persistence. */
+    int32_t attack_dist_override_q8;
+    uint8_t has_attack_dist_override;
     uint8_t cur_state_type;
     uint8_t cur_move_type;
     /* AssertSpecial controller flags survive through the next input pass;
