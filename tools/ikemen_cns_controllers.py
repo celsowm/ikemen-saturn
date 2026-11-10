@@ -1129,15 +1129,18 @@ def compile_runtime_controller(
         }
 
     if ctype == "targetbind":
-        x, y = pair(ctrl.get("pos"), 0, 0)
+        x, y, x_expr, y_expr = pair_runtime_expr(
+            ctrl.get("pos"), 0, 0)
+        ctrl.runtime_value0_expr = x_expr
+        ctrl.runtime_value1_expr = y_expr
         return {
             "state_number": state_no,
             "type": "IK_CNS_CTRL_TARGET_BIND",
             "trigger_kind": trig_kind,
             "trigger_value": trig_value,
             "trigger_value2": trig_value2,
-            "value0": q8(x),
-            "value1": q8(y),
+            "value0": q8(x, wide=True),
+            "value1": q8(y, wide=True),
             "value2": integer(ctrl.get("id"), -1),
             "value3": integer(ctrl.get("index"), -1),
             "flags": flag_expr(),
