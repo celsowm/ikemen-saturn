@@ -17,6 +17,38 @@ void ikf_record_hit(ik_fighter_t* attacker, uint8_t target_player) {
     }
 }
 
+static uint16_t add_hit_counter(uint16_t value, int32_t amount) {
+    int32_t result = (int32_t)value + amount;
+    if (result < 0) result = 0;
+    if (result > UINT16_MAX) result = UINT16_MAX;
+    return (uint16_t)result;
+}
+
+void ikf_apply_hit_add(
+    ik_fight_t* fight, ik_fighter_t* attacker, int32_t amount
+) {
+    if (!fight || !attacker || amount == 0) return;
+    attacker->hit_count = add_hit_counter(attacker->hit_count, amount);
+    attacker->uniq_hit_count = add_hit_counter(
+        attacker->uniq_hit_count, amount);
+
+    ik_fighter_t* victim = 0;
+    if (attacker->target_index >= 0 && attacker->target_index < 2) {
+        victim = &fight->fighters[(int)attacker->target_index];
+    } else if (attacker->owner_player < 2u) {
+        ik_fighter_t* opponent =
+            &fight->fighters[(int)(attacker->owner_player ^ 1u)];
+        if (opponent->gethit_hit_count != 0u ||
+            opponent->cur_move_type == IK_CNS_MOVE_HIT) {
+            victim = opponent;
+        }
+    }
+    if (victim) {
+        victim->gethit_hit_count = add_hit_counter(
+            victim->gethit_hit_count, amount);
+    }
+}
+
 void ikf_record_received_hit(ik_fighter_t* victim) {
     if (!victim) return;
     if (victim->hitstun == 0u) {

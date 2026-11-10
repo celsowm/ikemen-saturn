@@ -104,6 +104,7 @@ def compile_runtime_controller(
         "afterimagetime",
         "palfx",
         "bgpalfx",
+        "hitadd",
         "assertspecial",
         "makedust",
         "gravity",
@@ -508,6 +509,28 @@ def compile_runtime_controller(
         return {
             "state_number": state_no,
             "type": "IK_CNS_CTRL_POWER_ADD",
+            "trigger_kind": trig_kind,
+            "trigger_value": trig_value,
+            "trigger_value2": trig_value2,
+            "value0": value,
+            "value1": 0,
+            "flags": flag_expr(),
+        }
+
+    if ctype == "hitadd":
+        allowed = {
+            "type", "value", "ignorehitpause", "persistent",
+        }
+        for key, _ in ctrl.values:
+            lowered = key.strip().casefold()
+            if not lowered.startswith("trigger") and lowered not in allowed:
+                return None
+        value, value_expr = integer_or_runtime_expr(
+            ctrl.get("value"), 1)
+        ctrl.runtime_value0_expr = value_expr
+        return {
+            "state_number": state_no,
+            "type": "IK_CNS_CTRL_HIT_ADD",
             "trigger_kind": trig_kind,
             "trigger_value": trig_value,
             "trigger_value2": trig_value2,

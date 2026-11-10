@@ -467,6 +467,9 @@ int ikf_can_guard_hit(
     const ik_fight_controls_t* controls,
     const ik_cns_hitdef_t* hitdef);
 void ikf_record_hit(ik_fighter_t* attacker, uint8_t target_player);
+void ikf_apply_hit_add(
+    ik_fight_t* fight, ik_fighter_t* attacker, int32_t amount
+);
 void ikf_record_received_hit(ik_fighter_t* victim);
 
 /* ---- Sound and effect events queued for the presentation layer ---- */

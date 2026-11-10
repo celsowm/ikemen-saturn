@@ -25,6 +25,12 @@ int ikf_ctrl_apply_state(const ik_ctrl_exec_t* x) {
             f->ctrl = (int8_t)(ctrl->value0 != 0);
             break;
 
+        case IK_CNS_CTRL_HIT_ADD:
+            ikf_apply_hit_add(
+                fight, f, ctrl->value0_expr_count
+                    ? ctrl->value4 : ctrl->value0);
+            break;
+
         case IK_CNS_CTRL_LIFE_ADD: {
             const int64_t add_q16 = ctrl->value0_expr_count
                 ? ctrl->value4 : (int64_t)ctrl->value0 * 65536;
