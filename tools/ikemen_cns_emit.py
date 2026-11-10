@@ -80,6 +80,7 @@ def emit_cns_source_files(
                     intern_expression(hit.pop(f"_{key}_expr", None))
         for field in (
             "damage", "guard_damage", "pause_p1", "pause_p2",
+            "guard_pause_p1", "guard_pause_p2",
             "mindist_x", "mindist_y", "maxdist_x", "maxdist_y",
             "ground_slide_time", "ground_hit_time", "air_hit_time",
             "guard_hit_time", "guard_slide_time", "guard_ctrl_time",
@@ -128,6 +129,9 @@ def emit_cns_source_files(
             intern_expression(explod.pop("_scale_y_expr", None))
         (explod["alpha_expr_ofs"], explod["alpha_expr_count"]) = \
             intern_expression(explod.pop("_alpha_expr", None))
+    for projectile in projectiles:
+        (projectile["anim_expr_ofs"], projectile["anim_expr_count"]) = \
+            intern_expression(projectile.pop("anim_expr", None))
     for controller in controllers:
         (controller["trigger_expr_ofs"],
          controller["trigger_expr_count"]) = intern_expression(
@@ -366,7 +370,13 @@ def emit_cns_source_files(
         f"{h.get('no_chain_id2_expr_count', 0)}u, "
         f"{h.get('p1_spr_priority_expr_ofs', 0)}u, "
         f"{h.get('p1_spr_priority_expr_count', 0)}u, "
-        f"{h.get('air_type', 'IK_CNS_GROUND_NORMAL')}"
+        f"{h.get('air_type', 'IK_CNS_GROUND_NORMAL')}, "
+        f"{h.get('guard_pause_p1', h.get('pause_p1', 0))}u, "
+        f"{h.get('guard_pause_p2', h.get('pause_p2', 0))}u, "
+        f"{h.get('guard_pause_p1_expr_ofs', 0)}u, "
+        f"{h.get('guard_pause_p1_expr_count', 0)}u, "
+        f"{h.get('guard_pause_p2_expr_ofs', 0)}u, "
+        f"{h.get('guard_pause_p2_expr_count', 0)}u"
         "},"
         for h in hitdefs
     ]
@@ -457,7 +467,9 @@ def emit_cns_source_files(
         f"{p.get('postype', 'IK_CNS_HELPER_POS_P1')}, "
         f"{p.get('has_shadow', 0)}u, "
         f"{p.get('shadow_r', 0)}u, {p.get('shadow_g', 0)}u, "
-        f"{p.get('shadow_b', 0)}u"
+        f"{p.get('shadow_b', 0)}u, "
+        f"{p.get('anim_expr_ofs', 0)}u, "
+        f"{p.get('anim_expr_count', 0)}u"
         "},"
         for p in projectiles
     ]

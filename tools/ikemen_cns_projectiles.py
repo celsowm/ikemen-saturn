@@ -75,6 +75,9 @@ def _projectile_hitdef_row(
     spark_pair = services['spark_pair']
     damage, guard_damage = pair(ctrl.get("damage") or "0,0", 0, 0)
     pause1, pause2 = pair(ctrl.get("pausetime"), 0, 0)
+    guard_pause1, guard_pause2, guard_pause1_expr, guard_pause2_expr = \
+        services['pair_integer_runtime_expr'](
+            ctrl.get("guard.pausetime"), int(pause1), int(pause2))
     gx, gy = pair(ctrl.get("ground.velocity"), 0, 0)
     ax, ay = pair(ctrl.get("air.velocity"), gx, gy)
     guardx = number(ctrl.get("guard.velocity"), gx)
@@ -120,6 +123,10 @@ def _projectile_hitdef_row(
             (ctrl.get("priority") or "4").split(",", 1)[0], 4),
         "pause_p1": int(pause1),
         "pause_p2": int(pause2),
+        "guard_pause_p1": int(guard_pause1),
+        "guard_pause_p2": int(guard_pause2),
+        "_guard_pause_p1_expr": guard_pause1_expr,
+        "_guard_pause_p2_expr": guard_pause2_expr,
         "ground_type": GROUND_TYPE.get(
             (ctrl.get("ground.type", "normal") or "normal").strip().lower(),
             "IK_CNS_GROUND_NORMAL"),
@@ -234,6 +241,7 @@ def compile_projectile_controller(
     _split_top_level = services['_split_top_level']
     controller_trigger = services['controller_trigger']
     integer = services['integer']
+    integer_or_runtime_expr = services['integer_or_runtime_expr']
     pair = services['pair']
     q8 = services['q8']
     supported = {
@@ -250,6 +258,7 @@ def compile_projectile_controller(
         "animtype", "air.animtype", "fall", "air.fall",
         "forcestand", "forcenofall", "guardflag", "hitflag",
         "ground.type", "ground.slidetime", "ground.hittime",
+        "guard.pausetime",
         "ground.velocity", "air.hittime", "air.velocity",
         "getpower", "givepower",
         "guard.velocity", "airguard.velocity", "guard.slidetime",
@@ -296,10 +305,13 @@ def compile_projectile_controller(
     shadow_rgb = tuple(
         max(0, min(255, integer(part, 0))) for part in shadow_parts[:3])
 
+    anim_no, anim_expr = integer_or_runtime_expr(
+        ctrl.get("projanim"), 0)
     projectile = {
         "id": integer(ctrl.get("projid"), 0),
         "postype": postype,
-        "anim_no": integer(ctrl.get("projanim"), 0),
+        "anim_no": anim_no,
+        "_anim_expr": anim_expr,
         "hit_anim_no": integer(ctrl.get("projhitanim"), -1),
         "remove_anim_no": integer(ctrl.get("projremanim"), -1),
         "cancel_anim_no": integer(ctrl.get("projcancelanim"), -1),

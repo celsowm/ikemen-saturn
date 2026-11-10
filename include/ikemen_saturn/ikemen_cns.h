@@ -738,6 +738,12 @@ typedef struct ik_cns_hitdef {
     uint8_t p1_spr_priority_expr_count;
     /* Appended for source compatibility with positional HitDef initializers. */
     uint8_t air_type;
+    uint8_t guard_pause_p1;
+    uint8_t guard_pause_p2;
+    uint16_t guard_pause_p1_expr_ofs;
+    uint8_t guard_pause_p1_expr_count;
+    uint16_t guard_pause_p2_expr_ofs;
+    uint8_t guard_pause_p2_expr_count;
 } ik_cns_hitdef_t;
 
 typedef struct ik_cns_reversaldef {
@@ -934,6 +940,8 @@ typedef struct ik_cns_projectile {
     uint8_t shadow_r;
     uint8_t shadow_g;
     uint8_t shadow_b;
+    uint16_t anim_expr_ofs;
+    uint8_t anim_expr_count;
 } ik_cns_projectile_t;
 
 enum {

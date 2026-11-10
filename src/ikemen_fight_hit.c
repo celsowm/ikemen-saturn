@@ -127,6 +127,8 @@ void ikf_apply_guard(ik_fight_t* fight, int victim,
                    hitdef->guard_damage_expr_count ||
                    hitdef->pause_p1_expr_count ||
                    hitdef->pause_p2_expr_count ||
+                   hitdef->guard_pause_p1_expr_count ||
+                   hitdef->guard_pause_p2_expr_count ||
                    hitdef->fall_x_velocity_expr_count ||
                    hitdef->fall_y_velocity_expr_count ||
                    hitdef->guard_velocity_x_expr_count) {
@@ -150,6 +152,12 @@ void ikf_apply_guard(ik_fight_t* fight, int victim,
         evaluated_hitdef.pause_p2 = eval_fighter_time_expr(
             fight, a, cns, hitdef->pause_p2_expr_ofs,
             hitdef->pause_p2_expr_count, hitdef->pause_p2);
+        evaluated_hitdef.guard_pause_p1 = eval_fighter_time_expr(
+            fight, a, cns, hitdef->guard_pause_p1_expr_ofs,
+            hitdef->guard_pause_p1_expr_count, hitdef->guard_pause_p1);
+        evaluated_hitdef.guard_pause_p2 = eval_fighter_time_expr(
+            fight, a, cns, hitdef->guard_pause_p2_expr_ofs,
+            hitdef->guard_pause_p2_expr_count, hitdef->guard_pause_p2);
         evaluated_hitdef.guard_velocity_x_q8 = eval_fighter_q8_expr(
             fight, a, cns, hitdef->guard_velocity_x_expr_ofs,
             hitdef->guard_velocity_x_expr_count,
@@ -178,8 +186,8 @@ void ikf_apply_guard(ik_fight_t* fight, int victim,
         }
     }
 
-    v->hit_shake_time = hitdef->pause_p2;
-    a->hit_pause = hitdef->pause_p1;
+    v->hit_shake_time = hitdef->guard_pause_p2;
+    a->hit_pause = hitdef->guard_pause_p1;
     v->hitstun = hitdef->guard_hit_time;
     v->hit_slide_time = hitdef->guard_slide_time;
     v->hit_ctrl_time = hitdef->guard_ctrl_time;

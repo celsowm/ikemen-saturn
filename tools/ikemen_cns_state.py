@@ -190,6 +190,9 @@ def compile_state(
             (pause1, pause2, pause_p1_expr,
              pause_p2_expr) = pair_integer_runtime_expr(
                 ctrl.get("pausetime"), 0, 0)
+            (guard_pause1, guard_pause2, guard_pause_p1_expr,
+             guard_pause_p2_expr) = pair_integer_runtime_expr(
+                ctrl.get("guard.pausetime"), pause1, pause2)
             gx, gy, ground_vx_expr, ground_vy_expr = pair_runtime_expr(
                 ctrl.get("ground.velocity"), 0, 0)
             if ctrl.get("air.velocity") is None:
@@ -330,6 +333,8 @@ def compile_state(
                     "_guard_damage_expr": guard_damage_runtime_expr,
                     "_pause_p1_expr": pause_p1_expr,
                     "_pause_p2_expr": pause_p2_expr,
+                    "_guard_pause_p1_expr": guard_pause_p1_expr,
+                    "_guard_pause_p2_expr": guard_pause_p2_expr,
                     "_spark_x_expr": sparkx_expr,
                     "_spark_y_expr": sparky_expr,
                     "_trigger2_spark_y_expr": spark2y_expr,
@@ -363,6 +368,8 @@ def compile_state(
                     "priority_type": priority_type_code(ctrl.get("priority")),
                     "pause_p1": int(pause1),
                     "pause_p2": int(pause2),
+                    "guard_pause_p1": int(guard_pause1),
+                    "guard_pause_p2": int(guard_pause2),
                     "ground_type": GROUND_TYPE.get(
                         (
                             ctrl.get("ground.type", "normal") or "normal"
@@ -786,6 +793,7 @@ def compile_state(
             if compiled_projectile is not None:
                 controller, projectile, projectile_hitdef = compiled_projectile
                 if attach_runtime_trigger_expression(controller, ctrl):
+                    projectile["anim_expr"] = projectile.pop("_anim_expr")
                     controllers.append(
                         attach_target_query_selector(controller, ctrl)
                     )

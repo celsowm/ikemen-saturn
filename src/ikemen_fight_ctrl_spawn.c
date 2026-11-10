@@ -55,11 +55,22 @@ int ikf_ctrl_apply_spawn(const ik_ctrl_exec_t* x) {
             ik_entity_runtime_init(
                 &runtime, fight->entities, fight->cns, frames, frames);
             ikf_configure_fight_entity_runtime(fight, &runtime);
+            ik_cns_projectile_t projectile_spec =
+                state_cns->projectiles[ctrl->value0];
+            if (projectile_spec.anim_expr_count) {
+                int32_t anim_no = 0;
+                if (!ikf_eval_cns_expr(
+                        fight, f, state_cns,
+                        projectile_spec.anim_expr_ofs,
+                        projectile_spec.anim_expr_count, &anim_no)) {
+                    break;
+                }
+                projectile_spec.anim_no = anim_no;
+            }
             ik_entity_handle_t spawned = ik_entity_invalid_handle();
             (void)ik_entity_runtime_spawn_projectile_spec(
                 &runtime, ikf_fighter_entity_handle(fight, f),
-                &state_cns->projectiles[ctrl->value0],
-                &spawned);
+                &projectile_spec, &spawned);
             ik_entity_t* projectile =
                 ik_entity_get(fight->entities, spawned);
             if (projectile && projectile->type == IK_ENTITY_PROJECTILE) {
