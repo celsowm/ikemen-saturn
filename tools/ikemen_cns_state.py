@@ -927,6 +927,7 @@ def compile_state(
         sd.get("hitcountpersist"), 0)
     spr_priority, spr_priority_expr = integer_or_runtime_expr(
         sd.get("sprpriority"), 0)
+    spr_priority = max(-128, min(127, spr_priority))
 
     state_row = {
         "number": state.number,

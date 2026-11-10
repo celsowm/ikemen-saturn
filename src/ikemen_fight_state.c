@@ -127,8 +127,9 @@ void ikf_init_statedef(ik_fight_t* fight, ik_fighter_t* f) {
         int32_t dynamic_priority = spec->spr_priority;
         if (ikf_eval_cns_expr(
                 fight, f, state_cns, spec->spr_priority_expr_ofs,
-                spec->spr_priority_expr_count, &dynamic_priority) &&
-            dynamic_priority >= INT8_MIN && dynamic_priority <= INT8_MAX) {
+                spec->spr_priority_expr_count, &dynamic_priority)) {
+            if (dynamic_priority < INT8_MIN) dynamic_priority = INT8_MIN;
+            if (dynamic_priority > INT8_MAX) dynamic_priority = INT8_MAX;
             f->spr_priority = (int8_t)dynamic_priority;
         } else {
             f->spr_priority = spec->spr_priority;

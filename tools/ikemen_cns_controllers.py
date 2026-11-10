@@ -824,7 +824,7 @@ def compile_runtime_controller(
             "trigger_kind": trig_kind,
             "trigger_value": trig_value,
             "trigger_value2": trig_value2,
-            "value0": integer(ctrl.get("value")),
+            "value0": max(-128, min(127, integer(ctrl.get("value")))),
             "value1": 0,
             "flags": flag_expr(),
         }
