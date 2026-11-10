@@ -484,12 +484,28 @@ def compile_state(
                 if len(triggers) != 1:
                     unsupported.append("reversaldef")
                     continue
+                time_range = re.fullmatch(
+                    r"Time\s*=\s*\[\s*(\d+)\s*,\s*(\d+)\s*\]",
+                    _strip_outer_parens(triggers[0]),
+                    flags=re.I,
+                )
                 start = re.fullmatch(
                     r"Time\s*=\s*(\d+)",
                     _strip_outer_parens(triggers[0]),
                     flags=re.I,
                 )
-                if not start:
+                if time_range:
+                    start_time = int(time_range.group(1))
+                    inclusive_end_time = int(time_range.group(2))
+                    if (inclusive_end_time < start_time or
+                            inclusive_end_time >= 65535):
+                        unsupported.append("reversaldef")
+                        continue
+                    end_time = inclusive_end_time + 1
+                elif start:
+                    start_time = int(start.group(1))
+                    end_time = 65535
+                else:
                     unsupported.append("reversaldef")
                     continue
                 pause1, pause2 = pair(ctrl.get("pausetime"), 0, 0)
@@ -497,8 +513,8 @@ def compile_state(
                 hs = sound_pair(ctrl.get("hitsound"))
                 open_reversal = {
                     "state_number": state.number,
-                    "start_time": int(start.group(1)),
-                    "end_time": 65535,
+                    "start_time": start_time,
+                    "end_time": end_time,
                     "attacker_state_mask": reversal_state_mask(parts[0]),
                     "incoming_attr_mask": incoming_attr_mask,
                     "pause_p1": int(pause1),
@@ -516,6 +532,9 @@ def compile_state(
                         ctrl.get("p2sprpriority"), -128
                     ),
                 }
+                if time_range:
+                    reversals.append(open_reversal)
+                    open_reversal = None
             elif open_reversal is not None:
                 end_time: int | None = None
                 trigger2 = ctrl.all("trigger2")
