@@ -198,32 +198,61 @@ class _ExprCompiler(_ExprParser):
                     raise ValueError("range comparison is missing closing ]")
                 self._take()
                 if op == "!=":
-                    code = (
-                        code + lower + [{"op": "IK_EXPR_LT"}] +
-                        code + upper + [{"op": "IK_EXPR_GT"},
-                                        {"op": "IK_EXPR_OR"}]
-                    )
+                    below = self._compare(code, lower, "IK_EXPR_LT")
+                    above = self._compare(code, upper, "IK_EXPR_GT")
+                    code = (below or code + lower + [{"op": "IK_EXPR_LT"}]) + (
+                        above or code + upper + [{"op": "IK_EXPR_GT"}]) + [
+                            {"op": "IK_EXPR_OR"}]
                 else:
-                    code = (
-                        code + lower + [{"op": "IK_EXPR_GE"}] +
-                        code + upper + [{"op": "IK_EXPR_LE"},
-                                        {"op": "IK_EXPR_AND"}]
-                    )
+                    below = self._compare(code, lower, "IK_EXPR_GE")
+                    above = self._compare(code, upper, "IK_EXPR_LE")
+                    code = (below or code + lower + [{"op": "IK_EXPR_GE"}]) + (
+                        above or code + upper + [{"op": "IK_EXPR_LE"}]) + [
+                            {"op": "IK_EXPR_AND"}]
                 continue
-            code += self._rel()
-            code.append({"op": "IK_EXPR_NE" if op == "!=" else "IK_EXPR_EQ"})
+            rhs = self._rel()
+            compare = self._compare(
+                code, rhs, "IK_EXPR_NE" if op == "!=" else "IK_EXPR_EQ")
+            code = compare or code + rhs + [{
+                "op": "IK_EXPR_NE" if op == "!=" else "IK_EXPR_EQ"}]
         return code
 
     def _rel(self) -> list[dict]:
         code = self._add()
         while self._peek() and self._peek()[1] in (">", "<", ">=", "<="):
             op = self._take()[1]
-            code += self._add()
-            code.append({"op": {
+            rhs = self._add()
+            compare = self._compare(code, rhs, {
                 ">": "IK_EXPR_GT", "<": "IK_EXPR_LT",
                 ">=": "IK_EXPR_GE", "<=": "IK_EXPR_LE",
-            }[op]})
+            }[op])
+            code = compare or code + rhs + [{"op": {
+                ">": "IK_EXPR_GT", "<": "IK_EXPR_LT",
+                ">=": "IK_EXPR_GE", "<=": "IK_EXPR_LE",
+            }[op]}]
         return code
+
+    def _compare(
+        self, left: list[dict], right: list[dict], operator: str
+    ) -> list[dict] | None:
+        """Compare large integer constants to integer vars without Q16 scaling."""
+        if not self.q16 or len(left) < 3 or len(right) != 1:
+            return None
+        literal = right[0]
+        if not literal.get("integer_literal"):
+            return None
+        load, factor, multiply = left[-3:]
+        if (load.get("op") not in {
+                    "IK_EXPR_LOAD_FIELD", "IK_EXPR_LOAD_PLAYER_FIELD"} or
+                load.get("field") not in {
+                    "IK_EXPR_FIELD_VAR", "IK_EXPR_FIELD_SYSVAR"} or
+                factor.get("op") != "IK_EXPR_PUSH_CONST" or
+                factor.get("value0") != 65536 or
+                multiply.get("op") != "IK_EXPR_MUL"):
+            return None
+        raw_literal = dict(literal)
+        raw_literal.pop("integer_literal", None)
+        return left[:-2] + [raw_literal, {"op": operator}]
 
     def _add(self) -> list[dict]:
         code = self._mul()
@@ -334,6 +363,13 @@ class _ExprCompiler(_ExprParser):
                 raise ValueError("runtime CNS expression requires integer constants")
             scaled = int(round(value * 65536)) if self.q16 else int(value)
             if not -(1 << 31) <= scaled <= (1 << 31) - 1:
+                if (self.q16 and value.is_integer() and
+                        -(1 << 31) <= value <= (1 << 31) - 1):
+                    return [{
+                        "op": "IK_EXPR_PUSH_CONST",
+                        "value0": int(value),
+                        "integer_literal": True,
+                    }]
                 raise ValueError(
                     f"runtime CNS expression constant is out of range: {tok[1]}"
                 )
@@ -1087,8 +1123,11 @@ class _ExprCompiler(_ExprParser):
                 return self._load_runtime_field(
                     "IK_EXPR_FIELD_ANIM_ELEM_TIME", index)
             if lower in {"selfanimexist", "animexist"} and len(args) == 1:
-                code = args[0]
-                if self.q16 and not code[0].get("integer_literal"):
+                code = [dict(instruction) for instruction in args[0]]
+                integer_literal = code[0].get("integer_literal", False)
+                for instruction in code:
+                    instruction.pop("integer_literal", None)
+                if self.q16 and not integer_literal:
                     code = code + [{"op": "IK_EXPR_TRUNC_Q16"}]
                 code = code + [{"op": "IK_EXPR_SELF_ANIM_EXISTS"}]
                 if self.q16:
@@ -1347,6 +1386,9 @@ def compile_cns_expr(
     )
     code = _ExprCompiler(
         normalized, q16=q16, localcoord_x=localcoord_x).parse()
+    if any(instruction.get("integer_literal") for instruction in code):
+        raise ValueError(
+            "large integer CNS constants only support direct Var/SysVar comparisons")
     if len(code) > 255:
         raise ValueError("runtime CNS expression exceeds 255 instructions")
     return code
