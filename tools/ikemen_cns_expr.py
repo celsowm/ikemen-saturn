@@ -27,6 +27,7 @@ _RUNTIME_EXPR_FIELDS = {
     "time": "IK_EXPR_FIELD_STATE_TIME",
     "gametime": "IK_EXPR_FIELD_GAME_TIME",
     "roundstate": "IK_EXPR_FIELD_ROUND_STATE",
+    "drawgame": "IK_EXPR_FIELD_DRAW_GAME",
     "matchover": "IK_EXPR_FIELD_MATCH_OVER",
     "win": "IK_EXPR_FIELD_WIN",
     "lose": "IK_EXPR_FIELD_LOSE",

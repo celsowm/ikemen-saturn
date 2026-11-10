@@ -323,6 +323,12 @@ static int ikf_expr_read_field(
         return 1;
     }
     if (redirect == IK_EXPR_REDIRECT_SELF &&
+        field == IK_EXPR_FIELD_DRAW_GAME) {
+        *out_value = binding->fight->round_state >= 3u &&
+            binding->fight->winner == 0u;
+        return 1;
+    }
+    if (redirect == IK_EXPR_REDIRECT_SELF &&
         field == IK_EXPR_FIELD_NUM_ENEMIES) {
         uint8_t owner = 2u;
         if (binding->fighter) {
