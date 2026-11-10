@@ -269,14 +269,35 @@ class _ExprCompiler(_ExprParser):
         return [{"op": "IK_EXPR_LOAD_FIELD", "field": field,
                  "value0": index}]
 
-    def _args(self) -> list[list[dict]]:
+    def _args(self, *, integer_literals: bool = False) -> list[list[dict]]:
         args: list[list[dict]] = []
         if self._peek() and self._peek()[1] == ")":
             return args
-        args.append(self._or())
+
+        def argument() -> list[dict]:
+            if integer_literals:
+                start = self.i
+                sign = 1
+                if self._peek() and self._peek()[1] in ("+", "-"):
+                    sign = -1 if self._take()[1] == "-" else 1
+                token = self._peek()
+                if token and token[0] == "num" and re.fullmatch(
+                    r"\d+(?:\.0+)?", token[1]
+                ):
+                    self._take()
+                    if self._peek() is None or self._peek()[1] in (",", ")"):
+                        return [{
+                            "op": "IK_EXPR_PUSH_CONST",
+                            "value0": sign * int(token[1].split(".", 1)[0]),
+                            "integer_literal": True,
+                        }]
+                self.i = start
+            return self._or()
+
+        args.append(argument())
         while self._peek() and self._peek()[1] == ",":
             self._take()
-            args.append(self._or())
+            args.append(argument())
         return args
 
     @staticmethod
@@ -287,6 +308,8 @@ class _ExprCompiler(_ExprParser):
 
     def _integer_arg(self, code: list[dict], function: str) -> int:
         value = self._constant_arg(code, function)
+        if code[0].get("integer_literal"):
+            return value
         if self.q16:
             if value % 65536:
                 raise ValueError(f"{function}() argument must be an integer")
@@ -374,7 +397,7 @@ class _ExprCompiler(_ExprParser):
             if self._peek() != ("op", "("):
                 raise ValueError(f"{name} requires one hash argument")
             self._take()
-            args = self._args()
+            args = self._args(integer_literals=True)
             if len(args) != 1 or self._peek() != ("op", ")"):
                 raise ValueError(f"{name} requires one hash argument")
             self._take()
@@ -447,7 +470,7 @@ class _ExprCompiler(_ExprParser):
             if field_lower == "numexplod" and \
                     self._peek() == ("op", "("):
                 self._take()
-                explod_args = self._args()
+                explod_args = self._args(integer_literals=True)
                 if self._peek() != ("op", ")") or len(explod_args) > 1:
                     raise ValueError(
                         "PlayerID(),NumExplod() takes at most one ID")
@@ -695,7 +718,12 @@ class _ExprCompiler(_ExprParser):
                 return self._load_runtime_field(fields[hit_field], redirect=redirect)
             if self._peek() == ("op", "("):
                 self._take()
-                args = self._args()
+                integer_fields = set(_PROJECTILE_QUERY_FIELDS) | {
+                    "var", "sysvar", "fvar", "sysfvar", "numtarget",
+                    "numhelper", "numexplod", "animelemtime", "animelemno",
+                }
+                args = self._args(
+                    integer_literals=field_lower in integer_fields)
                 if self._peek() != ("op", ")"):
                     raise ValueError(
                         f"missing closing parenthesis in {name},{field_name}()")
@@ -711,12 +739,7 @@ class _ExprCompiler(_ExprParser):
                         _PROJECTILE_QUERY_FIELDS[field_lower],
                         projectile_id, redirect)
                 if field_lower in ("var", "sysvar", "fvar", "sysfvar") and len(args) == 1:
-                    index = self._constant_arg(args[0], field_name)
-                    if self.q16:
-                        if index % 65536:
-                            raise ValueError(
-                                f"{field_name}() index must be an integer constant")
-                        index //= 65536
+                    index = self._integer_arg(args[0], field_name)
                     max_count = {
                         "var": 60, "fvar": 40,
                         "sysvar": 5, "sysfvar": 5,
@@ -734,12 +757,7 @@ class _ExprCompiler(_ExprParser):
                     return self._load_runtime_field(
                         runtime_field, index, redirect)
                 if field_lower == "numtarget" and len(args) == 1:
-                    target_id = self._constant_arg(args[0], field_name)
-                    if self.q16:
-                        if target_id % 65536:
-                            raise ValueError(
-                                "NumTarget() id must be an integer constant")
-                        target_id //= 65536
+                    target_id = self._integer_arg(args[0], field_name)
                     return self._load_runtime_field(
                         "IK_EXPR_FIELD_NUM_TARGETS", target_id, redirect)
                 if field_lower == "numhelper" and len(args) == 1:
@@ -811,7 +829,7 @@ class _ExprCompiler(_ExprParser):
                 f"{name},{field_name}")
         if lower == "target" and self._peek() == ("op", "("):
             self._take()
-            args = self._args()
+            args = self._args(integer_literals=True)
             if self._peek() != ("op", ")") or len(args) not in (1, 2):
                 raise ValueError(
                     "Target redirection requires an ID and optional index")
@@ -859,7 +877,7 @@ class _ExprCompiler(_ExprParser):
                 "IK_EXPR_REDIRECT_TARGET", target_id, target_index)
         if lower == "helper" and self._peek() == ("op", "("):
             self._take()
-            args = self._args()
+            args = self._args(integer_literals=True)
             if self._peek() != ("op", ")") or len(args) != 1:
                 raise ValueError("Helper() redirection requires one constant id")
             self._take()
@@ -878,7 +896,7 @@ class _ExprCompiler(_ExprParser):
             if field_lower == "animelemtime" and \
                     self._peek() == ("op", "("):
                 self._take()
-                args = self._args()
+                args = self._args(integer_literals=True)
                 if self._peek() != ("op", ")") or len(args) != 1:
                     raise ValueError(
                         "Helper(),AnimElemTime() requires one element")
@@ -893,7 +911,7 @@ class _ExprCompiler(_ExprParser):
             if field_lower == "animelemno" and \
                     self._peek() == ("op", "("):
                 self._take()
-                args = self._args()
+                args = self._args(integer_literals=True)
                 if self._peek() != ("op", ")") or len(args) != 1:
                     raise ValueError(
                         "Helper(),AnimElemNo() requires one argument")
@@ -924,7 +942,7 @@ class _ExprCompiler(_ExprParser):
             if field_lower in ("var", "sysvar", "fvar", "sysfvar") and \
                     self._peek() == ("op", "("):
                 self._take()
-                args = self._args()
+                args = self._args(integer_literals=True)
                 if self._peek() != ("op", ")") or len(args) != 1:
                     raise ValueError(
                         f"Helper(),{field_name}() takes one constant index")
@@ -948,7 +966,7 @@ class _ExprCompiler(_ExprParser):
             if field_lower == "numexplod" and \
                     self._peek() == ("op", "("):
                 self._take()
-                args = self._args()
+                args = self._args(integer_literals=True)
                 if self._peek() != ("op", ")") or len(args) > 1:
                     raise ValueError(
                         "Helper(),NumExplod() takes at most one ID")
@@ -1044,7 +1062,12 @@ class _ExprCompiler(_ExprParser):
 
         if self._peek() == ("op", "("):
             self._take()
-            args = self._args()
+            integer_argument_functions = set(_PROJECTILE_QUERY_FIELDS) | {
+                "animelemtime", "animelemno", "animexist", "selfanimexist",
+                "numexplod", "numhelper", "numtarget", "stageauthoris",
+            } | set(name_hash_functions)
+            args = self._args(
+                integer_literals=lower in integer_argument_functions)
             if self._peek() != ("op", ")"):
                 raise ValueError(f"missing closing parenthesis in {name}()")
             self._take()
@@ -1065,7 +1088,7 @@ class _ExprCompiler(_ExprParser):
                     "IK_EXPR_FIELD_ANIM_ELEM_TIME", index)
             if lower in {"selfanimexist", "animexist"} and len(args) == 1:
                 code = args[0]
-                if self.q16:
+                if self.q16 and not code[0].get("integer_literal"):
                     code = code + [{"op": "IK_EXPR_TRUNC_Q16"}]
                 code = code + [{"op": "IK_EXPR_SELF_ANIM_EXISTS"}]
                 if self.q16:
@@ -1153,12 +1176,7 @@ class _ExprCompiler(_ExprParser):
                 return self._load_runtime_field(
                     "IK_EXPR_FIELD_NUM_EXPLODS", explod_id)
             if lower in ("var", "sysvar", "fvar", "sysfvar") and len(args) == 1:
-                index = self._constant_arg(args[0], name)
-                if self.q16:
-                    if index % 65536:
-                        raise ValueError(
-                            f"{name}() index must be an integer constant")
-                    index //= 65536
+                index = self._integer_arg(args[0], name)
                 max_count = {
                     "var": 60, "fvar": 40,
                     "sysvar": 5, "sysfvar": 5,
