@@ -21,6 +21,19 @@ except ImportError:  # direct `python tools/ikemen_cns.py` invocation
     )
 
 
+_CHAR_CONSTANT_INDEXES = {
+    "size.head.pos.x": 1,
+    "size.head.pos.y": 2,
+    "size.mid.pos.x": 3,
+    "size.mid.pos.y": 4,
+    "size.ground.back": 5,
+    "size.ground.front": 6,
+    "size.air.back": 7,
+    "size.air.front": 8,
+    "data.life": 9,
+}
+
+
 _RUNTIME_EXPR_FIELDS = {
     "stateno": "IK_EXPR_FIELD_STATE_NO",
     "prevstateno": "IK_EXPR_FIELD_PREV_STATE_NO",
@@ -380,6 +393,22 @@ class _ExprCompiler(_ExprParser):
 
         name = self._take()[1]
         lower = name.lower()
+        if lower == "const" and self._peek() == ("op", "("):
+            self._take()
+            const_name = self._peek()
+            if const_name is None or const_name[0] != "ident":
+                raise ValueError("Const() requires a constant name")
+            self._take()
+            if self._peek() != ("op", ")"):
+                raise ValueError("Const() takes one constant name")
+            self._take()
+            constant_index = _CHAR_CONSTANT_INDEXES.get(
+                const_name[1].casefold())
+            if constant_index is None:
+                raise ValueError(
+                    f"unsupported Const() value {const_name[1]!r}")
+            return self._load_runtime_field(
+                "IK_EXPR_FIELD_CHAR_CONSTANT", constant_index)
         name_hash_functions = {
             "nameis": (
                 "IK_EXPR_FIELD_CHARACTER_NAME_HASH",
@@ -702,23 +731,13 @@ class _ExprCompiler(_ExprParser):
                 if self._peek() != ("op", ")"):
                     raise ValueError(f"{name},Const takes one constant name")
                 self._take()
-                const_indexes = {
-                    "data.life": 9,
-                    "size.head.pos.x": 1,
-                    "size.head.pos.y": 2,
-                    "size.mid.pos.x": 3,
-                    "size.mid.pos.y": 4,
-                    "size.ground.back": 5,
-                    "size.ground.front": 6,
-                    "size.air.back": 7,
-                    "size.air.front": 8,
-                }
-                if const_name not in const_indexes:
+                constant_index = _CHAR_CONSTANT_INDEXES.get(const_name)
+                if constant_index is None:
                     raise ValueError(
                         f"unsupported redirected Const() value {const_name!r}")
                 return self._load_runtime_field(
                     "IK_EXPR_FIELD_CHAR_CONSTANT",
-                    const_indexes[const_name], redirect)
+                    constant_index, redirect)
             if field_lower == "gethitvar":
                 if self._peek() != ("op", "("):
                     raise ValueError(
@@ -896,18 +915,8 @@ class _ExprCompiler(_ExprParser):
             if self._peek() != ("op", ")"):
                 raise ValueError("Target,Const takes one constant name")
             self._take()
-            const_indexes = {
-                "data.life": 9,
-                "size.head.pos.x": 1,
-                "size.head.pos.y": 2,
-                "size.mid.pos.x": 3,
-                "size.mid.pos.y": 4,
-                "size.ground.back": 5,
-                "size.ground.front": 6,
-                "size.air.back": 7,
-                "size.air.front": 8,
-            }
-            constant_index = const_indexes.get(const_name[1].casefold())
+            constant_index = _CHAR_CONSTANT_INDEXES.get(
+                const_name[1].casefold())
             if constant_index is None:
                 raise ValueError(
                     f"unsupported redirected Const() value {const_name[1]!r}")
