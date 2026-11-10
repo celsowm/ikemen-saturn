@@ -859,6 +859,9 @@ int ik_entity_runtime_spawn_projectile_spec(
     entity->projectile_cancel_anim_no = projectile->cancel_anim_no;
     entity->projectile_edge_bound = projectile->edge_bound;
     entity->projectile_stage_bound = projectile->stage_bound;
+    entity->projectile_height_bound_low = projectile->height_bound_low;
+    entity->projectile_height_bound_high = projectile->height_bound_high;
+    entity->projectile_height_bound_set = projectile->height_bound_set;
     entity->projectile_hits_left =
         projectile->hits ? projectile->hits : 1u;
     entity->projectile_miss_time = projectile->miss_time;
@@ -1797,6 +1800,20 @@ static void step_one(
                     x >
                         (int32_t)runtime->stage_max_x +
                             entity->projectile_stage_bound) {
+                    (void)projectile_begin_remove(
+                        runtime, handle, entity);
+                    return;
+                }
+            }
+            if (entity->projectile_height_bound_set) {
+                const int32_t low_q8 =
+                    (int32_t)entity->projectile_height_bound_low *
+                    IK_ENTITY_Q8_ONE;
+                const int32_t high_q8 =
+                    (int32_t)entity->projectile_height_bound_high *
+                    IK_ENTITY_Q8_ONE;
+                if ((entity->vy_q8 > 0 && entity->y_q8 > high_q8) ||
+                    (entity->vy_q8 < 0 && entity->y_q8 < low_q8)) {
                     (void)projectile_begin_remove(
                         runtime, handle, entity);
                     return;

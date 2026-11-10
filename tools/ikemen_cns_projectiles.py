@@ -64,6 +64,8 @@ def _projectile_hitdef_row(
     hit_mask = services['hit_mask']
     integer = services['integer']
     integer_or_runtime_expr = services['integer_or_runtime_expr']
+    p2_get_p1_state, p2_get_p1_state_expr = integer_or_runtime_expr(
+        ctrl.get("p2getp1state"), 0)
     _split_top_level = services['_split_top_level']
     number = services['number']
     pair = services['pair']
@@ -182,6 +184,8 @@ def _projectile_hitdef_row(
         "_air_juggle_expr": air_juggle_expr,
         "p1_state_no": integer(ctrl.get("p1stateno"), -1),
         "p2_state_no": integer(ctrl.get("p2stateno"), -1),
+        "p2_get_p1_state": int(bool(p2_get_p1_state)),
+        "_p2_get_p1_state_expr": p2_get_p1_state_expr,
         "guard_dist": integer(ctrl.get("guard.dist"), -1),
         "p1_facing": integer(ctrl.get("p1facing"), 0),
         "p2_facing": integer(ctrl.get("p2facing"), 0),
@@ -250,7 +254,8 @@ def compile_projectile_controller(
         "projcancelanim", "postype", "offset", "velocity", "velmul",
         "accel", "projremove", "projremovetime", "projhits",
         "projmisstime", "projpriority", "projsprpriority",
-        "projedgebound", "projstagebound", "pausemovetime",
+        "projedgebound", "projstagebound", "projheightbound",
+        "pausemovetime",
         "supermovetime", "ownpal", "persistent", "ignorehitpause",
         "bindtime", "removeongethit", "removeonchangestate",
         "attr", "damage", "priority", "pausetime", "sparkno",
@@ -271,7 +276,8 @@ def compile_projectile_controller(
         "down.fall", "air.recover",
         "down.hittime", "down.velocity",
         "down.bounce", "air.juggle", "p1stateno", "p2stateno",
-        "guard.dist", "p1facing", "p2facing", "p1sprpriority",
+        "guard.dist", "p1facing", "p2facing", "p2getp1state",
+        "p1sprpriority",
         "yaccel", "ground.cornerpush.veloff", "fall.damage",
         "envshake.time", "envshake.ampl", "envshake.freq",
         "fall.envshake.time", "fall.envshake.ampl",
@@ -304,6 +310,8 @@ def compile_projectile_controller(
         shadow_parts.append("0")
     shadow_rgb = tuple(
         max(0, min(255, integer(part, 0))) for part in shadow_parts[:3])
+    height_low, height_high = pair(
+        ctrl.get("projheightbound"), -240, 1)
 
     anim_no, anim_expr = integer_or_runtime_expr(
         ctrl.get("projanim"), 0)
@@ -327,6 +335,9 @@ def compile_projectile_controller(
         "remove_time": integer(ctrl.get("projremovetime"), -1),
         "edge_bound": integer(ctrl.get("projedgebound"), 40),
         "stage_bound": integer(ctrl.get("projstagebound"), 40),
+        "height_bound_low": int(height_low),
+        "height_bound_high": int(height_high),
+        "height_bound_set": int(ctrl.get("projheightbound") is not None),
         "hits": max(1, integer(ctrl.get("projhits"), 1)),
         "miss_time": max(0, integer(ctrl.get("projmisstime"), 0)),
         "priority": max(0, integer(ctrl.get("projpriority"), 1)),

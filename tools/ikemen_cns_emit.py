@@ -81,6 +81,7 @@ def emit_cns_source_files(
         for field in (
             "damage", "guard_damage", "pause_p1", "pause_p2",
             "guard_pause_p1", "guard_pause_p2",
+            "p2_get_p1_state",
             "mindist_x", "mindist_y", "maxdist_x", "maxdist_y",
             "ground_slide_time", "ground_hit_time", "air_hit_time",
             "guard_hit_time", "guard_slide_time", "guard_ctrl_time",
@@ -376,7 +377,10 @@ def emit_cns_source_files(
         f"{h.get('guard_pause_p1_expr_ofs', 0)}u, "
         f"{h.get('guard_pause_p1_expr_count', 0)}u, "
         f"{h.get('guard_pause_p2_expr_ofs', 0)}u, "
-        f"{h.get('guard_pause_p2_expr_count', 0)}u"
+        f"{h.get('guard_pause_p2_expr_count', 0)}u, "
+        f"{h.get('p2_get_p1_state', 0)}u, "
+        f"{h.get('p2_get_p1_state_expr_ofs', 0)}u, "
+        f"{h.get('p2_get_p1_state_expr_count', 0)}u"
         "},"
         for h in hitdefs
     ]
@@ -469,7 +473,10 @@ def emit_cns_source_files(
         f"{p.get('shadow_r', 0)}u, {p.get('shadow_g', 0)}u, "
         f"{p.get('shadow_b', 0)}u, "
         f"{p.get('anim_expr_ofs', 0)}u, "
-        f"{p.get('anim_expr_count', 0)}u"
+        f"{p.get('anim_expr_count', 0)}u, "
+        f"{p.get('height_bound_low', -240)}, "
+        f"{p.get('height_bound_high', 1)}, "
+        f"{p.get('height_bound_set', 0)}u"
         "},"
         for p in projectiles
     ]

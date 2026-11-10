@@ -85,6 +85,9 @@ typedef struct ik_entity {
     int32_t projectile_cancel_anim_no;
     int16_t projectile_edge_bound;
     int16_t projectile_stage_bound;
+    int16_t projectile_height_bound_low;
+    int16_t projectile_height_bound_high;
+    uint8_t projectile_height_bound_set;
     int32_t prev_state_no;
     int32_t anim_no;
     uint16_t state_time;

@@ -231,8 +231,17 @@ void ikf_apply_throw_from_entity(
         fight, attacker, attack_cns, hitdef->fall_recover_time_expr_ofs,
         hitdef->fall_recover_time_expr_count, hitdef->fall_recover_time);
 
-    if (hitdef->p2_state_no >= 0) {
-        v->state_owner = attacker->state_owner;
+    const uint8_t p2_get_p1_state = eval_entity_u8_expr(
+        fight, attacker, cns_for_owner(fight, attacker->state_owner),
+        hitdef->p2_get_p1_state_expr_ofs,
+        hitdef->p2_get_p1_state_expr_count,
+        hitdef->p2_get_p1_state);
+    const ik_cns_asset_t* p2_state_cns = p2_get_p1_state
+        ? cns_for_owner(fight, attacker->state_owner)
+        : cns_for_owner(fight, v->owner_player);
+    if (hitdef->p2_state_no >= 0 &&
+        ik_cns_find_state(p2_state_cns, hitdef->p2_state_no)) {
+        if (p2_get_p1_state) v->state_owner = attacker->state_owner;
         v->cur_move_type = IK_CNS_MOVE_HIT;
         v->juggle_owner = (int8_t)attacker->owner_player;
         v->ctrl = 0;

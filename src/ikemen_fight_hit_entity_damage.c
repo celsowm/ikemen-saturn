@@ -359,8 +359,15 @@ void ikf_apply_damage_from_entity(
         cns_for_owner(fight, attacker->state_owner);
     const ik_cns_asset_t* victim_cns =
         cns_for_owner(fight, v->owner_player);
+    const uint8_t p2_get_p1_state = eval_entity_u8_expr(
+        fight, attacker, attacker_cns,
+        hitdef->p2_get_p1_state_expr_ofs,
+        hitdef->p2_get_p1_state_expr_count,
+        hitdef->p2_get_p1_state);
+    const ik_cns_asset_t* p2_state_cns = p2_get_p1_state
+        ? attacker_cns : victim_cns;
     if (hitdef->p2_state_no >= 0 &&
-        ik_cns_find_state(attacker_cns, hitdef->p2_state_no)) {
+        ik_cns_find_state(p2_state_cns, hitdef->p2_state_no)) {
         target = hitdef->p2_state_no;
         custom_p2_state = 1;
     } else if (victim_type == IK_CNS_STATE_LIEDOWN &&
@@ -416,7 +423,9 @@ void ikf_apply_damage_from_entity(
         fight->events |= IK_EVENT_ROUND_OVER;
         fight->ko_freeze = IK_KO_FREEZE_FRAMES;
     } else {
-        if (custom_p2_state) v->state_owner = attacker->state_owner;
+        if (custom_p2_state && p2_get_p1_state) {
+            v->state_owner = attacker->state_owner;
+        }
         v->cur_move_type = IK_CNS_MOVE_HIT;
         v->juggle_owner = (int8_t)attacker->owner_player;
         v->ctrl = 0;

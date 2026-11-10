@@ -291,6 +291,8 @@ def compile_state(
                 ctrl.get("p1stateno"), -1)
             p2_state_no, p2_state_no_expr = integer_or_runtime_expr(
                 ctrl.get("p2stateno"), -1)
+            p2_get_p1_state, p2_get_p1_state_expr = \
+                integer_or_runtime_expr(ctrl.get("p2getp1state"), 0)
             p1_facing, p1_facing_expr = integer_or_runtime_expr(
                 ctrl.get("p1facing"), 0)
             p2_facing, p2_facing_expr = integer_or_runtime_expr(
@@ -319,6 +321,7 @@ def compile_state(
                     "_guard_velocity_x_expr": guardx_expr,
                     "_p1_state_no_expr": p1_state_no_expr,
                     "_p2_state_no_expr": p2_state_no_expr,
+                    "_p2_get_p1_state_expr": p2_get_p1_state_expr,
                     "_p1_facing_expr": p1_facing_expr,
                     "_p2_facing_expr": p2_facing_expr,
                     "_yaccel_expr": yaccel_expr,
@@ -427,6 +430,7 @@ def compile_state(
                     "air_juggle": air_juggle,
                     "p1_state_no": p1_state_no,
                     "p2_state_no": p2_state_no,
+                    "p2_get_p1_state": int(bool(p2_get_p1_state)),
                     "guard_dist": integer(ctrl.get("guard.dist"), -1),
                     "p1_facing": p1_facing,
                     "p2_facing": p2_facing,

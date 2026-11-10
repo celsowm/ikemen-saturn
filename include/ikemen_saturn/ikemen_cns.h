@@ -744,6 +744,9 @@ typedef struct ik_cns_hitdef {
     uint8_t guard_pause_p1_expr_count;
     uint16_t guard_pause_p2_expr_ofs;
     uint8_t guard_pause_p2_expr_count;
+    uint8_t p2_get_p1_state;
+    uint16_t p2_get_p1_state_expr_ofs;
+    uint8_t p2_get_p1_state_expr_count;
 } ik_cns_hitdef_t;
 
 typedef struct ik_cns_reversaldef {
@@ -942,6 +945,9 @@ typedef struct ik_cns_projectile {
     uint8_t shadow_b;
     uint16_t anim_expr_ofs;
     uint8_t anim_expr_count;
+    int16_t height_bound_low;
+    int16_t height_bound_high;
+    uint8_t height_bound_set;
 } ik_cns_projectile_t;
 
 enum {
