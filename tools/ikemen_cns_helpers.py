@@ -15,10 +15,17 @@ def compile_helper_controller(
     *,
     services: dict) -> tuple[dict, dict] | None:
     controller_trigger = services['controller_trigger']
+    is_constant_false_expression = services['is_constant_false_expression']
     integer = services['integer']
     pair = services['pair']
     q8 = services['q8']
     character_name_hash = services['character_name_hash']
+    ctrl.runtime_trigger_expr = None
+    trig_kind, trig_value, trig_value2 = controller_trigger(ctrl, "helper")
+    if is_constant_false_expression(ctrl.runtime_trigger_expr):
+        ctrl.ignored_noop = True
+        return None
+
     supported_keys = {
         "type", "helpertype", "postype", "ownpal", "stateno", "name",
         "keyctrl", "id", "pos", "facing", "ignorehitpause",
@@ -52,7 +59,6 @@ def compile_helper_controller(
     if postype is None:
         return None
 
-    trig_kind, trig_value, trig_value2 = controller_trigger(ctrl, "helper")
     px, py = pair(ctrl.get("pos"), 0, 0)
     facing = integer(ctrl.get("facing"), 1)
     if facing == 0:

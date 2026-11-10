@@ -744,7 +744,7 @@ def compile_state(
                     helpers.append(helper)
                 else:
                     unsupported.append(ctype)
-            else:
+            elif not getattr(ctrl, "ignored_noop", False):
                 unsupported.append(ctype)
 
         elif ctype == "explod":

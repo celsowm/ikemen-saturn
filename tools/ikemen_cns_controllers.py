@@ -37,6 +37,7 @@ def compile_runtime_controller(
     _split_top_level = services['_split_top_level']
     compile_cns_expr = services['compile_cns_expr']
     compile_controller_trigger_expr = services['compile_controller_trigger_expr']
+    is_constant_false_expression = services['is_constant_false_expression']
     controller_requires_runtime_expr = services['controller_requires_runtime_expr']
     controller_trigger = services['controller_trigger']
     trigger_indices = services['trigger_indices']
@@ -145,6 +146,18 @@ def compile_runtime_controller(
                 # unconditional controller. The caller records this
                 # controller as deferred when None is returned.
                 return None
+
+    if is_constant_false_expression(ctrl.runtime_trigger_expr):
+        return {
+            "state_number": state_no,
+            "type": "IK_CNS_CTRL_PLATFORM_NOOP",
+            "trigger_kind": trig_kind,
+            "trigger_value": trig_value,
+            "trigger_value2": trig_value2,
+            "value0": 0,
+            "value1": 0,
+            "flags": "0u",
+        }
 
     flags: list[str] = []
     if integer(ctrl.get("ignorehitpause"), 0):

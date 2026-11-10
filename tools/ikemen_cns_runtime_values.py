@@ -151,21 +151,146 @@ def pair_static_expr(
         raise ValueError(f"expected static numeric pair, got {text!r}: {exc}") from exc
 
 
+def _split_boolean_top_level(text: str, operator: str) -> list[str]:
+    parts: list[str] = []
+    start = depth = 0
+    quoted = False
+    index = 0
+    while index < len(text):
+        char = text[index]
+        if char == '"' and (index == 0 or text[index - 1] != "\\"):
+            quoted = not quoted
+        elif not quoted:
+            if char == "(":
+                depth += 1
+            elif char == ")":
+                depth -= 1
+            elif depth == 0 and text.startswith(operator, index):
+                parts.append(text[start:index].strip())
+                index += len(operator)
+                start = index
+                continue
+        index += 1
+    if parts:
+        parts.append(text[start:].strip())
+    return parts
+
+
+def _strip_complete_parens(text: str) -> str:
+    value = text.strip()
+    while value.startswith("(") and value.endswith(")"):
+        depth = 0
+        quoted = False
+        complete = True
+        for index, char in enumerate(value):
+            if char == '"' and (index == 0 or value[index - 1] != "\\"):
+                quoted = not quoted
+            elif not quoted and char == "(":
+                depth += 1
+            elif not quoted and char == ")":
+                depth -= 1
+                if depth == 0 and index != len(value) - 1:
+                    complete = False
+                    break
+        if not complete or depth != 0:
+            break
+        value = value[1:-1].strip()
+    return value
+
+
+def _one_on_one_static_truth(text: str) -> bool | None:
+    """Evaluate only boolean facts guaranteed by this two-player runtime."""
+    value = _strip_complete_parens(text)
+    if ":=" in value:
+        return None
+    disjunction = _split_boolean_top_level(value, "||")
+    if disjunction:
+        terms = [_one_on_one_static_truth(term) for term in disjunction]
+        if any(term is True for term in terms):
+            return True
+        return False if all(term is False for term in terms) else None
+    conjunction = _split_boolean_top_level(value, "&&")
+    if conjunction:
+        terms = [_one_on_one_static_truth(term) for term in conjunction]
+        if any(term is False for term in terms):
+            return False
+        return True if all(term is True for term in terms) else None
+    if value.startswith("!"):
+        truth = _one_on_one_static_truth(value[1:])
+        return None if truth is None else not truth
+    lowered = value.casefold()
+    if lowered in {"true", "1", "1.0"}:
+        return True
+    if lowered in {"false", "0", "0.0", "numpartner"}:
+        return False
+    if re.fullmatch(r"!?\s*numpartner\s*", lowered):
+        return not lowered.lstrip().startswith("!")
+    comparison = re.fullmatch(
+        r"\s*(numpartner|\d+)\s*(==|=|!=|<=|>=|<|>)\s*(numpartner|\d+)\s*",
+        lowered,
+    )
+    if comparison:
+        left, operator, right = comparison.groups()
+        if left != "numpartner" and right != "numpartner":
+            return None
+        lhs = 0 if left == "numpartner" else int(left)
+        rhs = 0 if right == "numpartner" else int(right)
+        return {
+            "=": lhs == rhs,
+            "==": lhs == rhs,
+            "!=": lhs != rhs,
+            "<": lhs < rhs,
+            "<=": lhs <= rhs,
+            ">": lhs > rhs,
+            ">=": lhs >= rhs,
+        }[operator]
+    return None
+
+
+def is_constant_false_expression(code: list[dict] | None) -> bool:
+    return (
+        code is not None and len(code) == 1 and
+        code[0].get("op") == "IK_EXPR_PUSH_CONST" and
+        code[0].get("value0") == 0
+    )
+
+
 def compile_controller_trigger_expr(ctrl: Section) -> list[dict]:
     """Compile triggerall and triggerN lines with MUGEN's AND/OR grouping."""
-    common = [f"({expr})" for expr in ctrl.all("triggerall")]
+    compile_cns_expr = _SERVICES["compile_cns_expr"]
+    raw_common = ctrl.all("triggerall")
+    all_triggers = raw_common + [
+        expr for index in trigger_indices(ctrl)
+        for expr in ctrl.all(f"trigger{index}")
+    ]
+    has_assignment = any(":=" in expr for expr in all_triggers)
+    common_truth = [_one_on_one_static_truth(expr) for expr in raw_common]
+    if (not has_assignment and
+            any(truth is False for truth in common_truth)):
+        return compile_cns_expr("0", q16=True)
+    common = [
+        f"({expr})" for expr, truth in zip(raw_common, common_truth)
+        if truth is not True
+    ]
     factor_common = common and not any(":=" in expr for expr in common)
     groups: list[str] = []
     for index in trigger_indices(ctrl):
         expressions = ctrl.all(f"trigger{index}")
         if not expressions:
             continue
-        pieces = ([] if factor_common else common) + [
-            f"({expr})" for expr in expressions
+        truths = [_one_on_one_static_truth(expr) for expr in expressions]
+        if (not has_assignment and
+                any(truth is False for truth in truths)):
+            continue
+        group = [
+            f"({expr})" for expr, truth in zip(expressions, truths)
+            if truth is not True
         ]
-        groups.append("(" + " && ".join(pieces) + ")")
+        pieces = ([] if factor_common else common) + group
+        groups.append("(1)" if not pieces else
+                      "(" + " && ".join(pieces) + ")")
     if not groups:
-        raise ValueError(f"{ctrl.name}: missing trigger lines")
+        return compile_cns_expr("0", q16=True)
     if factor_common:
         alternatives = " || ".join(groups)
         expression = "(" + " && ".join(common) + ") && (" + alternatives + ")"
