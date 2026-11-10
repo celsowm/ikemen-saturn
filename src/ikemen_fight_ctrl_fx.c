@@ -175,6 +175,21 @@ int ikf_ctrl_apply_fx(const ik_ctrl_exec_t* x) {
             break;
         }
 
+        case IK_CNS_CTRL_BG_PAL_FX: {
+            const uint32_t add = (uint32_t)ctrl->value1;
+            const uint32_t mul = (uint32_t)ctrl->value4;
+            /* finish_tick runs after controllers. Keep one extra count so a
+             * time=1 effect is visible in the frame that authored it. */
+            fight->bg_palfx_time = (uint16_t)(ctrl->value0 + 1);
+            fight->bg_palfx_add_r = (int16_t)((int32_t)(add << 23) >> 23);
+            fight->bg_palfx_add_g = (int16_t)((int32_t)(add << 14) >> 23);
+            fight->bg_palfx_add_b = (int16_t)((int32_t)(add << 5) >> 23);
+            fight->bg_palfx_mul_r = (uint16_t)(mul & 0x1ffu);
+            fight->bg_palfx_mul_g = (uint16_t)((mul >> 9) & 0x1ffu);
+            fight->bg_palfx_mul_b = (uint16_t)((mul >> 18) & 0x1ffu);
+            break;
+        }
+
         case IK_CNS_CTRL_AFTER_IMAGE:
             f->afterimage_time = (uint16_t)(
                 ctrl->value0 <= 0 ? 1 :

@@ -212,6 +212,13 @@ void ik_fight_init_players(
     fight->env_color_time = 0u;
     fight->env_color_under = 0u;
     fight->env_color_rgb = 0u;
+    fight->bg_palfx_time = 0u;
+    fight->bg_palfx_add_r = 0;
+    fight->bg_palfx_add_g = 0;
+    fight->bg_palfx_add_b = 0;
+    fight->bg_palfx_mul_r = 256u;
+    fight->bg_palfx_mul_g = 256u;
+    fight->bg_palfx_mul_b = 256u;
     fight->super_darken_time = 0u;
 
     const int p1_intro =

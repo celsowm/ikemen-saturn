@@ -372,6 +372,11 @@ typedef struct ik_fight {
     uint8_t effect_count;
     ik_sound_event_t sound_events[IK_MAX_SOUND_EVENTS];
     uint8_t sound_count;
+    /* Stage palette effect authored by BGPalFX. Components use MUGEN's
+     * 0..255 add and 256-based multiply ranges; timer is in logical ticks. */
+    uint16_t bg_palfx_time;
+    int16_t bg_palfx_add_r, bg_palfx_add_g, bg_palfx_add_b;
+    uint16_t bg_palfx_mul_r, bg_palfx_mul_g, bg_palfx_mul_b;
 } ik_fight_t;
 
 void ik_fight_init(ik_fight_t* fight, const ik_cns_asset_t* cns);

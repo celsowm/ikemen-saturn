@@ -103,6 +103,7 @@ def compile_runtime_controller(
         "afterimage",
         "afterimagetime",
         "palfx",
+        "bgpalfx",
         "assertspecial",
         "makedust",
         "gravity",
@@ -515,7 +516,65 @@ def compile_runtime_controller(
             "flags": flag_expr(),
         }
 
-    if ctype == "palfx":
+    if ctype in {"palfx", "bgpalfx"}:
+        if ctype == "bgpalfx":
+            # This renderer implements additive and multiplicative stage
+            # palette changes. The other accepted keys are neutral-only;
+            # effects that change color mixing, inversion, or layering defer.
+            allowed = {
+                "type", "time", "add", "mul", "sinadd", "color",
+                "invertall", "ignorehitpause", "persistent",
+            }
+            for key, _ in ctrl.values:
+                lowered = key.strip().casefold()
+                if not lowered.startswith("trigger") and lowered not in allowed:
+                    return None
+
+            def static_rgb(
+                text: str | None,
+                defaults: tuple[int, int, int],
+                minimum: int,
+                maximum: int,
+            ) -> list[int] | None:
+                parts = _split_top_level(text or ",".join(map(str, defaults)))
+                while len(parts) < 3:
+                    parts.append(str(defaults[len(parts)]))
+                try:
+                    return [max(minimum, min(maximum, eval_int(p))) for p in parts[:3]]
+                except ValueError:
+                    return None
+
+            add_values = static_rgb(ctrl.get("add"), (0, 0, 0), -255, 255)
+            mul_values = static_rgb(ctrl.get("mul"), (256, 256, 256), 0, 511)
+            try:
+                time = eval_int(ctrl.get("time") or "1")
+                color = eval_int(ctrl.get("color") or "256")
+                invertall = eval_int(ctrl.get("invertall") or "0")
+                sinadd = _split_top_level(ctrl.get("sinadd") or "0,0,0,1")
+                sinadd_zero = all(
+                    eval_int(part) == 0 for part in sinadd[:3]
+                )
+            except ValueError:
+                return None
+            if (add_values is None or mul_values is None or
+                    time < 0 or time >= 65535 or color != 256 or
+                    invertall != 0 or not sinadd_zero):
+                return None
+            pack = lambda rgb: ((rgb[0] & 0x1ff) |
+                                ((rgb[1] & 0x1ff) << 9) |
+                                ((rgb[2] & 0x1ff) << 18))
+            return {
+                "state_number": state_no,
+                "type": "IK_CNS_CTRL_BG_PAL_FX",
+                "trigger_kind": trig_kind,
+                "trigger_value": trig_value,
+                "trigger_value2": trig_value2,
+                "value0": time,
+                "value1": pack(add_values),
+                "value4": pack(mul_values),
+                "flags": flag_expr(),
+            }
+
         def pack_rgb(text: str | None) -> int:
             parts = _split_top_level(text or "0,0,0")
             while len(parts) < 3:

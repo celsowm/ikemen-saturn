@@ -515,6 +515,7 @@ void ikf_finish_slow_tick(ik_fight_t* fight) {
 }
 
 void ikf_finish_tick(ik_fight_t* fight) {
+    if (fight->bg_palfx_time > 0u) --fight->bg_palfx_time;
     if (fight->entities) {
         ik_entity_runtime_t runtime;
         ik_entity_runtime_init(
