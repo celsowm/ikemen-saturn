@@ -703,6 +703,7 @@ class _ExprCompiler(_ExprParser):
                     raise ValueError(f"{name},Const takes one constant name")
                 self._take()
                 const_indexes = {
+                    "data.life": 9,
                     "size.head.pos.x": 1,
                     "size.head.pos.y": 2,
                     "size.mid.pos.x": 3,
@@ -896,6 +897,7 @@ class _ExprCompiler(_ExprParser):
                 raise ValueError("Target,Const takes one constant name")
             self._take()
             const_indexes = {
+                "data.life": 9,
                 "size.head.pos.x": 1,
                 "size.head.pos.y": 2,
                 "size.mid.pos.x": 3,

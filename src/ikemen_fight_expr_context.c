@@ -151,6 +151,7 @@ static int ikf_expr_read_field(
             cns_for_owner(binding->fight, entity->state_owner);
         if (!asset) return 0;
         switch (index) {
+            case 9: *out_value = asset->constants.life; return 1;
             case 1: *out_value = asset->constants.head_pos_x; return 1;
             case 2: *out_value = asset->constants.head_pos_y; return 1;
             case 3: *out_value = asset->constants.mid_pos_x; return 1;
