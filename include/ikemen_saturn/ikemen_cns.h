@@ -227,7 +227,8 @@ typedef enum ik_cns_controller_type {
     IK_CNS_CTRL_BIND_TO_ROOT,
     IK_CNS_CTRL_BG_PAL_FX,
     IK_CNS_CTRL_HIT_ADD,
-    IK_CNS_CTRL_ATTACK_DIST
+    IK_CNS_CTRL_ATTACK_DIST,
+    IK_CNS_CTRL_MOVE_HIT_RESET
 } ik_cns_controller_type_t;
 
 enum {

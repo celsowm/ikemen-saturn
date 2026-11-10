@@ -86,6 +86,13 @@ int ikf_ctrl_apply_state(const ik_ctrl_exec_t* x) {
             f->has_attack_dist_override = 1u;
             break;
 
+        case IK_CNS_CTRL_MOVE_HIT_RESET:
+            f->move_contact = 0u;
+            f->move_hit = 0u;
+            f->move_contact_type = 0u;
+            f->move_contact_time = 0u;
+            break;
+
         case IK_CNS_CTRL_HIT_FALL_SET:
             if ((ctrl->value3 & IK_CNS_HIT_FALL_SET_VALUE) != 0) {
                 f->gethit_fall = (uint8_t)(ctrl->value0 != 0);

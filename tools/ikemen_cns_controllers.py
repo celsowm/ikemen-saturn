@@ -66,6 +66,7 @@ def compile_runtime_controller(
         "varset",
         "varadd",
         "attackdist",
+        "movehitreset",
         "parentvarset",
         "varrandom",
         "lifeadd",
@@ -968,6 +969,25 @@ def compile_runtime_controller(
             "trigger_value": trig_value,
             "trigger_value2": trig_value2,
             "value0": value_q8,
+            "value1": 0,
+            "flags": flag_expr(),
+        }
+
+    if ctype == "movehitreset":
+        allowed = {"type", "persistent", "ignorehitpause"}
+        if any(
+            not key.strip().casefold().startswith("trigger") and
+            key.strip().casefold() not in allowed
+            for key, _ in ctrl.values
+        ):
+            return None
+        return {
+            "state_number": state_no,
+            "type": "IK_CNS_CTRL_MOVE_HIT_RESET",
+            "trigger_kind": trig_kind,
+            "trigger_value": trig_value,
+            "trigger_value2": trig_value2,
+            "value0": 0,
             "value1": 0,
             "flags": flag_expr(),
         }
